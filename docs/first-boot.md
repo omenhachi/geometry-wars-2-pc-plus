@@ -2,9 +2,9 @@
 
 ## Result
 
-**FIRST VISIBLE FRAME REACHED** (observed in development runs; manual confirmation pending). The first recognizable screen is the Geometry Wars title art: the neon "GEOMETRY WARS" logo over a starfield. It comes from the recompiled game through the ReXGlue Xenos Direct3D 12 path (NVIDIA GeForce RTX 4070). The starfield moves between captures, so the frame keeps rendering.
+**FIRST VISIBLE FRAME REACHED** (confirmed in a manual test). The first recognizable screen is the Geometry Wars title art: the neon "GEOMETRY WARS" logo over a starfield. It comes from the recompiled game through the ReXGlue Xenos Direct3D 12 path (NVIDIA GeForce RTX 4070). The starfield moves between captures, so the frame keeps rendering.
 
-After the first frame, the process stayed responsive with no `[error]` or `[critical]` log entries. It was still running 142 s after launch when last checked. Audio and controller detection are recorded below. Gameplay and menus were not exercised.
+After the first frame, the process stayed responsive with no `[error]` or `[critical]` log entries. It was still running 142 s after launch when last checked. Audio and controller detection are recorded below. The later manual test, reported by the user, completed without crashes. Development runs did not exercise gameplay or menus.
 
 ## Startup sequence
 
@@ -44,7 +44,7 @@ Analysis aids used during this pass were kept outside the repository: a PowerPC 
 ## Remaining blockers and known gaps
 
 - Four stubbed imports: `XamShowGamerCardUIForXUID`, `XamShowAchievementsUI`, `XamShowMarketplaceUI`, `XamUserCreateStatsEnumerator`. Each logs `STUB` if called. None were called during boot.
-- 166 LOW and 53 EH discovery candidates are not applied. Each needs a per-case check before it is added.
+- 156 LOW and 53 EH discovery candidates are not applied. Each needs a per-case check before it is added. The hardening pass dropped 10 LOW candidates that existed only because of false lis/addi pairs.
 - SEH handlers are not generated (`generate_exception_handlers` is off). Not hit during boot.
 - Audio: the endpoint opens and submits audio. Audible output was not verified.
 - Input: the controller is detected through SDL. Keyboard detection is not logged, and no input was sent to the game.

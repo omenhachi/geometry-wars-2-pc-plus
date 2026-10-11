@@ -4,7 +4,7 @@ Experimental static recompilation of the Xbox Live Arcade version of Geometry Wa
 
 ## Status
 
-Phase 1, minimal native build. The title screen was observed rendering from the recompiled game in development runs; manual confirmation is pending. See [docs/first-boot.md](docs/first-boot.md).
+Phase 1, minimal native build. The title screen renders from the recompiled game and was confirmed in a manual test that completed without crashes. See [docs/first-boot.md](docs/first-boot.md).
 
 ## Game files
 

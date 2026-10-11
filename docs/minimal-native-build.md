@@ -105,11 +105,14 @@ These are only needed to reproduce the boundary hints.
    ```powershell
    python tools\find-missing-functions.py --apply-high
    python tools\find-missing-functions.py --verify
+   python tools\find-missing-functions.py --self-test
    ```
 
 ## Validation
 
 - Codegen: 0 warnings. Registers 5,972 functions: 5,819 recompiled guest functions and 153 import thunks. 58 files are generated.
 - Build: 0 compiler warnings for the game target.
-- Discovery `--verify`: 33 discovered entries, 0 failures.
+- Discovery report: 6,108 references, 3,228 unique code targets, 33 HIGH, 0 MEDIUM, 156 LOW, 53 EH.
+- Discovery `--verify`: 33 discovered entries, 0 failures, 0 duplicate registrations, 0 partition mismatches.
+- Discovery `--self-test`: 14 checks, 0 failures.
 - `git diff --check`: see the final report.

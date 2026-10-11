@@ -5,6 +5,7 @@ the HIGH-confidence ones to config/discovered-functions.toml.
   python tools/find-missing-functions.py                report only
   python tools/find-missing-functions.py --apply-high   also rewrite the TOML
   python tools/find-missing-functions.py --verify       check the generated output
+  python tools/find-missing-functions.py --self-test    check the decoder and address tracking
 
 Needs a codegen run (generated/default) and the decrypted image game/analysis/default.image.bin
 written by tools/dump_image. Ported from the Hard Corps: Uprising recompilation project.
@@ -155,6 +156,8 @@ class Known:
     pdata_begins: list
     config: dict                      # start -> end for existing [functions] entries
     branch_sites: dict                # target -> [sites] for direct b/bl/bc in code
+    partition: dict                   # start -> partition index from codegen
+    discovered: int                   # entries in discovered-functions.toml, re-derived each run
 
 
 def parse_config_functions(path):
@@ -191,7 +194,8 @@ def load_known():
         if m.group(2).startswith('__imp__'):
             imports.add(a)
     partition = json.load(open(os.path.join(GEN, 'codegen.partition.json')))['assignments']
-    missing = {int(k, 16) for k in partition} - starts
+    partition = {int(k, 16): v for k, v in partition.items()}
+    missing = set(partition) - starts
     if missing:
         sys.exit(f'partition/register mismatch: {len(missing)} functions not registered')
 
@@ -221,7 +225,8 @@ def load_known():
         if insn.kind in ('b', 'bl', 'bc', 'bcl'):
             sites[insn.target].append(a)
 
-    return Known(sorted(starts), starts, imports, labels, pdata, sorted(pdata), config, sites)
+    return Known(sorted(starts), starts, imports, labels, pdata, sorted(pdata), config, sites, partition,
+                 len(generated))
 
 
 # ---------------------------------------------------------------------------
@@ -282,6 +287,29 @@ def pointer_run(a):
     return lo, hi
 
 
+def address_builds(word_at, start, end, block_starts=frozenset()):
+    """(site, value) for each lis+addi and lis+ori pair in [start, end). A branch target, a branch
+    or call, or a write to the register ends the pair."""
+    builds, high = [], {}
+    for a in range(start, end, 4):
+        if a in block_starts:
+            high.clear()
+        w = word_at(a)
+        op, rd, ra = w >> 26, (w >> 21) & 31, (w >> 16) & 31
+        if op == 15 and ra == 0:
+            high[rd] = (w & 0xFFFF) << 16
+            continue
+        if op == 14 and ra and ra in high:
+            builds.append((a, (high[ra] + sext(w & 0xFFFF, 16)) & 0xFFFFFFFF))
+        elif op == 24 and rd in high:
+            builds.append((a, high[rd] | (w & 0xFFFF)))
+        if op in (16, 18, 19):
+            high.clear()
+        for r in (rd, ra):
+            high.pop(r, None)
+    return builds
+
+
 def collect_refs(known, eh_words):
     refs = defaultdict(list)
     for lo, hi, section in ((RDATA[0], RDATA[1], '.rdata'), (DATA[0], DATA[1], '.data')):
@@ -302,22 +330,12 @@ def collect_refs(known, eh_words):
                     kind = 'dataptr'
             refs[t].append(Ref(a, kind, section))
 
-    lis = [None] * 32
-    for a in range(CODE[0], CODE[1], 4):
-        w = u32(a)
-        op, rd, ra = w >> 26, (w >> 21) & 31, (w >> 16) & 31
-        if op == 15 and ra == 0:
-            lis[rd] = (w & 0xFFFF) << 16
-            continue
-        if op in (14, 24) and lis[ra] is not None:
-            lo = w & 0xFFFF
-            t = (lis[ra] + sext(lo, 16)) & 0xFFFFFFFF if op == 14 else lis[ra] | lo
-            if in_code(t):
-                refs[t].append(Ref(a, 'lisaddi', '.text'))
-            elif RDATA[0] <= t < RDATA[1] or DATA[0] <= t < DATA[1]:
-                table_sites[t].append(a)
-        if is_terminator_word(a):
-            lis = [None] * 32
+    block_starts = set(known.branch_sites) | known.start_set
+    for a, t in address_builds(u32, CODE[0], CODE[1], block_starts):
+        if in_code(t):
+            refs[t].append(Ref(a, 'lisaddi', '.text'))
+        elif RDATA[0] <= t < RDATA[1] or DATA[0] <= t < DATA[1]:
+            table_sites[t].append(a)
     return refs
 
 
@@ -335,8 +353,12 @@ def switch_dispatch_follows(site):
     return False
 
 
+def dispatches_through_bctr(lo, hi):
+    return any(decode(a).kind == 'bctr' for a in range(lo, hi, 4))
+
+
 def jump_table_site(t, refs, known):
-    """Site in the preceding registered function that uses the referencing table as a switch table."""
+    """Site in the preceding registered function that builds the address of a switch table."""
     i = bisect.bisect_left(known.starts, t) - 1
     prev = known.starts[i] if i >= 0 else 0
     for r in refs:
@@ -345,7 +367,7 @@ def jump_table_site(t, refs, known):
         lo, hi = pointer_run(r.site)
         for table in range(lo, hi + 4, 4):
             for site in table_sites.get(table, ()):
-                if prev <= site < t and switch_dispatch_follows(site):
+                if prev <= site < t and (switch_dispatch_follows(site) or dispatches_through_bctr(prev, t)):
                     return site
     return 0
 
@@ -429,6 +451,9 @@ def walk(start, bound, known, extra_starts=frozenset(), own_labels=False):
                 elif not callable_(insn.target):
                     fail(f'bc to unknown {insn.target:08X}')
                     break
+            elif k == 'bcctr':
+                fail('conditional indirect branch')
+                break
             elif k in ('blr', 'bctr'):
                 w.terminators.append(insn)
                 break
@@ -549,8 +574,15 @@ def classify(t, refs, known, accepted, all_candidates):
         hard.extend(w.reasons)
     if not useful:
         hard.append('eh-only' if kinds == {'eh'} else 'no usable reference')
+    elif 'eh' in kinds:
+        hard.append('also referenced from exception metadata')
+    if 'dataptr' in kinds and not kinds & {'vtable', 'lisaddi'}:
+        hard.append('single data pointer only')
 
     if w.ok:
+        gaps = sum(1 for a in range(t, w.end, 4) if a not in w.visited)
+        if gaps:
+            hard.append(f'{gaps} unvisited words in body')
         for a in range(t + 4, c.end, 4):
             outside = [s for s in known.branch_sites.get(a, ()) if not t <= s < c.end]
             if outside:
@@ -591,7 +623,7 @@ def classify(t, refs, known, accepted, all_candidates):
             hard.append(f'overlaps configured {s:08X}')
 
     if hard:
-        c.confidence = 'EH' if 'eh-only' in hard else 'LOW'
+        c.confidence = 'EH' if 'eh' in kinds else 'LOW'
         c.reasons = hard
     elif soft:
         c.confidence = 'MEDIUM'
@@ -608,6 +640,7 @@ def classify(t, refs, known, accepted, all_candidates):
 def write_report(cands, calibration, stats):
     os.makedirs(os.path.dirname(REPORT), exist_ok=True)
     lines = ['# ' + ' '.join(f'{k}={v}' for k, v in stats.items()),
+             '# HIGH includes the discovered entries, which are re-derived on every run',
              '# START END CONFIDENCE REFERENCE REFTYPE PREV PREVTERM FINALTERM SHAPE REASON']
     for c in cands:
         lines.append(f'{c.start:08X} {c.end:08X} {c.confidence} {c.ref:08X} {c.ref_kind} {c.prev:08X} '
@@ -629,37 +662,112 @@ def write_discovered(cands):
     open(DISCOVERED, 'w', newline='\n').write('\n'.join(lines) + '\n')
 
 
+def scan(known, refs):
+    configured = set(known.config)
+    targets = sorted(t for t in refs if t not in known.start_set and t not in known.labels and t not in configured)
+    accepted, cands = {}, []
+    for t in targets:
+        c = classify(t, refs[t], known, accepted, targets)
+        cands.append(c)
+        if c.confidence == 'HIGH':
+            accepted[t] = c.end
+    return targets, cands
+
+
 def verify():
+    known = load_known()
+    eh_words = eh_table_words(known)
+    refs = collect_refs(known, eh_words)
+    _, cands = scan(known, refs)
+    by_start = {c.start: c for c in cands}
     entries = parse_config_functions(DISCOVERED)
     register = open(register_path()).read()
-    registered = defaultdict(int)
-    for m in re.finditer(r'SetFunction\(0x([0-9A-F]{8}),', register):
-        registered[int(m.group(1), 16)] += 1
-    defined = defaultdict(int)
-    for f in os.listdir(GEN):
-        if '_recomp.' in f and f.endswith('.cpp'):
-            for m in re.finditer(r'^DEFINE_REX_FUNC\(sub_([0-9A-F]{8})\)', open(os.path.join(GEN, f)).read(), re.M):
-                defined[int(m.group(1), 16)] += 1
+    prefix = os.path.basename(register_path())[:-len('_register.cpp')]
+    names, registered = {}, defaultdict(int)
+    for m in re.finditer(r'SetFunction\(0x([0-9A-F]{8}), (\w+)\);', register):
+        a = int(m.group(1), 16)
+        registered[a] += 1
+        names[a] = m.group(2)
+    duplicates = sum(1 for n in registered.values() if n != 1)
     starts = sorted(registered)
+    defined = defaultdict(list)
+    for f in sorted(os.listdir(GEN)):
+        if '_recomp.' in f and f.endswith('.cpp'):
+            for m in re.finditer(r'^DEFINE_REX_FUNC\((\w+)\)', open(os.path.join(GEN, f)).read(), re.M):
+                defined[m.group(1)].append(f)
+    mismatches = [a for a, index in known.partition.items()
+                  if defined[names[a]] != [f'{prefix}_recomp.{index}.cpp']]
+    for a in mismatches[:5]:
+        print(f'PARTITION 0x{a:08X}: {names[a]} index {known.partition[a]}, defined in {defined[names[a]]}')
     failures = 0
     for s, e in sorted(entries.items()):
         problems = []
+        name = f'sub_{s:08X}'
+        kinds = {r.kind for r in refs.get(s, [])}
         if registered[s] != 1:
             problems.append(f'registered {registered[s]} times')
-        if defined[s] != 1:
-            problems.append(f'defined {defined[s]} times')
+        if names.get(s) != name:
+            problems.append(f'registered as {names.get(s)}')
+        if defined[name] != [f'{prefix}_recomp.{known.partition.get(s)}.cpp']:
+            problems.append(f'defined in {defined[name]}, partition {known.partition.get(s)}')
         i = bisect.bisect_right(starts, s)
         if i < len(starts) and starts[i] < e:
             problems.append(f'function {starts[i]:08X} starts inside')
+        if not in_code(s) or s in known.imports:
+            problems.append('not guest code or an import thunk')
+        if s in eh_words or 'eh' in kinds:
+            problems.append('exception metadata')
+        if 'jumptable' in kinds or jump_table_site(s, refs.get(s, []), known):
+            problems.append('jump table entry')
+        if pdata_extent_containing(s, known):
+            problems.append('inside .pdata extent')
+        c = by_start.get(s)
+        if c is None:
+            problems.append('no longer referenced by code or data')
+        elif c.confidence != 'HIGH':
+            problems.append(f're-scan is {c.confidence}: {"; ".join(c.reasons)}')
+        elif c.end != e:
+            problems.append(f're-scan end {c.end:08X} differs from configured end')
         if problems:
             failures += 1
             print(f'FAIL 0x{s:08X}-0x{e:08X}: {"; ".join(problems)}')
-    print(f'verify: {len(entries)} entries, {failures} failures, {len(registered)} registered functions')
-    return failures == 0
+    print(f'verify: {len(entries)} entries, {failures} failures, {len(registered)} registered functions, '
+          f'{duplicates} duplicate registrations, {len(mismatches)} partition mismatches')
+    return failures == 0 and duplicates == 0 and not mismatches
+
+
+def self_test():
+    global IMG
+    checks = []
+    for word, kind in ((0x4E800020, 'blr'), (0x4E800420, 'bctr'), (0x4E800421, 'bctrl'), (0x48000000, 'b'),
+                       (0x48000001, 'bl'), (0x40820008, 'bc'), (0x7D6903A6, 'other')):
+        IMG = struct.pack('>I', word)
+        checks.append((f'decode {word:08X}', decode(BASE).kind == kind))
+
+    def builds(*words, block=frozenset()):
+        return address_builds(lambda a: words[(a - 0x1000) // 4], 0x1000, 0x1000 + 4 * len(words), block)
+
+    lis_r11, addi_r5 = 0x3D60820D, 0x38ABEF18
+    checks += [
+        ('lis+addi', builds(lis_r11, addi_r5) == [(0x1004, 0x820CEF18)]),
+        ('ori takes rs', builds(0x3C801234, 0x60835678) == [(0x1004, 0x12345678)]),
+        ('load ends pair', builds(lis_r11, 0x81630000, addi_r5) == []),
+        ('branch ends pair', builds(lis_r11, 0x40820008, addi_r5) == []),
+        ('call ends pair', builds(lis_r11, 0x48000001, addi_r5) == []),
+        ('block start ends pair', builds(lis_r11, addi_r5, block={0x1004}) == []),
+        ('li is not a pair', builds(0x38600010) == []),
+    ]
+    failed = [name for name, passed in checks if not passed]
+    for name in failed:
+        print(f'self-test FAIL: {name}')
+    print(f'self-test: {len(checks)} checks, {len(failed)} failures')
+    return not failed
 
 
 def main(argv):
     global IMG
+    if '--self-test' in argv:
+        return 0 if self_test() else 1
     apply_high = '--apply-high' in argv
     IMG = open(IMAGE_PATH, 'rb').read()
     if len(IMG) != IMAGE_SIZE:
@@ -670,18 +778,9 @@ def main(argv):
         return 0 if verify() else 1
 
     known = load_known()
-    eh_words = eh_table_words(known)
-    refs = collect_refs(known, eh_words)
-
-    configured = set(known.config)
-    targets = sorted(t for t in refs if t not in known.start_set and t not in known.labels and t not in configured)
-    accepted = {}
-    cands = []
-    for t in targets:
-        c = classify(t, refs[t], known, accepted, targets)
-        cands.append(c)
-        if c.confidence == 'HIGH':
-            accepted[t] = c.end
+    refs = collect_refs(known, eh_table_words(known))
+    targets, cands = scan(known, refs)
+    disc = parse_config_functions(DISCOVERED)
 
     calibration = []
     saved_config, saved_labels = dict(known.config), set(known.labels)
@@ -696,8 +795,12 @@ def main(argv):
     for c in cands:
         counts[c.confidence] += 1
     stats = {'references': sum(len(v) for v in refs.values()), 'targets': len(refs),
-             'unregistered': len(targets), 'HIGH': counts['HIGH'], 'MEDIUM': counts['MEDIUM'],
-             'LOW': counts['LOW'], 'EH': counts['EH'], 'configured': len(saved_config)}
+             'registered': len(known.start_set) + known.discovered, 'discovered': known.discovered,
+             'unregistered': sum(1 for t in targets if t not in disc),
+             'HIGH': counts['HIGH'], 'MEDIUM': counts['MEDIUM'], 'LOW': counts['LOW'], 'EH': counts['EH'],
+             'jump-table': sum(1 for c in cands if any('switch table' in r or 'jump table' in r for r in c.reasons)),
+             'inside-function': sum(1 for c in cands if any('inside' in r for r in c.reasons)),
+             'import-thunk': sum(1 for t in refs if t in known.imports), 'overrides': len(saved_config)}
     write_report(cands, calibration, stats)
     print(' '.join(f'{k}={v}' for k, v in stats.items()))
     print(f'report: {REPORT}')
