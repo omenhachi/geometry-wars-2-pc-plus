@@ -2,9 +2,10 @@
 
 # Geometry Wars: Retro Evolved 2 — PC Port
 
-### Geometry Wars: Retro Evolved 2 running natively on Windows, and experimentally on Linux and Steam Deck, through static recompilation, with the TRG launcher, high frame rates and local achievements and leaderboards.
+### Geometry Wars: Retro Evolved 2 running natively on Windows, and experimentally on Linux and Steam Deck, through static recompilation, with the TRG launcher, high frame rate support and modern PC options.
 
 [![Latest release](https://img.shields.io/github/v/release/saulob/geometry-wars-retro-evolved-2-recompiled?style=for-the-badge&label=release&color=943cff&labelColor=07101f&include_prereleases)](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/saulob/geometry-wars-retro-evolved-2-recompiled/total?style=for-the-badge&color=943cff&labelColor=07101f)](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled/releases)
 ![Platform](https://img.shields.io/badge/platforms-Windows%20x64%20%7C%20Linux%20x86__64%20(experimental)-00acc1?style=for-the-badge&labelColor=07101f)
 
 <sub>The original Xbox 360 game code, statically recompiled to native PC code with the <a href="https://github.com/rexglue/rexglue-sdk">ReXGlue SDK</a>. <b>No game files included</b>: bring your own Geometry Wars: Retro Evolved 2 Xbox Live Arcade package.</sub>
@@ -84,12 +85,15 @@ Window size, monitor and VSync take effect when you press **PLAY**. If one diffe
 
 ### Controls
 - Xbox controllers work without setup
-- **Keyboard**: enabled or disabled. The keys are listed on the page.
+- **Keyboard**: enabled or disabled. When enabled, the keyboard and mouse emulate the controller, and the keys are listed on the page.
 - Online multiplayer is not supported.
+
+### Achievements
+The launcher's **Achievements** page lists the game's 12 achievements (200G in total) with their icons, gamerscore and unlocked state, and a progress summary. The list appears after you have pressed **PLAY** once, from the next time the launcher opens.
 
 ### Achievements, leaderboards and Xbox Live
 Everything stays offline: there is no Xbox Live connection, Microsoft sign-in or online player.
-- **Achievements**: the game's achievements menu item and **F7** open a list of its 12 achievements with their icons and gamerscore. Unlocks show the usual notification and are kept between runs. The launcher's **Achievements** page shows the same list.
+- **Achievements**: the game's achievements menu item and **F7** open the same list in game. B, Escape or F7 closes it. Unlocks show the usual notification and are kept between runs on this PC, with no synchronization with Xbox Live.
 - **Leaderboards**: the leaderboard screens work with your own scores only. Finished games are kept in a local file, and the boards show your row or no rows, never other players.
 - **Profile**: the game's profile and options are saved locally.
 
