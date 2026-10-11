@@ -28,3 +28,4 @@ The toolchain is Visual Studio 2026 with the C++ Clang tools. See [docs/minimal-
 - [Package analysis](docs/package-analysis.md)
 - [Minimal native build](docs/minimal-native-build.md)
 - [First boot](docs/first-boot.md)
+- [Offline profile and save](docs/offline-profile.md)
