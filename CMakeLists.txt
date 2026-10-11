@@ -11,7 +11,15 @@ list(APPEND CMAKE_PREFIX_PATH "${CMAKE_CURRENT_SOURCE_DIR}/tools/rexglue/win-amd
 
 include(generated/rexglue.cmake)
 
-add_executable(geometry_wars_retro_evolved_2 WIN32 src/main.cpp src/debug_saulo_fault.cpp src/profile_fix.cpp)
+add_executable(geometry_wars_retro_evolved_2 WIN32
+    src/main.cpp
+    src/debug_saulo_fault.cpp
+    src/profile_fix.cpp
+    src/live_fix.cpp
+    src/achievements_overlay.cpp
+    src/live_stats.cpp
+    src/local_stats.cpp
+)
 
 rexglue_setup_target(geometry_wars_retro_evolved_2 GPU_PLUGINS xenos)
 

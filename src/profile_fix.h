@@ -1,8 +1,8 @@
 #pragma once
 
-#include <bit>
 #include <cstdint>
-#include <cstring>
+
+#include "guest_memory.h"
 
 namespace gw2 {
 
@@ -10,17 +10,6 @@ struct TitleSettingsSummary {
   uint32_t saved = 0;
   uint32_t defaulted = 0;
 };
-
-inline uint32_t LoadBE32(const uint8_t* base, uint32_t addr) {
-  uint32_t v;
-  std::memcpy(&v, base + addr, sizeof(v));
-  return std::byteswap(v);
-}
-
-inline void StoreBE32(uint8_t* base, uint32_t addr, uint32_t v) {
-  v = std::byteswap(v);
-  std::memcpy(base + addr, &v, sizeof(v));
-}
 
 // The console answers a title-specific setting that was never saved with XSOURCE_DEFAULT and an
 // empty value; the game then starts a new profile. ReXGlue answers XSOURCE_NO_VALUE, which the game

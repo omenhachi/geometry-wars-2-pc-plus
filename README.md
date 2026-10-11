@@ -29,3 +29,4 @@ The toolchain is Visual Studio 2026 with the C++ Clang tools. See [docs/minimal-
 - [Minimal native build](docs/minimal-native-build.md)
 - [First boot](docs/first-boot.md)
 - [Offline profile and save](docs/offline-profile.md)
+- [Offline Xbox Live services](docs/offline-live.md)

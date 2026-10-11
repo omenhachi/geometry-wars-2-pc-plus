@@ -6,7 +6,7 @@ The game runs as one local, offline player. Nothing needs Xbox Live or an Xbox 3
 
 The game keeps its profile (48 bytes of options and defaults) in the gamer profile's title-specific setting `0x63E83FFF`. It reads it with `XamUserReadProfileSettings` and writes it with `XamUserWriteProfileSettings`.
 
-Its other user imports are sign-in queries: `XamUserGetSigninState`, `XamUserGetXUID`, `XamUserGetName` and `XamShowSigninUI`. It imports no `XamContent*` function and no device selector, so no storage device is involved. Leaderboards and other Xbox Live features are not provided.
+Its other user imports are sign-in queries: `XamUserGetSigninState`, `XamUserGetXUID`, `XamUserGetName` and `XamShowSigninUI`. It imports no `XamContent*` function and no device selector, so no storage device is involved. Scores, leaderboards and achievements are covered in [offline-live.md](offline-live.md).
 
 The game loads and creates a profile only in full-license mode. `license_mask = 1` in `config/geometry_wars_retro_evolved_2.toml` provides that through `XamContentGetLicenseMask`; in trial mode the game neither loads nor creates a profile.
 
