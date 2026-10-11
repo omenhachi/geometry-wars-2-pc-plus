@@ -12,6 +12,8 @@
 
 </div>
 
+<img width="1905" height="1071" alt="2026-10-11_18-47" src="https://github.com/user-attachments/assets/08b1ed2c-3244-41c1-94f1-e2ae4c1b76d1" />
+
 ## What you need
 
 - Windows 10 or 11, 64-bit, and a DirectX 12 graphics card
@@ -103,6 +105,12 @@ Everything stays offline: there is no Xbox Live connection, Microsoft sign-in or
 - The port version, game version and library versions
 - Open the game folder, or the saves and settings folder
 - **Show settings file**, and **Reset all settings**
+
+## Screenshots
+
+<img width="1887" height="1057" alt="2026-10-11_18-48" src="https://github.com/user-attachments/assets/c4351235-675b-4864-9371-d0346097c55f" />
+
+<img width="1881" height="1068" alt="2026-10-11_18-48_1" src="https://github.com/user-attachments/assets/13a3fc2f-6281-4170-95db-bd62a82cd1d7" />
 
 ## Reporting problems
 
