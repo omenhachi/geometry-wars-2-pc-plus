@@ -1,6 +1,6 @@
 <div align="center">
 
-# Geometry Wars: Retro Evolved 2 — PC Port
+# Geometry Wars: Retro Evolved 2 - PC Port
 
 ### Geometry Wars: Retro Evolved 2 running natively on Windows, and experimentally on Linux and Steam Deck, through static recompilation, with the TRG launcher, high frame rate support and modern PC options.
 
