@@ -1,0 +1,7 @@
+# Manual analysis fixes for Geometry Wars: Retro Evolved 2 (default.xex, title 584108FF)
+
+[functions]
+# This-adjusting thunks (addi r3, r3, +/-N, then b) tail-call methods that no .pdata entry or GapFill split starts.
+0x82144BE0 = { end = 0x82144BF4 }
+0x821454D0 = { end = 0x821454F8 }
+0x8214DF28 = { end = 0x8214DF30 }

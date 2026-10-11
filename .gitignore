@@ -1,0 +1,41 @@
+# Local game files and generated output
+/game/
+/generated/
+/build/
+/out/
+
+# Downloaded ReXGlue SDK
+/tools/rexglue/
+
+# Logs, dumps, binaries and console-package containers
+*.log
+*.dmp
+*.pdb
+*.ilk
+*.obj
+*.lib
+*.exe
+*.dll
+*.xex
+
+# Visual Studio
+.vs/
+[Bb]in/
+[Oo]bj/
+ipch/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.VC.db
+*.VC.VC.opendb
+
+# CMake and local build artifacts
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+compile_commands.json
+cmake-build-*/
+
+# Python
+__pycache__/

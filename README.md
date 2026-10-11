@@ -1,0 +1,30 @@
+# Geometry Wars: Retro Evolved 2 Recompilation
+
+Experimental static recompilation of the Xbox Live Arcade version of Geometry Wars: Retro Evolved 2, built with ReXGlue 0.10.0.
+
+## Status
+
+Phase 1, minimal native build. The title screen was observed rendering from the recompiled game in development runs; manual confirmation is pending. See [docs/first-boot.md](docs/first-boot.md).
+
+## Game files
+
+Original game files are not included. Supply your own legally obtained copy of the Xbox 360 package, then extract it into the project:
+
+```powershell
+.\tools\extract_stfs.ps1 -Package "<path to the package file>" -OutDir game\extracted
+```
+
+## Build
+
+```powershell
+.\tools\codegen.ps1
+.\tools\build.ps1 -Run
+```
+
+The toolchain is Visual Studio 2026 with the C++ Clang tools. See [docs/minimal-native-build.md](docs/minimal-native-build.md).
+
+## Documentation
+
+- [Package analysis](docs/package-analysis.md)
+- [Minimal native build](docs/minimal-native-build.md)
+- [First boot](docs/first-boot.md)
