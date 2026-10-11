@@ -6,9 +6,13 @@ Experimental static recompilation of the Xbox Live Arcade version of Geometry Wa
 
 Phase 1, minimal native build. The title screen renders from the recompiled game and was confirmed in a manual test that completed without crashes. See [docs/first-boot.md](docs/first-boot.md).
 
+## Clone
+
+TRG Launcher is a git submodule: `git clone --recursive`, or `git submodule update --init third_party/trg-launcher` after cloning.
+
 ## Game files
 
-Original game files are not included. Supply your own legally obtained copy of the Xbox 360 package, then extract it into the project:
+Original game files are not included. Supply your own legally obtained copy of the Xbox 360 package. The launcher can install it, or extract it into the project:
 
 ```powershell
 .\tools\extract_stfs.ps1 -Package "<path to the package file>" -OutDir game\extracted
@@ -30,3 +34,4 @@ The toolchain is Visual Studio 2026 with the C++ Clang tools. See [docs/minimal-
 - [First boot](docs/first-boot.md)
 - [Offline profile and save](docs/offline-profile.md)
 - [Offline Xbox Live services](docs/offline-live.md)
+- [Launcher](docs/launcher.md)

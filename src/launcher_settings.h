@@ -1,0 +1,118 @@
+#pragma once
+
+#include <filesystem>
+#include <map>
+#include <set>
+#include <span>
+#include <string>
+#include <string_view>
+
+#include "trg/settings.h"
+
+namespace gw2 {
+
+inline constexpr char kShowLauncherKey[] = "show_launcher";
+inline constexpr char kFullscreenKey[] = "fullscreen";
+inline constexpr char kWindowWidthKey[] = "window_width";
+inline constexpr char kWindowHeightKey[] = "window_height";
+inline constexpr char kMonitorKey[] = "monitor";
+inline constexpr char kVSyncKey[] = "d3d12_allow_variable_refresh_rate_and_tearing";
+inline constexpr char kAspectKey[] = "present_letterbox";
+inline constexpr char kRenderScaleKey[] = "resolution_scale";
+inline constexpr char kAntiAliasingKey[] = "swap_post_effect";
+inline constexpr char kMultisamplingKey[] = "native_2x_msaa";
+inline constexpr char kTextureFilteringKey[] = "anisotropic_override";
+inline constexpr char kKeyboardKey[] = "mnk_mode";
+inline constexpr char kShowFpsKey[] = "gw2_show_fps";
+inline constexpr bool kShowFpsDefault = true;
+inline constexpr char kFrameRateKey[] = "gw2_frame_rate";
+inline constexpr char kLauncherXKey[] = "gw2_launcher_x";
+inline constexpr char kLauncherYKey[] = "gw2_launcher_y";
+inline constexpr char kLauncherWidthKey[] = "gw2_launcher_width";
+inline constexpr char kLauncherHeightKey[] = "gw2_launcher_height";
+inline constexpr char kLauncherMaximizedKey[] = "gw2_launcher_maximized";
+inline constexpr char kShowFrameCounterKey[] = "gw2_show_frame_counter";
+inline constexpr bool kShowFrameCounterDefault = false;
+
+using Values = std::map<std::string, std::string, std::less<>>;
+
+enum class ValueKind { kBool, kInt, kString };
+
+struct ManagedSetting {
+  std::string_view key;
+  ValueKind kind;
+};
+
+// Every setting the launcher stores in the player file, in the order the file lists them.
+std::span<const ManagedSetting> ManagedSettings();
+
+// Changing one of these needs a new window: the game restarts once when Play is pressed.
+bool IsWindowSetting(std::string_view key);
+
+// The launcher window's own placement, kept apart from the game's window settings and from Reset.
+bool IsLauncherPlacementSetting(std::string_view key);
+
+std::filesystem::path LauncherSettingsPath(const std::filesystem::path& user_data_root);
+
+// The top-level `key = value` pairs of a TOML file, as the text the settings store uses.
+Values ReadSettingsValues(const std::filesystem::path& toml_file);
+
+// The running game's cvars. The real implementation wraps rex::cvar; tests use a fake.
+class CvarAccess {
+ public:
+  virtual ~CvarAccess() = default;
+  virtual bool IsRegistered(std::string_view name) const = 0;
+  virtual std::string Value(std::string_view name) const = 0;
+  virtual std::string DefaultValue(std::string_view name) const = 0;
+  virtual bool Assign(std::string_view name, std::string_view value) = 0;
+  // Whether a value assigned since startup only takes effect after a restart.
+  virtual bool RestartPending() const = 0;
+};
+
+// Pending launcher edits over the saved player values, over the shipped defaults. Nothing reaches the running
+// game until Apply(), and nothing is written until Save().
+class GameSettings final : public trg::SettingsStore {
+ public:
+  GameSettings(CvarAccess& cvars, std::filesystem::path player_file, const std::filesystem::path& shipped_config);
+
+  void Capture();
+  // The Xenos graphics cvars register after Capture; this takes their values once they exist.
+  void CaptureLateRegistered();
+
+  std::string Get(std::string_view key, std::string_view def = {}) const override;
+  void Set(std::string_view key, std::string value) override;
+  bool Save() override;
+  void ResetToDefaults() override;
+
+  // Assigns the pending values that differ from the running game. Returns true when the game needs a new process
+  // for one of them.
+  bool Apply();
+  // Records the window settings this process creates its window with.
+  void MarkWindowCreated();
+  // Whether the pending window size, monitor or VSync needs a new window.
+  bool WindowChanged() const;
+  // Writes one setting now and leaves the other pending edits pending.
+  bool SaveNow(std::string_view key, std::string value);
+  // The same for several settings at once.
+  bool SaveNow(const Values& values);
+
+ private:
+  bool WriteFile(const Values& changes);
+
+  CvarAccess& cvars_;
+  std::filesystem::path player_file_;
+  Values shipped_;
+  Values saved_;
+  Values pending_;
+  Values window_created_;
+  std::set<std::string, std::less<>> unregistered_;
+};
+
+// Whether the launcher's own setting is On.
+bool ShowLauncherSetting(const trg::SettingsStore& settings);
+
+// The launcher opens when the game files are not ready, or when the setting is On or Shift is held, unless it was
+// skipped once by a window restart. A not-ready game always shows it: it is the only way to install.
+bool LauncherWanted(bool game_ready, bool show_setting, bool shift_held, bool skip_once);
+
+}  // namespace gw2
