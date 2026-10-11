@@ -3,15 +3,6 @@
 #include <bit>
 #include <cstdint>
 #include <optional>
-#include <thread>
-
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-#include <windows.h>
 
 #include <rex/cvar.h>
 #include <rex/hook.h>
@@ -22,9 +13,6 @@
 namespace gw2 {
 namespace {
 
-using namespace std::chrono_literals;
-
-constexpr auto kSpinWindow = 500us;
 constexpr uint32_t kPresentIntervalMask = 0xF00;
 // The float the game's update reads as its time step, set once from the video mode's refresh rate.
 constexpr uint32_t kGameDeltaAddress = 0x8219D280;
@@ -40,26 +28,6 @@ struct GameDeltaState {
 GameDeltaState g_delta;
 
 }  // namespace
-
-void WaitUntil(LimiterClock::time_point deadline) {
-  static const HANDLE timer =
-      CreateWaitableTimerExW(nullptr, nullptr, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
-  const auto coarse = deadline - LimiterClock::now() - kSpinWindow;
-  if (coarse > LimiterClock::duration::zero()) {
-    if (timer) {
-      LARGE_INTEGER due;
-      due.QuadPart = -std::chrono::duration_cast<std::chrono::nanoseconds>(coarse).count() / 100;
-      if (SetWaitableTimer(timer, &due, 0, nullptr, nullptr, FALSE)) {
-        WaitForSingleObject(timer, INFINITE);
-      }
-    } else {
-      std::this_thread::sleep_for(coarse);
-    }
-  }
-  while (LimiterClock::now() < deadline) {
-    std::this_thread::yield();
-  }
-}
 
 int ConfiguredFrameRate() {
   const int fps = REXCVAR_GET(gw2_frame_rate);

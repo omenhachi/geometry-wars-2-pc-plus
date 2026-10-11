@@ -560,6 +560,7 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
       settings_.ResetToDefaults();
       launcher_->SetStatus("Settings reset to defaults. Save or press Play to keep them.", 6.0);
     }
+    ui.Info("Port version", GW2_PORT_VERSION);
     ui.Info("Libraries", "ReXGlue SDK " REXGLUE_VERSION_STRING "  \xC2\xB7  TRG Launcher " GW2_TRG_LAUNCHER_VERSION);
     ui.Info("Game", "Xbox Live Arcade, title 584108FF, game version 0.0.1.2");
     ui.Help(kRepositoryText);
@@ -567,6 +568,12 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
 
   void BrowseAndInstall() {
     if (install_.running()) {
+      return;
+    }
+    if (!PackagePickerAvailable()) {
+      install_failure_ = "No file picker found";
+      install_failure_text_ = "Install zenity or kdialog to choose the package, then try again.";
+      launcher_->SetStatus(install_failure_ + ". " + install_failure_text_, 8.0);
       return;
     }
     const std::string picked =

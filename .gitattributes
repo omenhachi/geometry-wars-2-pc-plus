@@ -1,2 +1,7 @@
 # rexglue codegen rewrites the manifest with LF endings on every run.
 geometry_wars_retro_evolved_2_manifest.toml text eol=lf
+
+# Scripts and files that run or are read on Linux.
+*.sh text eol=lf
+packaging/linux/AppRun text eol=lf
+packaging/linux/*.desktop text eol=lf

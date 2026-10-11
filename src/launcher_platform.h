@@ -1,9 +1,12 @@
 #pragma once
 
 #include <algorithm>
+#include <cstdio>
+#include <cstdlib>
 #include <optional>
 #include <filesystem>
 #include <string>
+#include <system_error>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -33,11 +36,40 @@ struct MonitorInfo {
   bool primary = false;
 };
 
-// In the order ReXGlue's `monitor` setting numbers them: the primary display first.
+// In the order ReXGlue's `monitor` setting numbers them: the primary display first on Windows, SDL's order on Linux.
 std::vector<MonitorInfo> ListMonitors();
 
-// The display a `monitor` setting names. 0 and 1 are the primary display, as the runtime treats them.
+// The display a `monitor` setting names. Out of range values (0) are the primary display.
 MonitorInfo MonitorForSetting(int monitor);
+
+// The folder the player sees the port in: the executable's, or the AppImage's.
+std::filesystem::path PortFolder();
+
+// The next free <name>_NNN.log in `folder`, which is created. Empty when it cannot be created.
+inline std::filesystem::path NextLogFile(const std::filesystem::path& folder, std::string_view name) {
+  std::error_code ec;
+  std::filesystem::create_directories(folder, ec);
+  if (!std::filesystem::is_directory(folder, ec)) {
+    return {};
+  }
+  const std::string prefix = std::string(name) + "_";
+  int last = 0;
+  for (const auto& entry : std::filesystem::directory_iterator(folder, ec)) {
+    const std::string file = entry.path().filename().string();
+    if (file.starts_with(prefix) && file.ends_with(".log")) {
+      last = std::max(last, std::atoi(file.c_str() + prefix.size()));
+    }
+  }
+  char number[16];
+  std::snprintf(number, sizeof(number), "%03d.log", last + 1);
+  return folder / (prefix + number);
+}
+
+// True while Shift is held. On Linux SDL only knows the keyboard once a window has focus.
+bool ShiftHeld();
+
+// Whether a native file picker exists: always on Windows, zenity or kdialog on Linux.
+bool PackagePickerAvailable();
 
 // The window's logical size, shrunk so it stays within this share of the display's work area.
 inline constexpr double kWindowDisplayShare = 0.9;
@@ -62,7 +94,8 @@ std::optional<WindowState> QueryWindowState(void* native_handle);
 void ApplyWindowPlacement(void* native_handle, const WindowPlacement& placement);
 
 // Applies the plan to the next top-level window of this thread, before it is first shown. The window's size
-// before the change is kept for TakePreShowResult.
+// before the change is kept for TakePreShowResult. Windows only: elsewhere the launcher places the window once it
+// exists.
 void InstallPreShowPlacement(const PreShowPlan& plan, const WindowPlacement& saved);
 
 struct PreShowResult {
@@ -83,7 +116,7 @@ struct UiFontFiles {
 };
 UiFontFiles FindUiFonts();
 
-// Feeds an Xbox controller to Dear ImGui while the launcher is open.
+// Feeds a game controller to Dear ImGui while the launcher is open.
 class LauncherGamepad {
  public:
   void Update(ImGuiIO& io);
@@ -92,6 +125,9 @@ class LauncherGamepad {
  private:
   int pad_ = -1;
   double next_scan_ = 0.0;
+#if !defined(_WIN32)
+  bool subsystem_ = false;
+#endif
 };
 
 }  // namespace gw2

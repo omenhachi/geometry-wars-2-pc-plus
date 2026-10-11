@@ -1,0 +1,29 @@
+{
+  "$schema": "https://recomp.fyi/schema/v1.json",
+  "game": "Geometry Wars: Retro Evolved 2",
+  "system": "Xbox 360",
+  "type": "recomp",
+  "original": {
+    "revision": "0.0.1.2"
+  },
+  "project": "Geometry Wars: Retro Evolved 2 PC Port",
+  "status": "playable",
+  "targets": [
+    "Windows",
+    "Linux",
+    "Steam Deck"
+  ],
+  "toolchain": "Rexglue",
+  "approach": "Static recompilation of the Xbox 360 XBLA version to native PC code using ReXGlue",
+  "maintainers": [
+    {
+      "name": "saulob",
+      "link": "https://github.com/saulob"
+    }
+  ],
+  "tags": [
+    "XBLA",
+    "launcher"
+  ],
+  "notes": "Native Windows build with the TRG launcher, high frame rates, local achievements and offline leaderboards. Experimental Linux/Steam Deck AppImage, not yet tested on real hardware. First public release (0.1.0) is pending"
+}

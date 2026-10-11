@@ -2,6 +2,8 @@
 /game/
 /generated/
 /build/
+/build-release/
+/dist/
 /out/
 
 # Downloaded ReXGlue SDK

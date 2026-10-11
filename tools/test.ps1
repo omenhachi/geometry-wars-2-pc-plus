@@ -68,10 +68,10 @@ try {
         (Join-Path $Root 'tests\frame_counter_tests.cpp') -o $FrameCounterExe
     if ($LASTEXITCODE) { throw "Test build failed ($LASTEXITCODE)" }
     & $ClangXX -std=c++23 -O1 -Wall -Wextra -I (Join-Path $Root 'src') `
-        (Join-Path $Root 'tests\frame_limiter_tests.cpp') -o $FrameLimiterExe
+        (Join-Path $Root 'tests\frame_limiter_tests.cpp') (Join-Path $Root 'src\frame_wait.cpp') -o $FrameLimiterExe
     if ($LASTEXITCODE) { throw "Test build failed ($LASTEXITCODE)" }
     & $ClangXX -std=c++23 -O1 -Wall -Wextra -D_CRT_SECURE_NO_WARNINGS -D_SILENCE_ALL_CXX20_DEPRECATION_WARNINGS `
-        -I (Join-Path $Root 'src') -isystem (Join-Path $Root 'toolsexglue\win-amd64\include') -I (Join-Path $TrgDir 'include') `
+        -I (Join-Path $Root 'src') -isystem (Join-Path $Root 'tools\rexglue\win-amd64\include') -I (Join-Path $TrgDir 'include') `
         (Join-Path $Root 'tests\launcher_placement_tests.cpp') -o $PlacementExe
     if ($LASTEXITCODE) { throw "Test build failed ($LASTEXITCODE)" }
     & $ClangXX -std=c++23 -O1 -Wall -Wextra -D_CRT_SECURE_NO_WARNINGS -D_SILENCE_ALL_CXX20_DEPRECATION_WARNINGS `

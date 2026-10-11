@@ -27,7 +27,7 @@ REX_HOOK_RAW(sub_820E89B8) {
   const auto summary = gw2::ReportUnsavedTitleSettingsAsDefault(base, buffer);
   static std::atomic<int> logged{0};
   if ((summary.saved || summary.defaulted) && logged.fetch_add(1) < 8) {
-    REXLOG_INFO("[DEBUG_SAULO][Save] profile read: {} saved title setting(s), {} unsaved reported as default",
+    REXLOG_INFO("Profile read: {} saved title setting(s), {} unsaved reported as default",
                 summary.saved, summary.defaulted);
   }
 }

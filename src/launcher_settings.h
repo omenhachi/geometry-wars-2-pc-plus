@@ -16,7 +16,12 @@ inline constexpr char kFullscreenKey[] = "fullscreen";
 inline constexpr char kWindowWidthKey[] = "window_width";
 inline constexpr char kWindowHeightKey[] = "window_height";
 inline constexpr char kMonitorKey[] = "monitor";
+// Allowing tearing is VSync Off. Each platform's presenter has its own setting for it.
+#if defined(_WIN32)
 inline constexpr char kVSyncKey[] = "d3d12_allow_variable_refresh_rate_and_tearing";
+#else
+inline constexpr char kVSyncKey[] = "vulkan_allow_present_mode_immediate";
+#endif
 inline constexpr char kAspectKey[] = "present_letterbox";
 inline constexpr char kRenderScaleKey[] = "resolution_scale";
 inline constexpr char kAntiAliasingKey[] = "swap_post_effect";

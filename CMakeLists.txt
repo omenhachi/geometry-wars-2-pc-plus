@@ -1,13 +1,21 @@
 # SDK boilerplate lives in generated/rexglue.cmake.
 
 cmake_minimum_required(VERSION 3.25)
-project(geometry_wars_retro_evolved_2 LANGUAGES CXX)
+project(geometry_wars_retro_evolved_2 VERSION 0.1.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Where tools/codegen.ps1 unpacks the pinned SDK.
-list(APPEND CMAKE_PREFIX_PATH "${CMAKE_CURRENT_SOURCE_DIR}/tools/rexglue/win-amd64")
+# Where tools/codegen.ps1 and tools/package-linux.sh unpack the pinned SDK.
+if(WIN32)
+    set(GW2_SDK_DIR "${CMAKE_CURRENT_SOURCE_DIR}/tools/rexglue/win-amd64")
+else()
+    set(GW2_SDK_DIR "${CMAKE_CURRENT_SOURCE_DIR}/tools/rexglue/linux-amd64")
+endif()
+list(APPEND CMAKE_PREFIX_PATH "${GW2_SDK_DIR}")
+
+# Release binaries must not carry the build machine's folders (__FILE__ in log calls).
+add_compile_options("$<$<CONFIG:Release>:-fmacro-prefix-map=${CMAKE_CURRENT_SOURCE_DIR}=.>")
 
 include(generated/rexglue.cmake)
 
@@ -32,9 +40,8 @@ set_target_properties(trg_launcher PROPERTIES CXX_STANDARD 17)
 target_compile_definitions(trg_launcher PRIVATE _CRT_SECURE_NO_WARNINGS)
 get_directory_property(GW2_TRG_VERSION DIRECTORY "${_trg_dir}" DEFINITION PROJECT_VERSION)
 
-add_executable(geometry_wars_retro_evolved_2 WIN32
+set(GW2_SOURCES
     src/main.cpp
-    src/debug_saulo_fault.cpp
     src/profile_fix.cpp
     src/live_fix.cpp
     src/achievements_overlay.cpp
@@ -44,6 +51,7 @@ add_executable(geometry_wars_retro_evolved_2 WIN32
     src/stfs.cpp
     src/frame_counter.cpp
     src/frame_limiter.cpp
+    src/frame_wait.cpp
     src/launcher.cpp
     src/launcher_achievements.cpp
     src/launcher_cvars.cpp
@@ -52,10 +60,29 @@ add_executable(geometry_wars_retro_evolved_2 WIN32
     src/launcher_settings.cpp
     src/window_host.cpp
 )
+if(WIN32)
+    list(APPEND GW2_SOURCES src/launcher_platform_win32.cpp)
+    add_executable(geometry_wars_retro_evolved_2 WIN32 ${GW2_SOURCES})
+else()
+    list(APPEND GW2_SOURCES src/launcher_platform_linux.cpp)
+    add_executable(geometry_wars_retro_evolved_2 ${GW2_SOURCES})
+endif()
 
 rexglue_setup_target(geometry_wars_retro_evolved_2 GPU_PLUGINS xenos)
-target_link_libraries(geometry_wars_retro_evolved_2 PRIVATE trg::launcher bcrypt shcore)
+target_link_libraries(geometry_wars_retro_evolved_2 PRIVATE trg::launcher)
+if(WIN32)
+    target_link_libraries(geometry_wars_retro_evolved_2 PRIVATE bcrypt shcore)
+else()
+    # The SDK stages the runtime beside the program only on Windows and macOS; the RPATH is $ORIGIN.
+    add_custom_command(TARGET geometry_wars_retro_evolved_2 POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "$<TARGET_FILE:rex::runtime>"
+            "$<TARGET_FILE_DIR:geometry_wars_retro_evolved_2>"
+        VERBATIM
+    )
+endif()
 target_compile_definitions(geometry_wars_retro_evolved_2 PRIVATE
+    GW2_PORT_VERSION="${PROJECT_VERSION}"
     GW2_TRG_LAUNCHER_VERSION="${GW2_TRG_VERSION}")
 
 # The runtime reads its cvars from <exe dir>/geometry_wars_retro_evolved_2.toml.
@@ -65,3 +92,45 @@ add_custom_command(TARGET geometry_wars_retro_evolved_2 POST_BUILD
         "$<TARGET_FILE_DIR:geometry_wars_retro_evolved_2>"
     VERBATIM
 )
+
+# Unit tests need no game files and no ReXGlue runtime. They are not part of the default build:
+#   cmake --build <dir> --target gw2_tests
+# and the programs land in <dir>/tests. On Windows tools/test.ps1 builds and runs the same set.
+add_custom_target(gw2_tests)
+function(gw2_add_test name)
+    add_executable(${name} EXCLUDE_FROM_ALL tests/${name}.cpp ${ARGN})
+    target_include_directories(${name} PRIVATE src)
+    target_include_directories(${name} SYSTEM PRIVATE "${GW2_SDK_DIR}/include" "${_trg_dir}/include")
+    target_compile_options(${name} PRIVATE -Wall -Wextra)
+    target_compile_definitions(${name} PRIVATE _CRT_SECURE_NO_WARNINGS _SILENCE_ALL_CXX20_DEPRECATION_WARNINGS)
+    set_target_properties(${name} PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests")
+    if(NOT WIN32)
+        target_link_libraries(${name} PRIVATE Threads::Threads)
+    endif()
+    add_dependencies(gw2_tests ${name})
+endfunction()
+if(NOT WIN32)
+    find_package(Threads REQUIRED)
+endif()
+
+gw2_add_test(live_tests src/local_stats.cpp src/live_stats.cpp)
+gw2_add_test(achievements_overlay_rules_tests)
+gw2_add_test(launcher_tests src/game_files.cpp src/stfs.cpp src/launcher_achievements.cpp)
+gw2_add_test(window_host_tests)
+gw2_add_test(frame_counter_tests)
+gw2_add_test(frame_limiter_tests src/frame_wait.cpp)
+gw2_add_test(launcher_placement_tests)
+# TRG's settings and platform sources without its ImGui dependency; C++17 like the launcher library.
+add_library(gw2_trg_test_support STATIC EXCLUDE_FROM_ALL
+    "${_trg_dir}/src/settings.cpp" "${_trg_dir}/src/platform.cpp")
+target_include_directories(gw2_trg_test_support PUBLIC "${_trg_dir}/include")
+set_target_properties(gw2_trg_test_support PROPERTIES CXX_STANDARD 17)
+target_compile_definitions(gw2_trg_test_support PRIVATE _CRT_SECURE_NO_WARNINGS)
+gw2_add_test(launcher_settings_tests src/launcher_settings.cpp src/launcher_options.cpp)
+target_link_libraries(launcher_settings_tests PRIVATE gw2_trg_test_support)
+if(WIN32)
+    target_link_libraries(launcher_tests PRIVATE bcrypt)
+    target_link_libraries(gw2_trg_test_support PUBLIC shell32 ole32 comdlg32 winmm user32)
+else()
+    target_link_libraries(gw2_trg_test_support PUBLIC Threads::Threads)
+endif()

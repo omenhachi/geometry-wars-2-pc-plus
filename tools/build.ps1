@@ -9,18 +9,20 @@
   .\tools\build.ps1 -Clean       # clean configure and build
   .\tools\build.ps1 -Run         # build, then launch the game
   .\tools\build.ps1 -Clean -Run
+  .\tools\build.ps1 -Config Release -BuildDir build-release   # separate tree, used by package-release.ps1
 #>
 param(
     [switch]$Clean,
     [switch]$Run,
     [ValidateSet('Debug', 'RelWithDebInfo', 'Release')]
     [string]$Config = 'RelWithDebInfo',
-    [int]$Jobs = 0
+    [int]$Jobs = 0,
+    [string]$BuildDir  # relative to the repository root; default: build
 )
 $ErrorActionPreference = 'Stop'
 
 $Root = Split-Path $PSScriptRoot -Parent
-$BuildDir = Join-Path $Root 'build'
+$BuildDir = if (-not $BuildDir) { Join-Path $Root 'build' } elseif ([IO.Path]::IsPathRooted($BuildDir)) { $BuildDir } else { Join-Path $Root $BuildDir }
 $GameData = Join-Path $Root 'game\extracted'
 $UserData = Join-Path $BuildDir 'user_data'
 $Exe = Join-Path $BuildDir 'geometry_wars_retro_evolved_2.exe'

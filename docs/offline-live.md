@@ -82,7 +82,7 @@ Choosing Achievements in the game opens the achievements overlay: the 12 achieve
 
 ## Diagnostics
 
-Lines tagged `[DEBUG_SAULO][Live]`, `[Stats]`, `[Leaderboard]` and `[Achievement]` are logged when the services start, the sign-in is reported, a score is written and a leaderboard or the achievements screen is requested. Leaderboard, read and achievement lines stop after 32 per run. They are temporary.
+The log says once at startup whether the local Live services are on and whether the stats file was loaded, missing or corrupt. A warning is logged when a new best score could not be written to the file.
 
 ## Tests
 

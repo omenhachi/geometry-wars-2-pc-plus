@@ -33,13 +33,9 @@ Observed in the run logs (`build/logs/geometry_wars_retro_evolved_2_NNN.log`):
    - Fix: `setjmp_address = 0x82131CD0` and `longjmp_address = 0x82131890` in the manifest. The SDK supports these keys, and the Aegis Wing and GoldenEye reference projects use them.
    - After this fix the run passes the crash point, and the title screen renders.
 
-## Temporary diagnostics
+## Diagnostics
 
-DEBUG_SAULO diagnostics in the repository (remove during the final code review):
-
-- `src/debug_saulo_fault.cpp`: a vectored exception handler that logs guest-memory access violations to `build/logs/debug_saulo_fault.txt`. It logs the host RIP and RVA, the guest registers, the number of non-zero words in the stack window, and the host call frames inside the executable. It returns `EXCEPTION_CONTINUE_SEARCH` and does not change behaviour.
-
-Analysis aids used during this pass were kept outside the repository: a PowerPC probe for the decrypted image, and a page-level write trace on the guest stack that was removed after use.
+The temporary guest-fault locator used during this pass (a Windows vectored exception handler that wrote `debug_saulo_fault.txt`) was removed before the first release. Analysis aids were kept outside the repository: a PowerPC probe for the decrypted image, and a page-level write trace on the guest stack that was removed after use.
 
 ## Remaining blockers and known gaps
 

@@ -30,4 +30,4 @@ A saved profile, including a damaged one, is left alone. The game's own prompt s
 
 ## Diagnostics
 
-The hook logs `[DEBUG_SAULO][Save]` lines, at most eight per run: `0 saved title setting(s), 1 unsaved reported as default` on a first run, and `1 saved ... 0 unsaved ...` on later runs.
+The hook logs `Profile read:` lines, at most eight per run: `0 saved title setting(s), 1 unsaved reported as default` on a first run, and `1 saved ... 0 unsaved ...` on later runs.

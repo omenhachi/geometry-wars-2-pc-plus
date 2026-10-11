@@ -10,6 +10,7 @@
 #include <utility>
 #include <vector>
 
+#if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
@@ -18,6 +19,9 @@
 #endif
 #include <windows.h>
 #include <bcrypt.h>
+#else
+#include "sha256.h"
+#endif
 
 #include "stfs.h"
 
@@ -31,6 +35,17 @@ constexpr const char* kDataName = "Data.bin";
 constexpr uint64_t kSpaceMargin = 64ull << 20;
 constexpr int kRenameAttempts = 10;
 constexpr size_t kHashChunkBytes = 1u << 20;
+
+template <typename Bytes>
+std::string HexString(const Bytes& bytes) {
+  static constexpr char kDigits[] = "0123456789ABCDEF";
+  std::string hex;
+  for (const auto byte : bytes) {
+    hex.push_back(kDigits[byte >> 4]);
+    hex.push_back(kDigits[byte & 0xF]);
+  }
+  return hex;
+}
 
 // The antivirus scanner can hold a freshly written folder for a moment.
 bool RenameWithRetry(const std::filesystem::path& from, const std::filesystem::path& to) {
@@ -100,6 +115,8 @@ InstallStatus FromStfs(stfs::Status status) {
 
 }  // namespace
 
+#if defined(_WIN32)
+
 std::string Sha256Hex(const std::filesystem::path& file) {
   std::ifstream in(file, std::ios::binary);
   if (!in) {
@@ -137,14 +154,29 @@ std::string Sha256Hex(const std::filesystem::path& file) {
   if (!ok) {
     return {};
   }
-  static constexpr char kDigits[] = "0123456789ABCDEF";
-  std::string hex;
-  for (const UCHAR byte : digest) {
-    hex.push_back(kDigits[byte >> 4]);
-    hex.push_back(kDigits[byte & 0xF]);
-  }
-  return hex;
+  return HexString(digest);
 }
+
+#else
+
+std::string Sha256Hex(const std::filesystem::path& file) {
+  std::ifstream in(file, std::ios::binary);
+  if (!in) {
+    return {};
+  }
+  Sha256 hash;
+  std::vector<char> chunk(kHashChunkBytes);
+  while (in) {
+    in.read(chunk.data(), std::streamsize(chunk.size()));
+    hash.Update(chunk.data(), size_t(in.gcount()));
+  }
+  if (!in.eof()) {
+    return {};
+  }
+  return HexString(hash.Finish());
+}
+
+#endif
 
 GameCheck CheckGameFiles(const std::filesystem::path& game_dir, const GameFingerprint& expected) {
   GameCheck check;

@@ -27,7 +27,7 @@ A window restart skips the launcher once. The launcher is the only way to instal
 - **Pending edits** stay in the launcher until Save or PLAY. Nothing reaches the running game sooner.
 - **Apply** (PLAY): a changed setting is assigned to its cvar. ReXGlue reports the cvars that only take effect after a restart; if any changed, or the window needs a new size, monitor or VSync, the game starts again once in a new window (`--gw2_skip_launcher=true`) and the launcher skips itself.
 - **Reset all settings** (About) puts every launcher setting back to its shipped or default value, pending until Save or PLAY. It never touches the profile, scores, achievements or the stats file.
-- **Settings file** (About) saves the pending settings and shows the file in Explorer, or the data folder if the file does not exist yet.
+- **Settings file** (About) saves the pending settings and shows the file in Explorer (the file manager through `xdg-open` on Linux), or the data folder if the file does not exist yet.
 
 ## Display
 
@@ -36,7 +36,7 @@ A window restart skips the launcher once. The launcher is the only way to instal
 | Display mode | Windowed, Borderless Fullscreen | `fullscreen` |
 | Window size | 853×480, 1280×720, 1600×900, 1920×1080, filtered to the selected display at its scale; on-screen size shown when scaled | `window_width`, `window_height` |
 | Monitor | Display 1…N (primary marked), saved as the player's choice | `monitor` |
-| VSync | Off (tearing allowed), On | `d3d12_allow_variable_refresh_rate_and_tearing` (inverted) |
+| VSync | Off (tearing allowed), On | `d3d12_allow_variable_refresh_rate_and_tearing` on Windows, `vulkan_allow_present_mode_immediate` on Linux (inverted) |
 | Aspect ratio | Letterbox 16:9, Stretch | `present_letterbox` |
 
 Window size, monitor and VSync need a new window, so changing them restarts the game once when you press PLAY. The saved window size is the requested size; on a small display the window is shown at 90% of the work area and the saved value is kept.
@@ -93,11 +93,13 @@ Read-only, unchanged: the same `AchievementManager` and icon cache as the in-gam
 
 ## About
 
-Rows: Game files (Open game folder, when it exists), Saves and settings (Open data folder), Settings file, Reset all settings, Libraries (ReXGlue SDK 0.10.0, TRG Launcher 1.1.0), Game (title 584108FF, game version 0.0.1.2), and the repository as a line of text. The project has no port version constant, so no version row is shown.
+Rows: Game files (Open game folder, when it exists), Saves and settings (Open data folder), Settings file, Reset all settings, Port version (the `project()` VERSION in `CMakeLists.txt`, passed in as `GW2_PORT_VERSION`), Libraries (ReXGlue SDK 0.10.0, TRG Launcher 1.1.0), Game (title 584108FF, game version 0.0.1.2), and the repository as a line of text.
 
 ## Launcher window
 
 The launcher is drawn in the game's own window and remembers where that window is: the restored rectangle in screen pixels and whether it is maximized (`gw2_launcher_x`, `gw2_launcher_y`, `gw2_launcher_width`, `gw2_launcher_height`, `gw2_launcher_maximized` in the same player file). It is saved about half a second after a move, resize or maximize, and when the launcher closes, with no need to press Save. Maximizing keeps the restored rectangle, minimizing saves nothing, and Reset all settings leaves it alone. A saved window that is not visible on any display (monitor removed, resolution changed) is ignored and the normal placement is used. These keys are separate from the game's `window_width` and `window_height`, and the game starts in the window size it was created with, not the launcher's placement. Nothing is saved while the window is fullscreen.
+
+Windows hooks the window's first show to place it before anything is visible. Linux has no such hook: it places the window through SDL once the launcher exists, and under Wayland it cannot restore the position. See [linux.md](linux.md).
 
 ## Window and display scaling
 
@@ -106,7 +108,7 @@ The launcher is drawn in the game's own window and remembers where that window i
 
 ## Game files and install
 
-Unchanged from the first launcher phase. `CheckGameFiles` is the one readiness check: `default.xex` is the supported build (704,512 bytes, SHA-256 `6D5D9980A1D17DC74B9CCF540CEC16C2E144E7CEE3A74938E78C237B8ACEEB88`) and `Data.bin` exists. Install from package reads the Xbox 360 package (title `584108FF`, game content type `000D0000`), extracts into `game-install-temp`, verifies it, and swaps it in with the previous folder kept until the swap completes. Cancelling, a damaged package or a wrong version leaves the existing game intact. The game folder is `game` beside the executable; `tools\build.ps1 -Run` uses `game\extracted`, so Reinstall replaces that development copy.
+Unchanged from the first launcher phase. `CheckGameFiles` is the one readiness check: `default.xex` is the supported build (704,512 bytes, SHA-256 `6D5D9980A1D17DC74B9CCF540CEC16C2E144E7CEE3A74938E78C237B8ACEEB88`) and `Data.bin` exists. Install from package reads the Xbox 360 package (title `584108FF`, game content type `000D0000`), extracts into `game-install-temp`, verifies it, and swaps it in with the previous folder kept until the swap completes. Cancelling, a damaged package or a wrong version leaves the existing game intact. The game folder is `game` beside the executable (beside the AppImage on Linux); `tools\build.ps1 -Run` uses `game\extracted`, so Reinstall replaces that development copy.
 
 ## Dependency
 
@@ -120,7 +122,7 @@ TRG Launcher is the `third_party/trg-launcher` submodule pinned to `b384a28` (ve
 
 ## Tests
 
-`tools\test.ps1` builds and runs the focused suites with synthetic data and temporary folders: the live services, the achievement overlay rules, the launcher, the window title, the frame counter, the frame limiter and time step, the launcher window placement and the launcher settings. `launcher_tests.cpp` covers the game-file states, SHA-256, package parsing and path rejection, install success and failure, cancel, damaged reinstall, foreign folders, user data left untouched, the window fit and the achievement summary. `launcher_settings_tests.cpp` covers saving only changed keys, the PLAY gate (one save per request, failed save prevents start), apply and restart needs, window-change detection, F11 persistence, reset isolation, the Display, Graphics and Controls values and labels, shipped-default reading, and the page order. `window_host_tests.cpp` covers the title format and the one-second frame-rate sampler, with synthetic time. `frame_counter_tests.cpp` covers the counter's text and when it is drawn. `frame_limiter_tests.cpp` covers the frame periods, the limiter schedule and resync, the pacing policy and the time step. `launcher_placement_tests.cpp` covers the saved window placement, maximize and restore, off-screen recovery and the pre-show plan.
+`tools\test.ps1` builds and runs the focused suites with synthetic data and temporary folders: the live services, the achievement overlay rules, the launcher, the window title, the frame counter, the frame limiter and time step, the launcher window placement and the launcher settings. `launcher_tests.cpp` covers the game-file states, SHA-256, package parsing and path rejection, install success and failure, cancel, damaged reinstall, foreign folders, user data left untouched, the window fit and the achievement summary. `launcher_settings_tests.cpp` covers saving only changed keys, the PLAY gate (one save per request, failed save prevents start), apply and restart needs, window-change detection, F11 persistence, reset isolation, the Display, Graphics and Controls values and labels, shipped-default reading, and the page order. `window_host_tests.cpp` covers the title format and the one-second frame-rate sampler, with synthetic time. `frame_counter_tests.cpp` covers the counter's text and when it is drawn. `frame_limiter_tests.cpp` covers the frame periods, the limiter schedule and resync, the pacing policy, the time step and that the wait reaches its deadline. `launcher_placement_tests.cpp` covers the saved window placement, maximize and restore, off-screen recovery and the pre-show plan.
 
 ## Manual test
 

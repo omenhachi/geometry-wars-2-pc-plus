@@ -12,8 +12,6 @@
 #include <rex/ui/overlay/debug_overlay.h>
 #include <rex/ui/windowed_app_context.h>
 
-#include "trg/platform.h"
-
 #include "achievements_overlay.h"
 #include "frame_counter.h"
 #include "game_files.h"
@@ -40,10 +38,21 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
 
  protected:
   void OnConfigurePaths(rex::PathConfig& paths) override {
+    const std::filesystem::path port_folder = gw2::PortFolder();
     if (paths.game_data_root.empty()) {
-      paths.game_data_root = rex::filesystem::GetExecutableFolder() / "game";
+      paths.game_data_root = port_folder / "game";
     }
     shipped_config_ = paths.config_path;
+    // ReXGlue writes its logs beside the executable, which is read-only inside an AppImage.
+    if (port_folder != rex::filesystem::GetExecutableFolder() && rex::cvar::GetFlagByName("log_file").empty()) {
+      for (const auto& logs : {port_folder / "logs", paths.user_data_root / "logs"}) {
+        if (const std::filesystem::path file = gw2::NextLogFile(logs, "geometry_wars_retro_evolved_2");
+            !file.empty()) {
+          rex::cvar::SetFlagByName("log_file", gw2::Utf8(file));
+          break;
+        }
+      }
+    }
   }
 
   void OnPostInitLogging() override { gw2::LoadPlayerSettings(gw2::LauncherSettingsPath(user_data_root())); }
@@ -64,7 +73,7 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
   void PlaceLauncherWindow() {
     const bool game_ready = gw2::CheckGameFiles(game_data_root()).state == gw2::GameFileState::kValid;
     if (rex::cvar::GetFlagByName("fullscreen") == "true" ||
-        !gw2::LauncherWanted(game_ready, gw2::ShowLauncherSetting(*settings_), trg::ShiftHeld(),
+        !gw2::LauncherWanted(game_ready, gw2::ShowLauncherSetting(*settings_), gw2::ShiftHeld(),
                              REXCVAR_GET(gw2_skip_launcher))) {
       return;
     }
@@ -89,7 +98,7 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
     gw2::AttachWindowHost(window(), app_context(), [this] { ToggleWindowMode(); });
     settings_->CaptureLateRegistered();
     const bool game_ready = gw2::CheckGameFiles(defaults.game_data_root).state == gw2::GameFileState::kValid;
-    const bool show = gw2::LauncherWanted(game_ready, gw2::ShowLauncherSetting(*settings_), trg::ShiftHeld(),
+    const bool show = gw2::LauncherWanted(game_ready, gw2::ShowLauncherSetting(*settings_), gw2::ShiftHeld(),
                                           gw2::TakeSkipLauncher());
     if (!show || !imgui_drawer()) {
       return defaults;

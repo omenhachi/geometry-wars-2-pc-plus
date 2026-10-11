@@ -12,6 +12,7 @@
 #include <utility>
 #include <vector>
 
+#if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
@@ -19,6 +20,7 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+#endif
 
 #include "game_files.h"
 #include "launcher_achievements.h"
@@ -250,6 +252,7 @@ void TestGameFiles() {
   CHECK(different.state == GameFileState::kDifferentVersion);
   CHECK(different.xex_sha256 != kAbcSha256);
 
+#if defined(_WIN32)
   const fs::path locked = FreshDir("game_locked");
   MakeInstalledGame(locked);
   HANDLE lock = CreateFileW((locked / "default.xex").c_str(), GENERIC_READ, 0, nullptr, OPEN_EXISTING,
@@ -259,6 +262,7 @@ void TestGameFiles() {
   if (lock != INVALID_HANDLE_VALUE) {
     CloseHandle(lock);
   }
+#endif
 
   CHECK(kSupportedGame.xex_size == 704512);
   CHECK(kSupportedGame.xex_sha256 == "6D5D9980A1D17DC74B9CCF540CEC16C2E144E7CEE3A74938E78C237B8ACEEB88");
@@ -469,11 +473,26 @@ void TestAchievementModel() {
   CHECK(AchievementDescription(no_locked_text) == "Second earned");
 }
 
+void TestLogFiles() {
+  Section("log files");
+  const fs::path dir = FreshDir("logs") / "nested";
+  CHECK(NextLogFile(dir, "gw2") == dir / "gw2_001.log");
+  CHECK(fs::is_directory(dir));
+  WriteFile(dir / "gw2_001.log", Text("a"));
+  WriteFile(dir / "gw2_007.log", Text("b"));
+  WriteFile(dir / "other_099.log", Text("c"));
+  WriteFile(dir / "gw2_008.txt", Text("d"));
+  CHECK(NextLogFile(dir, "gw2") == dir / "gw2_008.log");
+  WriteFile(kRoot / "not_a_folder", Text("x"));
+  CHECK(NextLogFile(kRoot / "not_a_folder", "gw2").empty());
+}
+
 }  // namespace
 
 int main() {
   std::error_code ec;
   fs::remove_all(kRoot, ec);
+  TestLogFiles();
   TestSha256();
   TestGameFiles();
   TestStfsParsing();

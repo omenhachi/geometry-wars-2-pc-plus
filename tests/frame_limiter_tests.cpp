@@ -1,5 +1,5 @@
 // Frame limiter tests: the period of each rate, the schedule with a synthetic clock, resynchronisation and the
-// high-frame-rate rules. The wait itself needs the OS and is not covered.
+// high-frame-rate rules, and that the wait reaches its deadline.
 
 #include <chrono>
 #include <cmath>
@@ -150,9 +150,24 @@ void TestTransitions() {
   CHECK(Near(duration<double, std::milli>(*thirty - kStart).count(), 10 + 33.333));
 }
 
+void TestWait() {
+  Section("wait until");
+  using std::chrono::milliseconds;
+  const auto start = LimiterClock::now();
+  const auto deadline = start + milliseconds(20);
+  WaitUntil(deadline);
+  const auto reached = LimiterClock::now();
+  CHECK(reached >= deadline);
+  CHECK(reached - deadline < milliseconds(100));
+  const auto before = LimiterClock::now();
+  WaitUntil(before - milliseconds(5));
+  CHECK(LimiterClock::now() - before < milliseconds(5));
+}
+
 }  // namespace
 
 int main() {
+  TestWait();
   TestPeriods();
   TestChoices();
   TestPacingPolicy();

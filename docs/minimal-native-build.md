@@ -12,7 +12,6 @@ The build turns the user's own `default.xex` into a native Windows x64 executabl
 | `config/geometry_wars_retro_evolved_2.toml` | yes | Runtime cvars, copied next to the executable |
 | `CMakeLists.txt` | yes | Executable target, ReXGlue setup, cvar copy |
 | `src/main.cpp`, `src/geometry_wars_retro_evolved_2_app.h` | yes | Application class and entry point |
-| `src/debug_saulo_fault.cpp` | yes, temporary | DEBUG_SAULO guest-fault locator |
 | `tools/codegen.ps1`, `tools/build.ps1` | yes | Pinned SDK, codegen, build and `-Run` |
 | `tools/extract_stfs.ps1`, `tools/StfsExtract.cs` | yes | Package extraction with a title-ID check |
 | `tools/dump_image/` | yes | Analysis tool that writes the decompressed image |
