@@ -1,0 +1,40 @@
+{
+  "$schema": "https://recomp.fyi/schema/v1.json",
+  "game": "Geometry Wars: Retro Evolved 2",
+  "system": "Xbox 360",
+  "type": "recomp",
+  "original": {
+    "revision": "0.0.1.2"
+  },
+  "project": "Geometry Wars: Retro Evolved 2 PC Port",
+  "status": "released",
+  "targets": [
+    "Windows",
+    "Linux",
+    "Steam Deck"
+  ],
+  "toolchain": "Rexglue",
+  "approach": "Static recompilation of the Xbox 360 XBLA version to native PC code using ReXGlue",
+  "maintainers": [
+    {
+      "name": "saulob",
+      "link": "https://github.com/saulob"
+    }
+  ],
+  "links": [
+    {
+      "label": "GitHub release",
+      "url": "https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled/releases/tag/v0.1.0"
+    },
+    {
+      "label": "Reddit announcement",
+      "url": "https://www.reddit.com/r/recomps/comments/1x3kv7a/geometry_wars_retro_evolved_2_recompiled_for_pc/"
+    }
+  ],
+  "tags": [
+    "XBLA",
+    "launcher",
+    "high-fps"
+  ],
+  "notes": "Public native PC release with Windows and experimental Linux/Steam Deck builds, TRG launcher, rendering up to 4x resolution, high frame rate support, local profile and score persistence, offline leaderboards and achievements"
+}
