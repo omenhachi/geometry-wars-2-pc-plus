@@ -7,7 +7,7 @@
     "revision": "0.0.1.2"
   },
   "project": "Geometry Wars: Retro Evolved 2 PC Port",
-  "status": "playable",
+  "status": "released",
   "targets": [
     "Windows",
     "Linux",
@@ -21,9 +21,20 @@
       "link": "https://github.com/saulob"
     }
   ],
+  "links": [
+    {
+      "label": "Latest release",
+      "url": "https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled/releases/latest"
+    },
+    {
+      "label": "Reddit announcement",
+      "url": "https://www.reddit.com/r/recomps/comments/1x3kv7a/geometry_wars_retro_evolved_2_recompiled_for_pc/"
+    }
+  ],
   "tags": [
     "XBLA",
-    "launcher"
+    "launcher",
+    "high-fps"
   ],
-  "notes": "Native Windows build with the TRG launcher, high frame rates, local achievements and offline leaderboards. Cheats with an in-game menu, portable user data and launcher window state persistence. Experimental Linux/Steam Deck AppImage, not yet tested on real hardware"
+  "notes": "Public native Windows release with an experimental Linux/Steam Deck AppImage (not yet tested on real hardware). TRG launcher, high frame rates, rendering up to 4x resolution, local profile and progression, offline scores, leaderboards and achievements, cheats with an in-game menu, and portable user data"
 }
