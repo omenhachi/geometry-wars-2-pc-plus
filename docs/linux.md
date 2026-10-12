@@ -107,7 +107,8 @@ Ubuntu 22.04, clang 20 comes from [apt.llvm.org](https://apt.llvm.org) and the G
 ships 3.22.
 
 The script copies the sources to `~/gw2-linux-build` (set `GW2_WORK` to change it), downloads the pinned ReXGlue
-SDK, appimagetool and AppImage runtime with their SHA-256 checks, builds the `linux-amd64-release` preset, checks
+SDK, appimagetool and AppImage runtime with their SHA-256 checks, builds the patched ReXGlue runtime from source the first
+time (git and network access; see [rexglue-runtime-patch.md](rexglue-runtime-patch.md)), builds the `linux-amd64-release` preset, checks
 that the AppDir holds no game files, packages, saves, logs or local paths, and writes
 `dist/GeometryWarsRetroEvolved2-v<version>-linux-x86_64.AppImage` with its `.sha256`. The version is the
 `project()` VERSION in `CMakeLists.txt`. The script publishes nothing, and the game's `default.xex` only enters the

@@ -1,7 +1,7 @@
 # SDK boilerplate lives in generated/rexglue.cmake.
 
 cmake_minimum_required(VERSION 3.25)
-project(geometry_wars_retro_evolved_2 VERSION 0.2.0 LANGUAGES C CXX)
+project(geometry_wars_retro_evolved_2 VERSION 0.2.1 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -145,4 +145,17 @@ if(WIN32)
     target_link_libraries(gw2_trg_test_support PUBLIC shell32 ole32 comdlg32 winmm user32)
 else()
     target_link_libraries(gw2_trg_test_support PUBLIC Threads::Threads)
+endif()
+
+# Allocator stress test, not part of the default build: cmake --build <dir> --target gw2_physical_heap_stress
+add_executable(gw2_physical_heap_stress EXCLUDE_FROM_ALL tests/physical_heap_stress.cpp)
+target_link_libraries(gw2_physical_heap_stress PRIVATE rex::runtime)
+add_custom_command(TARGET gw2_physical_heap_stress POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "$<TARGET_FILE:rex::runtime>"
+        "$<TARGET_FILE_DIR:gw2_physical_heap_stress>"
+    VERBATIM
+)
+if(NOT WIN32)
+    set_target_properties(gw2_physical_heap_stress PROPERTIES BUILD_RPATH "$ORIGIN")
 endif()

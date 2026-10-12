@@ -3,7 +3,9 @@ THIRD-PARTY LICENSES
 
 Geometry Wars: Retro Evolved 2 PC port includes the components below, with ReXGlue SDK 0.10.0
 (https://github.com/rexglue/rexglue-sdk, tag v0.10.0), whose license is in ReXGlue-LICENSE.txt.
-rexruntime.dll and rexgpu-xenos.dll are the unmodified Windows release DLLs of ReXGlue SDK 0.10.0.
+rexgpu-xenos.dll is the unmodified Windows release DLL of ReXGlue SDK 0.10.0. rexruntime.dll is built from the
+unmodified ReXGlue SDK 0.10.0 source with one patch to PhysicalHeap::Release (patches/rexglue-sdk in the
+project repository).
 Commits are the versions that ReXGlue SDK 0.10.0 pins.
 
 
