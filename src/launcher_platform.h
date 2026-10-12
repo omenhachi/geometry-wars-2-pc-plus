@@ -124,7 +124,7 @@ struct UiFontFiles {
 };
 UiFontFiles FindUiFonts();
 
-// Feeds a game controller to Dear ImGui while the launcher is open.
+// Feeds a game controller to Dear ImGui while the launcher or the in-game cheat menu is open.
 class LauncherGamepad {
  public:
   void Update(ImGuiIO& io);

@@ -26,10 +26,10 @@ inline constexpr WindowSize kWindowSizes[] = {{853, 480}, {1280, 720}, {1600, 90
 inline constexpr int kPresentedWidth = 1280;
 inline constexpr int kPresentedHeight = 720;
 
-enum class PageId { kPlay, kDisplay, kGraphics, kGameplay, kControls, kAchievements, kAbout };
+enum class PageId { kPlay, kDisplay, kGraphics, kGameplay, kCheats, kControls, kAchievements, kAbout };
 
-inline constexpr PageId kPageOrder[] = {PageId::kPlay,      PageId::kDisplay,  PageId::kGraphics, PageId::kGameplay,
-                                        PageId::kControls,  PageId::kAchievements, PageId::kAbout};
+inline constexpr PageId kPageOrder[] = {PageId::kPlay,   PageId::kDisplay,  PageId::kGraphics,     PageId::kGameplay,
+                                        PageId::kCheats, PageId::kControls, PageId::kAchievements, PageId::kAbout};
 
 std::string_view PageName(PageId page);
 

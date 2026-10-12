@@ -24,6 +24,7 @@
 #include "trg/launcher.h"
 #include "trg/platform.h"
 
+#include "cheats.h"
 #include "frame_limiter.h"
 #include "game_files.h"
 #include "launcher_achievements.h"
@@ -51,6 +52,8 @@ constexpr char kShowFpsHelp[] =
 constexpr char kFrameRateHelp[] =
     "Controls the game's frame-rate limit. 60 matches the original game.";
 constexpr char kFrameCounterHelp[] = "Shows the game's frame rate in the corner. F2 toggles it while playing.";
+constexpr char kCheatsHelp[] =
+    "Press F10 while playing to open the Cheats menu. Changes made there apply only to the current session.";
 
 trg::Theme LauncherTheme() {
   return trg::Theme::Midnight().WithAccent(kAccent);
@@ -367,6 +370,8 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
                 [this](trg::Ui& ui) { PageGameplay(ui); }, nullptr};
       case PageId::kControls:
         return {name, "Controller and keyboard.", [this](trg::Ui& ui) { PageControls(ui); }, nullptr};
+      case PageId::kCheats:
+        return {name, "Optional gameplay modifiers", [this](trg::Ui& ui) { PageCheats(ui); }, nullptr};
       case PageId::kAchievements:
         return {name, "Your achievements on this PC.", [this](trg::Ui& ui) { PageAchievements(ui); }, nullptr};
       case PageId::kAbout:
@@ -490,6 +495,14 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
           ui.Info(entry.description.c_str(), KeyList(entry.getter()).c_str());
         }
       }
+    }
+  }
+
+  void PageCheats(trg::Ui& ui) {
+    ui.Help(kCheatsHelp);
+    ui.Spacer(8);
+    for (const cheats::CheatInfo& cheat : cheats::kCheats) {
+      ui.Toggle(cheat.label, cheat.description, cheat.key, cheats::kCheatDefault, "Off", "On");
     }
   }
 
@@ -678,6 +691,18 @@ void LoadLauncherFonts(ImFontAtlas* atlas, float density) {
   g_fonts.regular = load(fonts.regular);
   g_fonts.semibold = load(fonts.semibold);
   g_fonts.bold = load(fonts.bold);
+}
+
+ImFont* LauncherRegularFont() {
+  return g_fonts.regular;
+}
+
+ImFont* LauncherSemiboldFont() {
+  return g_fonts.semibold;
+}
+
+ImVec4 LauncherAccent() {
+  return kAccent;
 }
 
 void ShowLauncher(rex::ui::ImGuiDrawer* drawer, LauncherPaths paths, GameSettings& settings,

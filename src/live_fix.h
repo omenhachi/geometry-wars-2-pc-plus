@@ -26,6 +26,10 @@ void Install(InstallParams params);
 // the overlay without the game seeing that press.
 void SetAchievementsModal(bool modal);
 
+// Whether the achievements gate needs the game's input unfiltered: the overlay is up, or the B that closed it is still
+// held. Safe to read from any thread.
+bool AchievementsHoldInput();
+
 // Left stick or D-pad direction read from the game's controller while the overlay is up: -1 up .. 1 down.
 float AchievementsScrollAxis();
 

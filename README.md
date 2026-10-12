@@ -91,6 +91,13 @@ Window size, monitor and VSync take effect when you press **PLAY**. If one diffe
 - **Frame rate in title**: shows the frame rate in the window title, for example `Geometry Wars: Retro Evolved 2 | FPS: 60.00`
 - **Frame counter**: shows the frame rate in the corner of the window. Press **F2** while playing to show or hide it.
 
+### Cheats
+- **Invincible**: the player cannot die. A shield or the short protection after a bomb still works as usual.
+- **Infinite Shield**: keeps the player's shield active.
+- **Infinite Bombs**: bombs are not used up when fired. It does not add bombs you do not have.
+
+All three are Off by default and take effect when you press **PLAY**. Press **F10** while playing to open the Cheats menu and change them for the current session only; the launcher's saved values are not changed. Scores, leaderboards and achievements work as usual with cheats on.
+
 ### Controls
 - Xbox controllers work without setup
 - **Keyboard**: enabled or disabled. When enabled, the keyboard and mouse emulate the controller, and the keys are listed on the page.
@@ -149,6 +156,7 @@ How the launcher, settings and installer work is described in [docs/launcher.md]
 - [First boot](docs/first-boot.md)
 - [Offline profile and save](docs/offline-profile.md)
 - [Offline Xbox Live services](docs/offline-live.md)
+- [Cheats](docs/cheats.md)
 - [Saves and settings: the portable user_data folder](docs/user-data.md)
 - [Linux and Steam Deck](docs/linux.md)
 

@@ -11,6 +11,7 @@
 
 #include <toml++/toml.hpp>
 
+#include "cheats.h"
 #include "launcher_platform.h"
 #include "trg/settings.h"
 
@@ -33,6 +34,9 @@ constexpr ManagedSetting kManagedSettings[] = {
     {kFrameRateKey, ValueKind::kInt},
     {kShowFpsKey, ValueKind::kBool},
     {kShowFrameCounterKey, ValueKind::kBool},
+    {cheats::kInvincibleKey, ValueKind::kBool},
+    {cheats::kInfiniteShieldKey, ValueKind::kBool},
+    {cheats::kInfiniteBombsKey, ValueKind::kBool},
     {kLauncherXKey, ValueKind::kInt},
     {kLauncherYKey, ValueKind::kInt},
     {kLauncherWidthKey, ValueKind::kInt},

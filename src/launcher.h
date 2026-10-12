@@ -5,7 +5,9 @@
 
 #include "user_data.h"
 
+struct ImFont;
 struct ImFontAtlas;
+struct ImVec4;
 
 namespace rex {
 class Runtime;
@@ -23,6 +25,11 @@ namespace gw2 {
 class GameSettings;
 
 void LoadLauncherFonts(ImFontAtlas* atlas, float density);
+
+// The launcher's UI fonts and accent, also used by the in-game cheat menu. The fonts are null when the system has none.
+ImFont* LauncherRegularFont();
+ImFont* LauncherSemiboldFont();
+ImVec4 LauncherAccent();
 
 struct LauncherPaths {
   std::filesystem::path game_dir;

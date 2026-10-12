@@ -14,6 +14,7 @@
 #include <utility>
 #include <vector>
 
+#include "cheats.h"
 #include "frame_limiter.h"
 #include "launcher_options.h"
 #include "launcher_play.h"
@@ -122,6 +123,9 @@ void RegisterGameDefaults(FakeCvars& cvars) {
   cvars.Register(kLauncherMaximizedKey, "false");
   cvars.Register(kShowFpsKey, kShowFpsDefault ? "true" : "false");
   cvars.Register(kShowFrameCounterKey, kShowFrameCounterDefault ? "true" : "false");
+  for (const cheats::CheatInfo& cheat : cheats::kCheats) {
+    cvars.Register(cheat.key, cheats::kCheatDefault ? "true" : "false");
+  }
 }
 
 void TestShippedValues() {
@@ -393,14 +397,15 @@ void TestGraphicsOptions() {
 
 void TestPagesAndKeyList() {
   Section("pages and key list");
-  CHECK(std::size(kPageOrder) == 7);
+  CHECK(std::size(kPageOrder) == 8);
   CHECK(PageName(kPageOrder[0]) == "Play");
   CHECK(PageName(kPageOrder[1]) == "Display");
   CHECK(PageName(kPageOrder[2]) == "Graphics");
   CHECK(PageName(kPageOrder[3]) == "Gameplay");
-  CHECK(PageName(kPageOrder[4]) == "Controls");
-  CHECK(PageName(kPageOrder[5]) == "Achievements");
-  CHECK(PageName(kPageOrder[6]) == "About");
+  CHECK(PageName(kPageOrder[4]) == "Cheats");
+  CHECK(PageName(kPageOrder[5]) == "Controls");
+  CHECK(PageName(kPageOrder[6]) == "Achievements");
+  CHECK(PageName(kPageOrder[7]) == "About");
   CHECK(KeyList("Semicolon,Space") == "Semicolon or Space");
   CHECK(KeyList("") == "None");
 }
@@ -583,6 +588,113 @@ void TestLauncherPlacementSettings() {
   CHECK(settings.Get(kShowFpsKey) == "true");
 }
 
+void TestCheatSettings() {
+  Section("cheat settings");
+  int cheat_keys = 0;
+  for (const ManagedSetting& setting : ManagedSettings()) {
+    if (setting.key.starts_with("gw2_cheat_")) {
+      ++cheat_keys;
+      CHECK(setting.kind == ValueKind::kBool);
+      CHECK(!IsWindowSetting(setting.key));
+      CHECK(!IsLauncherPlacementSetting(setting.key));
+    }
+  }
+  CHECK(cheat_keys == 3);
+  for (const cheats::CheatInfo& cheat : cheats::kCheats) {
+    bool managed = false;
+    for (const ManagedSetting& setting : ManagedSettings()) {
+      managed = managed || setting.key == cheat.key;
+    }
+    CHECK(managed);
+  }
+
+  const fs::path dir = FreshDir("cheats");
+  const fs::path file = LauncherSettingsPath(dir);
+  FakeCvars cvars;
+  RegisterGameDefaults(cvars);
+  GameSettings settings(cvars, file, dir / "missing.toml");
+  settings.Capture();
+  settings.MarkWindowCreated();
+  for (const cheats::CheatInfo& cheat : cheats::kCheats) {
+    CHECK(settings.Get(cheat.key) == "false");
+    CHECK(!settings.GetBool(cheat.key, true));
+  }
+
+  settings.Set(cheats::kInfiniteShieldKey, "true");
+  CHECK(settings.GetBool(cheats::kInfiniteShieldKey, false));
+  CHECK(!settings.GetBool(cheats::kInvincibleKey, true));
+  CHECK(!settings.GetBool(cheats::kInfiniteBombsKey, true));
+  CHECK(!settings.WindowChanged());
+
+  CHECK(settings.Save());
+  CHECK(cvars.assigns == 0);
+  const std::string text = ReadText(file);
+  CHECK(text.find("gw2_cheat_infinite_shield = true") != std::string::npos);
+  CHECK(text.find("gw2_cheat_invincible") == std::string::npos);
+  CHECK(text.find("gw2_cheat_infinite_bombs") == std::string::npos);
+
+  CHECK(!settings.Apply());
+  CHECK(cvars.values[cheats::kInfiniteShieldKey] == "true");
+  CHECK(cvars.values[cheats::kInvincibleKey] == "false");
+  CHECK(cvars.assigns == 1);
+
+  const Values stored = ReadSettingsValues(file);
+  CHECK(stored.at(cheats::kInfiniteShieldKey) == "true");
+  CHECK(stored.find(cheats::kInvincibleKey) == stored.end());
+  FakeCvars restarted;
+  RegisterGameDefaults(restarted);
+  for (const auto& [key, value] : stored) {
+    if (restarted.IsRegistered(key)) {
+      restarted.values[key] = value;
+    }
+  }
+  GameSettings reloaded(restarted, file, dir / "missing.toml");
+  reloaded.Capture();
+  CHECK(reloaded.GetBool(cheats::kInfiniteShieldKey, false));
+  CHECK(!reloaded.GetBool(cheats::kInvincibleKey, true));
+  CHECK(!reloaded.GetBool(cheats::kInfiniteBombsKey, true));
+
+  settings.Set(cheats::kInvincibleKey, "true");
+  settings.Set(cheats::kInfiniteBombsKey, "true");
+  CHECK(settings.Save());
+  settings.ResetToDefaults();
+  for (const cheats::CheatInfo& cheat : cheats::kCheats) {
+    CHECK(settings.Get(cheat.key) == "false");
+  }
+  CHECK(settings.Save());
+  const std::string reset = ReadText(file);
+  CHECK(reset.find("gw2_cheat_invincible = false") != std::string::npos);
+  CHECK(reset.find("gw2_cheat_infinite_shield = false") != std::string::npos);
+  CHECK(reset.find("gw2_cheat_infinite_bombs = false") != std::string::npos);
+  CHECK(reset.find("= true") == std::string::npos);
+}
+
+void TestUnregisteredCheatIsRejected() {
+  Section("unregistered cheat key");
+  const fs::path dir = FreshDir("cheats_unregistered");
+  const fs::path file = LauncherSettingsPath(dir);
+  FakeCvars cvars;
+  RegisterGameDefaults(cvars);
+  GameSettings settings(cvars, file, dir / "missing.toml");
+  settings.Capture();
+  settings.Set("gw2_cheat_god_mode", "true");
+  CHECK(!settings.Save());
+  CHECK(!settings.SaveNow("gw2_cheat_unknown", "true"));
+  CHECK(!fs::exists(file));
+
+  for (const ManagedSetting& setting : ManagedSettings()) {
+    CHECK(setting.key != "gw2_cheat_god_mode");
+    CHECK(setting.key != "gw2_cheat_unknown");
+  }
+
+  cvars.registered.erase(cheats::kInfiniteBombsKey);
+  GameSettings missing(cvars, file, dir / "missing.toml");
+  missing.Capture();
+  missing.Set(cheats::kInfiniteBombsKey, "true");
+  CHECK(!missing.Save());
+  CHECK(!fs::exists(file));
+}
+
 void TestSettingsFollowTheUserDataRoot() {
   Section("settings and launcher placement are written below the user data root");
   const fs::path dir = FreshDir("user_data_root");
@@ -631,6 +743,8 @@ int main() {
   TestFrameCounterSetting();
   TestFrameLimitSetting();
   TestLauncherPlacementSettings();
+  TestCheatSettings();
+  TestUnregisteredCheatIsRejected();
   TestSettingsFollowTheUserDataRoot();
   fs::remove_all(kRoot, ec);
   std::printf("%d checks, %d failures\n", g_checks, g_failures);

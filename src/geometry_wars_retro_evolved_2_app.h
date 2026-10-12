@@ -6,6 +6,7 @@
 #include <optional>
 
 #include <rex/filesystem.h>
+#include <rex/input/input_system.h>
 #include <rex/logging.h>
 #include <rex/rex_app.h>
 #include <rex/runtime.h>
@@ -14,6 +15,7 @@
 #include <rex/ui/windowed_app_context.h>
 
 #include "achievements_overlay.h"
+#include "cheat_menu.h"
 #include "frame_counter.h"
 #include "game_files.h"
 #include "launcher.h"
@@ -139,7 +141,7 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
 
   void LaunchModule() override {
     if (!show_launcher_after_runtime_) {
-      ReXApp::LaunchModule();
+      StartGame();
       return;
     }
     show_launcher_after_runtime_ = false;
@@ -148,7 +150,7 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
                       {runtime(), immediate_drawer(), &achievements()},
                       {.play = [this] {
                          launcher_open_ = false;
-                         ReXApp::LaunchModule();
+                         StartGame();
                        },
                        .restart = [this] { return RestartInNewWindow(); },
                        .quit = [this] {
@@ -174,6 +176,7 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
   }
 
   void OnShutdown() override {
+    gw2::DetachCheatMenu();
     gw2::DetachWindowHost();
     CloseAchievements();
   }
@@ -204,6 +207,23 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
     }
   }
 
+  // The cheat menu exists only once the game starts, so F10 does nothing over the launcher or the installer.
+  void StartGame() {
+    InstallCheatMenu();
+    ReXApp::LaunchModule();
+  }
+
+  void InstallCheatMenu() {
+    if (!window() || !imgui_drawer()) {
+      return;
+    }
+    gw2::AttachCheatMenu(window(), imgui_drawer(), [this] { return !achievements_; });
+    // Replaces ReXApp's own callback, which the menu's version repeats.
+    if (auto* input = static_cast<rex::input::InputSystem*>(runtime()->input_system())) {
+      input->SetActiveCallback(gw2::GameInputActive);
+    }
+  }
+
   bool RestartInNewWindow() {
     if (!gw2::RelaunchSelf(L"--gw2_skip_launcher=true")) {
       return false;
@@ -222,7 +242,8 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
   }
 
   void OpenAchievements() {
-    if (achievements_ || !runtime() || !runtime()->kernel_state() || !imgui_drawer() || !immediate_drawer()) return;
+    if (achievements_ || gw2::CheatMenuOpen() || !runtime() || !runtime()->kernel_state() || !imgui_drawer() ||
+        !immediate_drawer()) return;
     achievements_ = std::make_unique<gw2::AchievementsOverlay>(
         imgui_drawer(), immediate_drawer(), runtime(), &achievements(),
         gw2::AchievementsOverlay::Controls{

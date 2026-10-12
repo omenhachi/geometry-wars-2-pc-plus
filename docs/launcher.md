@@ -1,6 +1,6 @@
 # Launcher
 
-The PC launcher is [TRG Launcher](https://github.com/TekRantGaming/trg-launcher), drawn inside the game's own ReXGlue window and Dear ImGui frame. Pages: Play, Display, Graphics, Gameplay, Controls, Achievements and About.
+The PC launcher is [TRG Launcher](https://github.com/TekRantGaming/trg-launcher), drawn inside the game's own ReXGlue window and Dear ImGui frame. Pages: Play, Display, Graphics, Gameplay, Cheats, Controls, Achievements and About.
 
 ## Startup
 
@@ -81,6 +81,24 @@ Frame rate is the game's frame-rate limit and applies on PLAY without a restart.
 
 Presenter VSync can still cap the rate. Frame counts the game keeps, such as the last-seconds tick of Deadline, are not adjusted.
 
+## Cheats
+
+| Setting | Values | Cvar | Description |
+| --- | --- | --- | --- |
+| Invincible | Off, On (default Off) | `gw2_cheat_invincible` | Prevents the player from dying |
+| Infinite Shield | Off, On (default Off) | `gw2_cheat_infinite_shield` | Keeps the player's protective shield active |
+| Infinite Bombs | Off, On (default Off) | `gw2_cheat_infinite_bombs` | Bombs are not consumed when used |
+
+The game side of each cheat is in [cheats.md](cheats.md).
+
+- The names, cvars and descriptions live once, in `src/cheats.h` (`kCheats`). The launcher page, the in-game menu and `ManagedSettings()` are all built from that list.
+- The cheats are ordinary hot launcher settings: PLAY applies them without a restart, Save keeps them, Reset all settings puts them back to Off. They do not turn off scores, leaderboards, achievements, progression or profile saves.
+- Game code reads `gw2::cheats::Enabled`, which is the saved launcher value unless the in-game menu overrode it in this session.
+- **F10** opens and closes the in-game cheat menu: CHEATS, the three rows, a separator, then `F10 Close` and `Not saved to the launcher`. Up and Down (D-pad, left stick or arrow keys) move, A or Enter toggles a row, and B, Escape or F10 close it. The menu exists only after the game has started, so F10 does nothing over the launcher or the installer. The ReXGlue overlays use other keys.
+- Menu changes are for the running session only and are never written to `settings.toml`; the next start uses the launcher's values.
+- While the menu is open the game reads no keyboard or controller input (`InputSystem::SetActiveCallback`), and input returns once what was pressed in the menu is released, so closing with B or Escape never also presses it in the game. F10 and Escape are consumed by a window input listener above the ImGui drawer. The achievements overlay does not open while the menu is open, and the menu does not open over it.
+- The menu is a `rex::ui::ImGuiDialog` on the drawer ReXApp already owns; the controller reaches ImGui through the same `LauncherGamepad` the launcher uses.
+
 ## Controls
 
 - Controller: automatic, with no setup.
@@ -122,7 +140,7 @@ TRG Launcher is the `third_party/trg-launcher` submodule pinned to `b384a28` (ve
 
 ## Tests
 
-`tools\test.ps1` builds and runs the focused suites with synthetic data and temporary folders: the live services, the achievement overlay rules, the launcher, the window title, the frame counter, the frame limiter and time step, the launcher window placement, the launcher settings and the portable user data. `launcher_tests.cpp` covers the game-file states, SHA-256, package parsing and path rejection, install success and failure, cancel, damaged reinstall, foreign folders, user data left untouched, the window fit and the achievement summary. `launcher_settings_tests.cpp` covers saving only changed keys, the PLAY gate (one save per request, failed save prevents start), apply and restart needs, window-change detection, F11 persistence, reset isolation, the Display, Graphics and Controls values and labels, shipped-default reading, and the page order. `window_host_tests.cpp` covers the title format and the one-second frame-rate sampler, with synthetic time. `frame_counter_tests.cpp` covers the counter's text and when it is drawn. `frame_limiter_tests.cpp` covers the frame periods, the limiter schedule and resync, the pacing policy, the time step and that the wait reaches its deadline. `launcher_placement_tests.cpp` covers the saved window placement, maximize and restore, off-screen recovery and the pre-show plan. `user_data_tests.cpp` covers the portable user data root, the move from the system folder (by rename and by copy), the collision, empty-folder and fallback rules, failed moves that keep the old folder, and the `--user_data_root` precedence.
+`tools\test.ps1` builds and runs the focused suites with synthetic data and temporary folders: the live services, the achievement overlay rules, the launcher, the window title, the frame counter, the frame limiter and time step, the launcher window placement, the launcher settings, the cheats and the portable user data. `launcher_tests.cpp` covers the game-file states, SHA-256, package parsing and path rejection, install success and failure, cancel, damaged reinstall, foreign folders, user data left untouched, the window fit and the achievement summary. `launcher_settings_tests.cpp` covers saving only changed keys, the PLAY gate (one save per request, failed save prevents start), apply and restart needs, window-change detection, F11 persistence, reset isolation, the Display, Graphics and Controls values and labels, shipped-default reading, and the page order. `window_host_tests.cpp` covers the title format and the one-second frame-rate sampler, with synthetic time. `frame_counter_tests.cpp` covers the counter's text and when it is drawn. `frame_limiter_tests.cpp` covers the frame periods, the limiter schedule and resync, the pacing policy, the time step and that the wait reaches its deadline. `launcher_placement_tests.cpp` covers the saved window placement, maximize and restore, off-screen recovery and the pre-show plan. `user_data_tests.cpp` covers the portable user data root, the move from the system folder (by rename and by copy), the collision, empty-folder and fallback rules, failed moves that keep the old folder, and the `--user_data_root` precedence. `cheats_tests.cpp` covers the cheat list, the session layer, the menu model and its close gate, that the menu has no path to the saved settings, and that F10 is bound once while F2, F7 and F11 stay as they were; the cheat settings' save, reset, reload and rejection are in `launcher_settings_tests.cpp`.
 
 ## Manual test
 
@@ -131,8 +149,9 @@ TRG Launcher is the `third_party/trg-launcher` submodule pinned to `b384a28` (ve
 3. Change a Display setting and press Save. Restart the executable and confirm the value persisted.
 4. Check the Display page: window size list, monitor, VSync and aspect ratio.
 5. Check the Graphics page: render resolution labels, anti-aliasing, multisampling and texture filtering. On the Gameplay page, check that Frame rate in title is On and Frame counter is Hidden by default.
-6. Check the Controls page: keyboard toggle and the keybind list.
+6. Check the Controls page: keyboard toggle and the keybind list. Check the Cheats page: Invincible, Infinite Shield and Infinite Bombs, all Off. Turn one On, press Save, restart the executable and confirm it persisted.
 7. Check Achievements: 12 entries, 200G, icons and earned state.
 8. Change one setting and press PLAY. Confirm "Settings saved. Starting game..." and that the game starts.
 9. Press F11 in the game and confirm the window toggles between Windowed and Borderless Fullscreen, with the title unchanged. With Frame rate in title On, the title reads `Geometry Wars: Retro Evolved 2 | FPS: XX.XX` after about a second; with Off it reads `Geometry Wars: Retro Evolved 2`. With Frame counter Shown, press F2 to show `XX FPS  X.X ms` in the top-right corner and F2 again to hide it.
-10. Exit, start again, and confirm the settings persisted, and that the profile, scores and achievements are unchanged.
+10. Press F10 in the game: the CHEATS menu opens in the top-right corner. Move with the controller or the arrow keys, toggle each row, and close with B, Escape or F10. The game must ignore input while the menu is open and take it again once it closes.
+11. Exit, start again, and confirm the settings persisted, and that the profile, scores and achievements are unchanged.
