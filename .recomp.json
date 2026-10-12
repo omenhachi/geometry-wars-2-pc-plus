@@ -25,5 +25,5 @@
     "XBLA",
     "launcher"
   ],
-  "notes": "Native Windows build with the TRG launcher, high frame rates, local achievements and offline leaderboards. Experimental Linux/Steam Deck AppImage, not yet tested on real hardware. First public release (0.1.0) is pending"
+  "notes": "Native Windows build with the TRG launcher, high frame rates, local achievements and offline leaderboards. Cheats with an in-game menu, portable user data and launcher window state persistence. Experimental Linux/Steam Deck AppImage, not yet tested on real hardware"
 }

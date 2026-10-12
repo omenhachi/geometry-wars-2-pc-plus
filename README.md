@@ -14,6 +14,20 @@
 
 <img width="1905" height="1071" alt="2026-10-11_18-47" src="https://github.com/user-attachments/assets/08b1ed2c-3244-41c1-94f1-e2ae4c1b76d1" />
 
+## Features
+
+- Native static recompilation for Windows x64, and an experimental native Linux x86_64 / Steam Deck AppImage
+- TRG launcher that installs the game from your own package and remembers its window position, size, maximized and fullscreen state
+- High frame rate support: 30, 60 (the original), 90, 120, 144, 165, 240 or Unlimited, without speeding up the game
+- Render resolution up to 4x (5120×2880), FXAA, 2x MSAA, texture filtering up to 16x, VSync and aspect ratio options
+- Frame rate in the window title, and an in-game frame rate counter (**F2**)
+- Local profile and progression, local scores, offline leaderboards, and all 12 achievements (**F7** overlay), with no Xbox Live connection
+- Cheats (Invincible, Infinite Shield, Infinite Bombs), set in the launcher or toggled in game with **F10**
+- Portable `user_data` folder next to the program, with automatic migration of v0.1.0 data
+- **F11** in the launcher and **F11** in the game are independent: the launcher's fullscreen never changes the game's Display mode
+- The mouse cursor hides after about 5 seconds without movement during fullscreen gameplay
+- Xbox controllers without setup, and keyboard support
+
 ## What you need
 
 - Windows 10 or 11, 64-bit, and a DirectX 12 graphics card
@@ -34,7 +48,7 @@ The launcher checks the Title ID and content type when you pick the package, and
 
 ## Installing
 
-1. Download **GeometryWarsRetroEvolved2-v0.1.0-windows-x64.zip** from the [latest release](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled/releases/latest) and extract it anywhere you can write to.
+1. Download **GeometryWarsRetroEvolved2-v0.2.0-windows-x64.zip** from the [latest release](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled/releases/latest) and extract it anywhere you can write to.
 2. Run **geometry_wars_retro_evolved_2.exe**. The launcher opens.
 3. On the **Play** page click **Install from package...** and pick your package. It is one file with a long hexadecimal name and no extension. On an Xbox 360 drive it is in `Content\0000000000000000\584108FF\000D0000\`.
 4. Wait until **Ready to play** appears. The game files are copied into the `game` folder next to the program. The package file itself is not copied there.
@@ -46,13 +60,13 @@ The launcher checks the Title ID and content type when you pick the package, and
 
 ### Saves and settings
 
-Your profile, scores, achievements and launcher settings are stored in a portable `user_data` folder next to the program (next to the AppImage on Linux), beside `game` and `logs`. It is created the first time it is needed and is not part of the download. Copying the whole application folder to another PC takes your profile, scores, achievements and launcher settings with it.
+Your settings, profile, scores, achievements, saves and progression, and the shader cache are stored in a portable `user_data` folder next to the program (next to the AppImage file on Linux), beside `game` and `logs`. It is created the first time it is needed and is not part of the download. Copying the whole application folder to another PC takes your data with it. `--user_data_root=<folder>` still overrides the location.
 
-**Upgrading from v0.1.0:** the first start moves your old data into `user_data` automatically (from `Documents\geometry_wars_retro_evolved_2` on Windows, from `~/.local/share/geometry_wars_retro_evolved_2` or `$XDG_DATA_HOME` on Linux). After a successful move the old folder is removed. If the move fails, the old folder is left untouched and used, and the move is tried again at the next start. If `user_data` already holds data, it is used and the old folder is left alone. If the program folder is read-only, the old system location is used for that run. Details are in [docs/user-data.md](docs/user-data.md).
+**Upgrading from v0.1.0:** v0.1.0 kept this data in `Documents\geometry_wars_retro_evolved_2` on Windows and in `~/.local/share/geometry_wars_retro_evolved_2` (or `$XDG_DATA_HOME`) on Linux. The first start of v0.2.0 moves it into `user_data` automatically: a rename when possible, otherwise a verified copy, and the old folder is removed only after that succeeds. If the move fails, the old folder is left untouched and used, and the move is tried again at the next start. If both locations already hold data, `user_data` is used and the old folder is left alone, never merged. If the program folder is read-only, the old location is used for that run. Details are in [docs/user-data.md](docs/user-data.md).
 
 ### Linux and Steam Deck
 
-**Experimental, not yet tested on real hardware.** This is a native Linux build (ReXGlue's Linux runtime with Vulkan), not Proton or Wine.
+**Experimental, not yet tested on real hardware.** This is a native Linux build (ReXGlue's Linux runtime with Vulkan), not Proton or Wine. It has been built and packaged, but not run on a real Linux PC or Steam Deck.
 
 1. Download **GeometryWarsRetroEvolved2-v…-linux-x86_64.AppImage** from the release and mark it executable (right-click > **Properties** > **Permissions** > **Is executable**, or `chmod +x`).
 2. Run it, then install your package from the **Play** page as above. The game files go in a `game` folder next to the AppImage. The package picker needs `zenity` or `kdialog`.
@@ -66,14 +80,14 @@ Windows may warn the first time you run the program, because the release is not 
 
 ## The launcher
 
-The launcher opens before the game. Your choices are saved to `settings.toml` in the `launcher` folder of your user data (`user_data` next to the program). To turn the launcher off, set **Show this launcher** to **Off** on the Play page. Hold **Shift** while starting to bring it back. The launcher remembers its window position, size and whether it was maximized or in borderless fullscreen (**F11** in the launcher). This is separate from the game's Display mode.
+The launcher opens before the game. Your choices are saved to `settings.toml` in the `launcher` folder of your user data (`user_data` next to the program). To turn the launcher off, set **Show this launcher** to **Off** on the Play page. Hold **Shift** while starting to bring it back. The launcher remembers its window position, size and whether it was maximized or in borderless fullscreen. **F11** in the launcher switches the launcher only, and **F11** in the game switches the game's Display mode only; neither changes the other. Window size and Monitor are game settings and never move the launcher.
 
 ### Play
 - **Install from package...** with the Title ID and game version checks, and **Reinstall from package...**
 - The **Ready to play** status, and the **Show this launcher** setting
 
 ### Display
-- **Display mode**: Windowed or Borderless Fullscreen. Press **F11** while playing to switch between them.
+- **Display mode**: Windowed or Borderless Fullscreen. Press **F11** while playing to switch between them. In fullscreen the mouse cursor hides after about 5 seconds without movement and returns as soon as the mouse moves. The launcher always shows it.
 - **Window size** and **Monitor**
 - **VSync** on or off
 - **Aspect ratio**: Letterbox 16:9 keeps the game's picture on any window shape; Stretch fills the window
@@ -96,7 +110,7 @@ Window size, monitor and VSync take effect when you press **PLAY**. If one diffe
 - **Infinite Shield**: keeps the player's shield active.
 - **Infinite Bombs**: bombs are not used up when fired. It does not add bombs you do not have.
 
-All three are Off by default and take effect when you press **PLAY**. Press **F10** while playing to open the Cheats menu and change them for the current session only; the launcher's saved values are not changed. Scores, leaderboards and achievements work as usual with cheats on.
+All three are Off by default. The launcher's Cheats page saves them and they take effect when you press **PLAY**. Press **F10** while playing to open the Cheats menu: move with Up and Down (arrow keys, D-pad or left stick), toggle with Enter or **A**, close with **F10**, Escape or **B**. The game ignores input while the menu is open. Changes made in the menu last for the current session only; the launcher's saved values are not changed. Scores, leaderboards and achievements are not disabled by cheats.
 
 ### Controls
 - Xbox controllers work without setup

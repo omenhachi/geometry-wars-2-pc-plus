@@ -69,13 +69,20 @@ info", then "Run anyway".
 
 PLAYING
 -------
-- F11 switches between Windowed and Borderless Fullscreen.
+- F11 in the game switches between Windowed and Borderless Fullscreen. F11 in
+  the launcher switches only the launcher; the launcher remembers its position,
+  size and state, separately from the game.
+- In fullscreen the mouse cursor hides after about 5 seconds without movement
+  and returns when the mouse moves.
 - Xbox controllers work without setup.
 - The keyboard works too; the Controls page lists the keys.
 - Frame rate: the Gameplay page offers 30, 60, 90, 120, 144, 165, 240 and
   Unlimited. 60 is the original game. Game speed stays the same at every rate.
 - F2 shows or hides a frame counter in the corner of the window.
 - F7 opens the achievements list.
+- F10 opens the Cheats menu (Invincible, Infinite Shield, Infinite Bombs). All
+  are Off by default. Choices made in the menu last for the current session;
+  the launcher's Cheats page saves them.
 - Scores, leaderboards and achievements are kept on this PC only. There is no
   Xbox Live connection and no online play.
 - To open the launcher again after turning it off, hold Shift while starting.
