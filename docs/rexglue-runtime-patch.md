@@ -1,8 +1,8 @@
 # ReXGlue runtime patch
 
 Geometry Wars: Retro Evolved 2 ships ReXGlue **v0.10.0** (tag `v0.10.0`, commit `f5337cdc947ff6d4c4196737e2c807a48f2a1fc2`) with
-one local patch to the runtime library (`rexruntime.dll` / `librexruntime.so`). Everything else in the SDK, including
-the Xenos GPU plugin, is the stock release.
+the local patches in `patches/rexglue-sdk`. On Windows they are built into `rexruntime` and the Xenos GPU plugin
+(`rexgpu-xenos`); on Linux only `librexruntime.so` is patched.
 
 | | |
 | --- | --- |
@@ -28,15 +28,22 @@ timing. The stock runtime fails the allocator stress test below on every run.
 ## Building the patched runtime
 
 Windows (Visual Studio with the LLVM/Clang component, and git), after `tools\codegen.ps1` has put the SDK in
-`tools\rexglue`:
+`tools\rexglue`: `.\tools\build.ps1` and `.\tools\build.ps1 -Run` rebuild the patched runtime and GPU plugin by
+themselves whenever the installed ones do not match the current baseline, build settings and patches, and print
+`ReXGlue patches: current` when they do. Adding, removing, renaming or editing a file in `patches/rexglue-sdk` is
+enough; nothing else needs to change. The staged DLLs next to the executable are compared with the installed ones by
+hash after every build and before `-Run` launches, and the launch is refused on a mismatch.
+
+The builder can also be run by hand (advanced):
 
 ```powershell
 .\tools\build-patched-rexruntime.ps1                 # fetch v0.10.0 (network), patch, build, install
-.\tools\build-patched-rexruntime.ps1 -Restore        # put the stock runtime back
+.\tools\build-patched-rexruntime.ps1 -Restore        # put the stock runtime and GPU plugin back
 ```
 
-It builds the RelWithDebInfo and Release runtime into `out\rexglue-sdk-src` (use `-WorkDir` for a shorter path) and
-replaces them in `tools\rexglue\win-amd64`. The Debug runtime stays stock.
+It applies every `*.patch` in name order, builds the RelWithDebInfo and Release `rexruntime` and `rexgpu-xenos` into
+`out\rexglue-sdk-src` (use `-WorkDir` for a shorter path) and replaces them in `tools\rexglue\win-amd64`. The Debug
+runtime and GPU plugin stay stock, and `build.ps1 -Config Debug` does not check them.
 
 Linux (Ubuntu 22.04, see [linux.md](linux.md)): `tools/package-linux.sh` runs `tools/build-patched-rexruntime.sh`
 itself the first time. Besides the packages in linux.md it needs git, network access and the SDK's build
@@ -52,12 +59,16 @@ installed file.
 
 ## What packaging verifies
 
-The scripts record the installed runtime in `rexruntime-patch.txt` next to the SDK: the source commit, the SHA-256
-of the patch file and the SHA-256 of each installed runtime file. `tools/package-release.ps1` and
-`tools/package-linux.sh` accept the runtime only if the commit is the pinned one, the patch hash equals the tracked
-patch, the files match the recorded hashes, and none of them is the stock release file. The packaged runtime must also
-be identical to the installed one. Editing the patch therefore requires rebuilding the runtime before packaging.
-`rexgpu-xenos` is still compared with the stock release file.
+On Windows the builder records the installed files in `rexruntime-patch.txt` next to the SDK: a fingerprint of the
+SDK version, tag and commit, the build flags, targets and configurations, and every patch's name and SHA-256 in name
+order, plus the SHA-256 of each installed runtime, import library and GPU plugin file. The stamp is removed before the
+files are replaced and written only after they are installed and verified. `build.ps1` and
+`tools/package-release.ps1` accept the files only if the fingerprint equals the current one, each file matches its
+recorded hash, and no runtime file is the stock release file. `package-release.ps1 -SkipBuild` does not rebuild; it
+fails on a stale runtime. The packaged runtime must also be identical to the installed one.
+
+`tools/package-linux.sh` still records the commit, the hash of `0001-physical-release-order.patch` and the hash of
+`librexruntime.so`.
 
 ## Allocator stress test
 

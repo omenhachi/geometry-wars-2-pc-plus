@@ -4,6 +4,11 @@
   lld-link, CMake and Ninja. Run tools\codegen.ps1 first.
   -Run launches the game with the extracted game files in game\extracted.
 
+.DESCRIPTION
+  First makes sure the patched ReXGlue runtime and GPU plugin in tools\rexglue match the baseline and
+  patches\rexglue-sdk, rebuilding them with build-patched-rexruntime.ps1 when they do not. After the build it
+  makes sure the DLLs next to the executable are the ones in tools\rexglue, and it never launches without that.
+
 .EXAMPLE
   .\tools\build.ps1              # incremental build only
   .\tools\build.ps1 -Clean       # clean configure and build
@@ -22,6 +27,8 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $Root = Split-Path $PSScriptRoot -Parent
+. (Join-Path $PSScriptRoot 'rexruntime-patch.ps1')
+$SdkRoot = Join-Path $Root 'tools\rexglue\win-amd64'
 $BuildDir = if (-not $BuildDir) { Join-Path $Root 'build' } elseif ([IO.Path]::IsPathRooted($BuildDir)) { $BuildDir } else { Join-Path $Root $BuildDir }
 $GameData = Join-Path $Root 'game\extracted'
 $UserData = Join-Path $BuildDir 'user_data'
@@ -47,6 +54,22 @@ $CMake = Join-Path $VsRoot 'Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\b
 $Ninja = Join-Path $VsRoot 'Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja\ninja.exe'
 foreach ($tool in @($VsDevCmd, $Clang, $ClangXX, $LldLink, $CMake, $Ninja)) {
     if (-not (Test-Path $tool)) { throw "Required tool not found: $tool" }
+}
+
+function Assert-RuntimeReady {
+    $problems = @(Test-StagedRuntime $SdkRoot $BuildDir $Config)
+    if ($Config -ne 'Debug') { $problems += @(Test-PatchedRuntime $SdkRoot) }
+    if (-not $problems.Count) { return }
+    Write-Host ''
+    Write-Host 'RUNTIME CHECK FAILED' -ForegroundColor Red
+    foreach ($problem in $problems) { Write-Host "  $problem" -ForegroundColor Red }
+    throw 'The files next to geometry_wars_retro_evolved_2.exe are not the current ReXGlue runtime and GPU plugin from tools\rexglue'
+}
+
+if ($Config -eq 'Debug') {
+    Write-Host 'ReXGlue patches: not applied to the Debug runtime (stock rexruntimed.dll and rexgpu-xenosd.dll)'
+} else {
+    Update-PatchedRuntime $SdkRoot $Jobs
 }
 
 $SavedEnv = [Environment]::GetEnvironmentVariables()
@@ -101,19 +124,22 @@ try {
     foreach ($name in $SavedEnv.Keys) { Set-Item "Env:$name" $SavedEnv[$name] }
 }
 
+Sync-StagedRuntime $SdkRoot $BuildDir $Config
 $suffix = @{ Debug = 'd'; RelWithDebInfo = 'rd'; Release = '' }[$Config]
-$required = @('geometry_wars_retro_evolved_2.exe', "rexruntime$suffix.dll", "rexgpu-xenos$suffix.dll", 'geometry_wars_retro_evolved_2.toml')
+$required = @('geometry_wars_retro_evolved_2.exe', 'geometry_wars_retro_evolved_2.toml') + (Get-RuntimeDllNames $Config)
 if ($Config -ne 'Release') { $required += "TracyClient$suffix.dll" }
 foreach ($file in $required) {
     $path = Join-Path $BuildDir $file
     if (-not (Test-Path $path)) { throw "Build output is missing $path" }
 }
+Assert-RuntimeReady
 
 Write-Host ''
 Write-Host '===================================================='
 Write-Host ' BUILD SUCCESSFUL'
 Write-Host '===================================================='
 Write-Host "  $Exe"
+Write-Host "  runtime: $((Get-RuntimeDllNames $Config) -join ', ') match tools\rexglue"
 Write-Host ''
 
 if (-not $Run) { return }
@@ -124,6 +150,7 @@ if ($running) {
     return
 }
 
+Assert-RuntimeReady
 $gameArgs = @("--game_data_root=`"$GameData`"", "--user_data_root=`"$UserData`"")
 Write-Host 'Launching:'
 Write-Host "  $Exe $($gameArgs -join ' ')"

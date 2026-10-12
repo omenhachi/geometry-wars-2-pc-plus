@@ -7,7 +7,8 @@
   Builds into build-release\ (the normal build\ folder is not touched), stages the files
   the program needs, refuses to continue if the staging folder holds game or user files,
   then writes dist\GeometryWarsRetroEvolved2-v<version>-windows-x64.zip and its .sha256 file.
-  The version is the project VERSION in CMakeLists.txt.
+  The version is the project VERSION in CMakeLists.txt. The build rebuilds the patched ReXGlue runtime and GPU
+  plugin first when they do not match patches\rexglue-sdk; the packaging stops unless they do.
 
 .EXAMPLE
   .\tools\package-release.ps1              # incremental Release build, then package
@@ -111,15 +112,15 @@ $ShaFile = Join-Path $Dist "$Name.sha256"
 Write-Host ''
 Write-Host "Geometry Wars: Retro Evolved 2 $Version - Windows release package (local only)"
 
-# rexruntime.dll must be the project's patched build, rexgpu-xenos.dll the stock release file.
-$runtimeProblems = Test-PatchedRuntime $SdkRoot
-if ($runtimeProblems.Count) { Write-Problems $runtimeProblems; throw 'tools\rexglue does not hold the patched runtime (run tools\build-patched-rexruntime.ps1)' }
-
 if (-not $SkipBuild) {
     $build = @{ Config = 'Release'; BuildDir = $ReleaseBuild }
     if ($Clean) { $build.Clean = $true }
     & (Join-Path $PSScriptRoot 'build.ps1') @build
 }
+
+# rexruntime.dll and rexgpu-xenos.dll must be the project's patched builds of the current patches.
+$runtimeProblems = @(Test-PatchedRuntime $SdkRoot) + @(Test-StagedRuntime $SdkRoot $ReleaseBuild 'Release')
+if ($runtimeProblems.Count) { Write-Problems $runtimeProblems; throw 'tools\rexglue does not hold the current patched runtime and GPU plugin, or the release build does not use them (build without -SkipBuild to update them)' }
 
 foreach ($leaf in @('geometry_wars_retro_evolved_2.exe', 'rexruntime.dll', 'rexgpu-xenos.dll', 'geometry_wars_retro_evolved_2.toml')) {
     if (-not (Test-Path (Join-Path $ReleaseBuild $leaf))) { throw "Release build output is missing $leaf (run without -SkipBuild)" }

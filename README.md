@@ -155,7 +155,7 @@ In an existing clone, run `git submodule update --init --recursive`.
 1. Install Visual Studio with the C++ and LLVM/Clang components. See [docs/minimal-native-build.md](docs/minimal-native-build.md).
 2. Extract your package's files into `game\extracted` (`.\tools\extract_stfs.ps1 -Package "<package file>" -OutDir game\extracted`), so that `game\extracted\default.xex` exists.
 3. `.\tools\codegen.ps1` downloads the pinned ReXGlue SDK 0.10.0, checks `default.xex` and generates the C++ into `generated\`.
-4. `.\tools\build.ps1` builds `build\geometry_wars_retro_evolved_2.exe`. `.\tools\build.ps1 -Run` also starts it.
+4. `.\tools\build.ps1` builds `build\geometry_wars_retro_evolved_2.exe`. `.\tools\build.ps1 -Run` also starts it. The build rebuilds the patched ReXGlue runtime and GPU plugin automatically when `patches/rexglue-sdk` changes (see [docs/rexglue-runtime-patch.md](docs/rexglue-runtime-patch.md)).
 5. `.\tools\package-release.ps1` builds a Release into `build-release\` (add `-Clean` for a clean build) and makes the release ZIP and its `.sha256` file in `dist\`.
 
 The Linux AppImage is built on Linux or WSL with `tools/package-linux.sh`, after the steps above have generated the C++. See [docs/linux.md](docs/linux.md).

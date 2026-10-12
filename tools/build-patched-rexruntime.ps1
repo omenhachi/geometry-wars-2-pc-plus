@@ -1,24 +1,27 @@
 <#
 .SYNOPSIS
-  Builds ReXGlue's rexruntime from the pinned v0.10.0 source with this project's patch and installs it
-  into tools\rexglue\win-amd64, replacing the stock RelWithDebInfo and Release runtime.
+  Builds ReXGlue's rexruntime and Xenos GPU plugin from the pinned v0.10.0 source with this project's patches
+  and installs them into tools\rexglue\win-amd64, replacing the stock RelWithDebInfo and Release files.
 
 .DESCRIPTION
   The source is fetched from the official ReXGlue repository (network needed the first time) into -WorkDir,
-  checked against the pinned commit in patches\rexglue-sdk\baseline.env, patched, and built.
-  The installed files are recorded with the patch's hash in tools\rexglue\win-amd64\rexruntime-patch.txt,
-  which package-release.ps1 checks. Run tools\codegen.ps1 first so the SDK is in tools\rexglue.
+  checked against the pinned commit in patches\rexglue-sdk\baseline.env, patched with every patch in
+  patches\rexglue-sdk (in name order), and built.
+  The installed files are recorded with the fingerprint of the baseline, build settings and patches in
+  tools\rexglue\win-amd64\rexruntime-patch.txt, which build.ps1 and package-release.ps1 check.
+  tools\build.ps1 runs this script by itself when that check fails, so it is only needed by hand for the options
+  below. Run tools\codegen.ps1 first so the SDK is in tools\rexglue.
   See docs\rexglue-runtime-patch.md. Nothing is committed, tagged or published.
 
 .EXAMPLE
-  .\tools\build-patched-rexruntime.ps1                  # build and install the patched runtime
+  .\tools\build-patched-rexruntime.ps1                  # build and install the patched runtime and GPU plugin
   .\tools\build-patched-rexruntime.ps1 -StressTest      # ... then run the allocator stress test
   .\tools\build-patched-rexruntime.ps1 -StressTest -SkipBuild   # test whatever runtime is installed
-  .\tools\build-patched-rexruntime.ps1 -Restore         # put the stock runtime back
+  .\tools\build-patched-rexruntime.ps1 -Restore         # put the stock runtime and GPU plugin back (the next build.ps1 patches them again)
 #>
 param(
     [string]$WorkDir,     # ReXGlue source and build folder; default: out\rexglue-sdk-src (a short path is safer)
-    [switch]$Restore,     # reinstall the stock runtime from the SDK download and exit
+    [switch]$Restore,     # reinstall the stock runtime and GPU plugin from the SDK download and exit
     [switch]$StressTest,  # run tests\physical_heap_stress.cpp against the installed runtime
     [switch]$SkipBuild,   # with -StressTest: do not build the runtime first
     [int]$Jobs = 0
@@ -75,7 +78,7 @@ if ($Restore) {
         }
     } finally { $archive.Dispose() }
     Remove-Item -LiteralPath $StampPath -ErrorAction SilentlyContinue
-    Write-Host 'Stock ReXGlue runtime restored.'
+    Write-Host 'Stock ReXGlue runtime and GPU plugin restored.'
     return
 }
 
@@ -87,6 +90,7 @@ function Install-PatchedRuntime {
         New-Item -ItemType Directory -Force (Split-Path $src) | Out-Null
         Invoke-Native 'git clone' { git clone --branch $Baseline.SDK_TAG --depth 1 --recurse-submodules --shallow-submodules --jobs 8 $Baseline.SDK_REPO $src }
     }
+    $inputsSha256 = Get-RuntimeInputsSha256
     $commit = "$(git -C $src rev-parse HEAD)".Trim()
     if ($commit -ne $Baseline.SDK_COMMIT) { throw "$src is at $commit; expected $($Baseline.SDK_TAG) $($Baseline.SDK_COMMIT) (delete the folder to fetch it again)" }
 
@@ -101,20 +105,23 @@ function Install-PatchedRuntime {
         if (Test-Path -LiteralPath $target -PathType Leaf) { Copy-Item -LiteralPath $target $file -Force }
     }
 
-    Invoke-Native 'git checkout' { git -C $src checkout -- src tests }
-    & git -C $src apply --check $RuntimePatchFile
-    if ($LASTEXITCODE) { throw "patches\rexglue-sdk\$(Split-Path $RuntimePatchFile -Leaf) no longer applies to ReXGlue $($Baseline.SDK_TAG)" }
-    Invoke-Native 'git apply' { git -C $src apply $RuntimePatchFile }
+    Invoke-Native 'git checkout' { git -C $src checkout -- src include tests }
+    $patches = Get-RuntimePatchFiles
+    foreach ($patch in $patches) {
+        & git -C $src apply --check $patch.FullName
+        if ($LASTEXITCODE) { throw "patches\rexglue-sdk\$($patch.Name) no longer applies to ReXGlue $($Baseline.SDK_TAG)" }
+        Invoke-Native "git apply $($patch.Name)" { git -C $src apply $patch.FullName }
+    }
 
     Import-VsEnvironment
     # -ffile-prefix-map keeps the build folder out of the runtime's log strings.
-    $flags = "-march=x86-64-v2 -ffile-prefix-map=$srcCmake=."
+    $flags = "$RuntimeBuildFlags -ffile-prefix-map=$srcCmake=."
     Push-Location $src
     try {
         Invoke-Native 'ReXGlue configure' { cmake --preset win-amd64 "-DCMAKE_C_FLAGS=$flags" "-DCMAKE_CXX_FLAGS=$flags" }
         $parallel = @(if ($Jobs -gt 0) { '--parallel'; $Jobs } else { '--parallel' })
-        foreach ($config in 'RelWithDebInfo', 'Release') {
-            Invoke-Native "ReXGlue build ($config)" { cmake --build out/build/win-amd64 --config $config --target rexruntime @parallel }
+        foreach ($config in $RuntimeBuildConfigs) {
+            Invoke-Native "ReXGlue build ($config)" { cmake --build out/build/win-amd64 --config $config --target $RuntimeBuildTargets @parallel }
         }
     } finally { Pop-Location }
 
@@ -123,21 +130,22 @@ function Install-PatchedRuntime {
         $config = if ($leaf -match 'rd\.') { 'RelWithDebInfo' } else { 'Release' }
         $path = Join-Path $src "out\win-amd64\$config\$(Split-Path $leaf -Leaf)"
         if (-not (Test-Path $path)) { throw "ReXGlue build output is missing $path" }
-        if ((Get-FileSha256 $path) -eq $Official[$leaf]) { throw "$leaf came out identical to the stock release; the patch was not built in" }
+        if ($RuntimeDifferFromStock -contains $leaf -and (Get-FileSha256 $path) -eq $Official[$leaf]) { throw "$leaf came out identical to the stock release; the patch was not built in" }
         $built[$leaf] = $path
     }
-    $text = [Text.Encoding]::GetEncoding(28591).GetString([IO.File]::ReadAllBytes($built['bin/rexruntime.dll']))
-    foreach ($needle in @($src, $srcCmake)) {
-        if ($text.IndexOf($needle, [StringComparison]::OrdinalIgnoreCase) -ge 0) { throw 'rexruntime.dll embeds the build folder' }
+    foreach ($dll in 'bin/rexruntime.dll', 'bin/rexgpu-xenos.dll') {
+        $text = [Text.Encoding]::GetEncoding(28591).GetString([IO.File]::ReadAllBytes($built[$dll]))
+        foreach ($needle in @($src, $srcCmake)) {
+            if ($text.IndexOf($needle, [StringComparison]::OrdinalIgnoreCase) -ge 0) { throw "$(Split-Path $dll -Leaf) embeds the build folder" }
+        }
     }
 
-    $lines = @("sdk_commit=$($Baseline.SDK_COMMIT)", "patch_sha256=$(Get-FileSha256 $RuntimePatchFile)")
-    foreach ($leaf in $RuntimeFiles) {
-        Copy-Item -LiteralPath $built[$leaf] (Join-Path $Sdk $leaf) -Force
-        $lines += "$(Get-FileSha256 (Join-Path $Sdk $leaf))  $leaf"
-    }
-    [IO.File]::WriteAllText($StampPath, (($lines -join "`n") + "`n"), (New-Object Text.UTF8Encoding $false))
-    Write-Host 'Patched ReXGlue runtime installed:'
+    Remove-Item -LiteralPath $StampPath -ErrorAction SilentlyContinue
+    foreach ($leaf in $RuntimeFiles) { Copy-Item -LiteralPath $built[$leaf] (Join-Path $Sdk $leaf) -Force }
+    $lines = Write-RuntimeStamp $Sdk $inputsSha256
+    $problems = Test-PatchedRuntime $Sdk
+    if ($problems.Count) { throw "The installed runtime and GPU plugin do not match the patches: $($problems -join '; ')" }
+    Write-Host 'Patched ReXGlue runtime and GPU plugin installed:'
     $lines | ForEach-Object { Write-Host "  $_" }
 }
 

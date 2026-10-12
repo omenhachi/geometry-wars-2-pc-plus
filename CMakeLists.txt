@@ -82,6 +82,14 @@ rexglue_setup_target(geometry_wars_retro_evolved_2 GPU_PLUGINS xenos)
 target_link_libraries(geometry_wars_retro_evolved_2 PRIVATE trg::launcher)
 if(WIN32)
     target_link_libraries(geometry_wars_retro_evolved_2 PRIVATE bcrypt shcore)
+    # The SDK stages its DLLs only when the program links, so a rebuilt runtime or GPU plugin has to
+    # make it link again; tools/build.ps1 also checks the staged copies.
+    foreach(_sdk_dll rexruntime rexruntimed rexruntimerd rexgpu-xenos rexgpu-xenosd rexgpu-xenosrd)
+        if(EXISTS "${GW2_SDK_DIR}/bin/${_sdk_dll}.dll")
+            set_property(TARGET geometry_wars_retro_evolved_2 APPEND PROPERTY LINK_DEPENDS
+                "${GW2_SDK_DIR}/bin/${_sdk_dll}.dll")
+        endif()
+    endforeach()
 else()
     # The SDK stages the runtime beside the program only on Windows and macOS; the RPATH is $ORIGIN.
     add_custom_command(TARGET geometry_wars_retro_evolved_2 POST_BUILD
