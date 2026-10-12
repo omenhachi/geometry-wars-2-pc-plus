@@ -60,7 +60,7 @@ Windows may warn the first time you run the program, because the release is not 
 
 ## The launcher
 
-The launcher opens before the game. Your choices are saved to `settings.toml` in the `launcher` folder of your user data (`Documents\geometry_wars_retro_evolved_2` on Windows). To turn the launcher off, set **Show this launcher** to **Off** on the Play page. Hold **Shift** while starting to bring it back. The launcher remembers its window position, size and whether it was maximized.
+The launcher opens before the game. Your choices are saved to `settings.toml` in the `launcher` folder of your user data (`Documents\geometry_wars_retro_evolved_2` on Windows). To turn the launcher off, set **Show this launcher** to **Off** on the Play page. Hold **Shift** while starting to bring it back. The launcher remembers its window position, size and whether it was maximized or in borderless fullscreen (**F11** in the launcher). This is separate from the game's Display mode.
 
 ### Play
 - **Install from package...** with the Title ID and game version checks, and **Reinstall from package...**

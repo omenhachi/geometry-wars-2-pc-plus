@@ -38,12 +38,13 @@ constexpr ManagedSetting kManagedSettings[] = {
     {kLauncherWidthKey, ValueKind::kInt},
     {kLauncherHeightKey, ValueKind::kInt},
     {kLauncherMaximizedKey, ValueKind::kBool},
+    {kLauncherFullscreenKey, ValueKind::kBool},
 };
 
 constexpr std::string_view kWindowKeys[] = {kWindowWidthKey, kWindowHeightKey, kMonitorKey, kVSyncKey};
 
 constexpr std::string_view kPlacementKeys[] = {kLauncherXKey, kLauncherYKey, kLauncherWidthKey, kLauncherHeightKey,
-                                                kLauncherMaximizedKey};
+                                                kLauncherMaximizedKey, kLauncherFullscreenKey};
 
 constexpr char kPlayerFileHeader[] =
     "# Geometry Wars: Retro Evolved 2 player settings, written by the launcher.\n"
@@ -221,7 +222,7 @@ void GameSettings::ResetToDefaults() {
 bool GameSettings::Apply() {
   bool restart = false;
   for (const auto& [key, value] : pending_) {
-    if (IsWindowSetting(key) || !cvars_.IsRegistered(key) || cvars_.Value(key) == value) {
+    if (IsWindowSetting(key) || key == kFullscreenKey || !cvars_.IsRegistered(key) || cvars_.Value(key) == value) {
       continue;
     }
     if (!cvars_.Assign(key, value)) {
@@ -229,6 +230,15 @@ bool GameSettings::Apply() {
     }
   }
   return restart || cvars_.RestartPending();
+}
+
+bool GameSettings::ApplyDisplayMode() {
+  const auto pending = pending_.find(kFullscreenKey);
+  if (pending == pending_.end() || !cvars_.IsRegistered(kFullscreenKey) ||
+      cvars_.Value(kFullscreenKey) == pending->second) {
+    return true;
+  }
+  return cvars_.Assign(kFullscreenKey, pending->second);
 }
 
 void GameSettings::MarkWindowCreated() {

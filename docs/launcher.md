@@ -41,7 +41,9 @@ A window restart skips the launcher once. The launcher is the only way to instal
 
 Window size, monitor and VSync need a new window, so changing them restarts the game once when you press PLAY. The saved window size is the requested size; on a small display the window is shown at 90% of the work area and the saved value is kept.
 
-**F11** switches Windowed and Borderless Fullscreen on every page, including the install page and the launcher opened over the game. It takes effect at once and is saved as the Display mode for the next start. Other pending edits are not changed. The key does not reach the game. The window title is set again after each switch.
+**F11** in the game switches Windowed and Borderless Fullscreen. It takes effect at once and is saved as the Display mode for the next start. The key does not reach the game. The window title is set again after each switch.
+
+**F11** in the launcher, on every page including the install page, switches the launcher itself between its normal state and borderless fullscreen. It never changes the Display mode, and Display mode never changes the launcher window: the game applies it when PLAY hands over the window. The launcher saves its own state in `gw2_launcher_x`, `gw2_launcher_y`, `gw2_launcher_width`, `gw2_launcher_height`, `gw2_launcher_maximized` and `gw2_launcher_fullscreen`, so it reopens where, how big and in the mode you left it, and F11 returns to the saved normal or maximized window. Window size and Monitor apply to the game only. Reset all settings leaves these launcher keys alone.
 
 ## Graphics
 

@@ -120,6 +120,7 @@ void RegisterGameDefaults(FakeCvars& cvars) {
   cvars.Register(kLauncherWidthKey, "0");
   cvars.Register(kLauncherHeightKey, "0");
   cvars.Register(kLauncherMaximizedKey, "false");
+  cvars.Register(kLauncherFullscreenKey, "false");
   cvars.Register(kShowFpsKey, kShowFpsDefault ? "true" : "false");
   cvars.Register(kShowFrameCounterKey, kShowFrameCounterDefault ? "true" : "false");
 }
@@ -536,7 +537,8 @@ void TestFrameLimitSetting() {
 
 void TestLauncherPlacementSettings() {
   Section("launcher placement");
-  for (const char* key : {kLauncherXKey, kLauncherYKey, kLauncherWidthKey, kLauncherHeightKey, kLauncherMaximizedKey}) {
+  for (const char* key : {kLauncherXKey, kLauncherYKey, kLauncherWidthKey, kLauncherHeightKey, kLauncherMaximizedKey,
+                          kLauncherFullscreenKey}) {
     bool managed = false;
     for (const ManagedSetting& setting : ManagedSettings()) {
       managed = managed || setting.key == key;
@@ -585,6 +587,88 @@ void TestLauncherPlacementSettings() {
 
 }  // namespace
 
+void TestDisplayModeStaysWithTheGame() {
+  Section("display mode is the game's");
+  const fs::path dir = FreshDir("display_mode");
+  const fs::path file = LauncherSettingsPath(dir);
+  FakeCvars cvars;
+  RegisterGameDefaults(cvars);
+  cvars.values[kFullscreenKey] = "false";
+  GameSettings settings(cvars, file, dir / "missing.toml");
+  settings.Capture();
+  settings.MarkWindowCreated();
+
+  settings.Set(kFullscreenKey, "true");
+  settings.Set(kAntiAliasingKey, "fxaa");
+  CHECK(!settings.Apply());
+  CHECK(cvars.values[kFullscreenKey] == "false");
+  CHECK(cvars.values[kAntiAliasingKey] == "fxaa");
+  CHECK(!settings.WindowChanged());
+  CHECK(settings.ApplyDisplayMode());
+  CHECK(cvars.values[kFullscreenKey] == "true");
+  const int assigns = cvars.assigns;
+  CHECK(settings.ApplyDisplayMode());
+  CHECK(cvars.assigns == assigns);
+
+  // The launcher window was opened windowed while the saved Display mode stays Borderless Fullscreen.
+  const fs::path saved_dir = FreshDir("display_mode_saved");
+  WriteText(LauncherSettingsPath(saved_dir), "fullscreen = true\ngw2_launcher_width = 1200\n");
+  FakeCvars next;
+  RegisterGameDefaults(next);
+  next.values[kFullscreenKey] = "true";
+  GameSettings reopened(next, LauncherSettingsPath(saved_dir), saved_dir / "missing.toml");
+  reopened.Capture();
+  next.values[kFullscreenKey] = "false";
+  CHECK(reopened.Get(kFullscreenKey) == "true");
+  CHECK(reopened.Save());
+  CHECK(ReadText(LauncherSettingsPath(saved_dir)).find("fullscreen = true") != std::string::npos);
+  CHECK(reopened.ApplyDisplayMode());
+  CHECK(next.values[kFullscreenKey] == "true");
+
+  CHECK(!IsLauncherPlacementSetting(kFullscreenKey));
+  CHECK(!IsLauncherPlacementSetting(kMonitorKey));
+  CHECK(!IsWindowSetting(kLauncherXKey));
+  CHECK(!IsWindowSetting(kLauncherWidthKey));
+}
+
+void TestLauncherFullscreenIsSeparate() {
+  Section("launcher fullscreen is separate");
+  const fs::path dir = FreshDir("launcher_fullscreen");
+  const fs::path file = LauncherSettingsPath(dir);
+  FakeCvars cvars;
+  RegisterGameDefaults(cvars);
+  GameSettings settings(cvars, file, dir / "missing.toml");
+  settings.Capture();
+  settings.MarkWindowCreated();
+
+  CHECK(IsLauncherPlacementSetting(kLauncherFullscreenKey));
+  CHECK(!IsWindowSetting(kLauncherFullscreenKey));
+  CHECK(!IsLauncherPlacementSetting(kFullscreenKey));
+
+  settings.Set(kFullscreenKey, "true");
+  CHECK(settings.Save());
+  CHECK(settings.Get(kLauncherFullscreenKey, "false") == "false");
+  CHECK(ReadText(file).find("gw2_launcher_fullscreen = true") == std::string::npos);
+
+  CHECK(settings.SaveNow({{kLauncherFullscreenKey, "true"}}));
+  CHECK(ReadText(file).find("gw2_launcher_fullscreen = true") != std::string::npos);
+  CHECK(settings.Get(kFullscreenKey) == "true");
+  CHECK(!settings.WindowChanged());
+
+  settings.Set(kFullscreenKey, "false");
+  CHECK(settings.Save());
+  CHECK(settings.Get(kLauncherFullscreenKey) == "true");
+
+  settings.ResetToDefaults();
+  CHECK(settings.Get(kLauncherFullscreenKey) == "true");
+  CHECK(settings.Get(kFullscreenKey) == "false");
+
+  settings.Set(kMonitorKey, "2");
+  settings.Set(kWindowWidthKey, "853");
+  CHECK(settings.Get(kLauncherFullscreenKey) == "true");
+  CHECK(settings.Get(kLauncherWidthKey, "0") == "0");
+}
+
 int main() {
   std::error_code ec;
   fs::remove_all(kRoot, ec);
@@ -607,6 +691,8 @@ int main() {
   TestFrameCounterSetting();
   TestFrameLimitSetting();
   TestLauncherPlacementSettings();
+  TestDisplayModeStaysWithTheGame();
+  TestLauncherFullscreenIsSeparate();
   fs::remove_all(kRoot, ec);
   std::printf("%d checks, %d failures\n", g_checks, g_failures);
   return g_failures == 0 ? 0 : 1;
