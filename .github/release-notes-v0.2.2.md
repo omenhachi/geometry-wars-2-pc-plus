@@ -59,5 +59,5 @@ Each download has a matching `.sha256` file. Compare the SHA-256 of the file you
 
 | File | SHA-256 |
 | --- | --- |
-| `GeometryWarsRetroEvolved2-v0.2.2-windows-x64.zip` | `FILL-AFTER-PACKAGING-WINDOWS` |
-| `GeometryWarsRetroEvolved2-v0.2.2-linux-x86_64.AppImage` | `FILL-AFTER-PACKAGING-LINUX` |
+| `GeometryWarsRetroEvolved2-v0.2.2-windows-x64.zip` | `2fd61c085ec4e255f48b6e5d4a85ad17dcbdeae2ef325ac3967c9793dd1ce1a2` |
+| `GeometryWarsRetroEvolved2-v0.2.2-linux-x86_64.AppImage` | `db61787d93b3fe291833aa76262707d5a8e7ba289604ea36fe7ef14ef9baf927` |
