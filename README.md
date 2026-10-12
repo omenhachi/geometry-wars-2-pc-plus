@@ -48,7 +48,7 @@ The launcher checks the Title ID and content type when you pick the package, and
 
 ## Installing
 
-1. Download **GeometryWarsRetroEvolved2-v0.2.0-windows-x64.zip** from the [latest release](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled/releases/latest) and extract it anywhere you can write to.
+1. Download **GeometryWarsRetroEvolved2-v0.2.1-windows-x64.zip** from the [latest release](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled/releases/latest) and extract it anywhere you can write to.
 2. Run **geometry_wars_retro_evolved_2.exe**. The launcher opens.
 3. On the **Play** page click **Install from package...** and pick your package. It is one file with a long hexadecimal name and no extension. On an Xbox 360 drive it is in `Content\0000000000000000\584108FF\000D0000\`.
 4. Wait until **Ready to play** appears. The game files are copied into the `game` folder next to the program. The package file itself is not copied there.
@@ -171,6 +171,7 @@ How the launcher, settings and installer work is described in [docs/launcher.md]
 - [Offline profile and save](docs/offline-profile.md)
 - [Offline Xbox Live services](docs/offline-live.md)
 - [Cheats](docs/cheats.md)
+- [ReXGlue runtime patch](docs/rexglue-runtime-patch.md)
 - [Saves and settings: the portable user_data folder](docs/user-data.md)
 - [Linux and Steam Deck](docs/linux.md)
 

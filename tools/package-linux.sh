@@ -9,6 +9,8 @@
 # GCC 13+ C++ runtime. Release builds are made on Ubuntu 22.04: the AppImage needs the build machine's glibc.
 # Needs generated/default (tools/codegen.ps1) and game/extracted/default.xex: the build re-runs codegen
 # when its inputs look changed, and it never packages either of them.
+# The ReXGlue runtime is built from source with the project's patch (tools/build-patched-rexruntime.sh) the
+# first time, which also needs network access and the packages in docs/rexglue-runtime-patch.md.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -99,6 +101,12 @@ if [ ! -x "$SDK/bin/rexglue" ]; then
 fi
 [ "$("$SDK/bin/rexglue" --version | tr -d '[:space:]')" = "$SDK_VERSION" ] || fail "tools/rexglue/linux-amd64 is not ReXGlue $SDK_VERSION"
 
+echo "== Patched ReXGlue runtime"
+if ! bash "$ROOT/tools/build-patched-rexruntime.sh" --check "$SDK" >/dev/null 2>&1; then
+  bash "$ROOT/tools/build-patched-rexruntime.sh" "$SDK" "$WORK/rexglue-sdk-src"
+fi
+bash "$ROOT/tools/build-patched-rexruntime.sh" --check "$SDK"
+
 echo "== Build ($PRESET)"
 BIN="$WORK/out/build/$PRESET"
 [ "$CLEAN" = 1 ] && rm -rf "$BIN"
@@ -106,9 +114,8 @@ BIN="$WORK/out/build/$PRESET"
 for f in geometry_wars_retro_evolved_2 librexruntime.so librexgpu-xenos.so geometry_wars_retro_evolved_2.toml; do
   [ -f "$BIN/$f" ] || fail "build output is missing $f"
 done
-for f in librexruntime.so librexgpu-xenos.so; do
-  cmp -s "$BIN/$f" "$SDK/lib/$f" || fail "$f is not the ReXGlue SDK release file"
-done
+cmp -s "$BIN/librexruntime.so" "$SDK/lib/librexruntime.so" || fail "librexruntime.so is not the patched runtime"
+cmp -s "$BIN/librexgpu-xenos.so" "$SDK/lib/librexgpu-xenos.so" || fail "librexgpu-xenos.so is not the ReXGlue SDK release file"
 
 echo "== AppDir"
 APPDIR="$WORK/AppDir"

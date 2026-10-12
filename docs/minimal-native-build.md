@@ -28,7 +28,7 @@ The build turns the user's own `default.xex` into a native Windows x64 executabl
 - URL: `https://github.com/rexglue/rexglue-sdk/releases/download/v0.10.0/rexglue-sdk-0.10.0-win-amd64.zip`
 - SHA-256: `AD4485DA853FBE932E9F5DBB643F9B5FE85DC73775EBBAD4DF6879FE6DF0C11B`
 
-If `tools/rexglue/win-amd64/bin/rexglue.exe` is missing, the script uses an existing zip in `tools/rexglue/`, or downloads one, verifies it, and expands it. It then checks `rexglue --version`. The SDK is not modified.
+If `tools/rexglue/win-amd64/bin/rexglue.exe` is missing, the script uses an existing zip in `tools/rexglue/`, or downloads one, verifies it, and expands it. It then checks `rexglue --version`. The extracted SDK is stock; release packages replace its runtime with the patched build described in [rexglue-runtime-patch.md](rexglue-runtime-patch.md).
 
 ## Toolchain
 

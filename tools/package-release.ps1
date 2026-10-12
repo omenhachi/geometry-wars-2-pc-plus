@@ -13,7 +13,7 @@
   .\tools\package-release.ps1              # incremental Release build, then package
   .\tools\package-release.ps1 -Clean       # clean Release build first
   .\tools\package-release.ps1 -SkipBuild   # package the existing build-release\ output
-  .\tools\package-release.ps1 -VerifyOnly dist\GeometryWarsRetroEvolved2-v0.2.0-windows-x64
+  .\tools\package-release.ps1 -VerifyOnly dist\GeometryWarsRetroEvolved2-v0.2.1-windows-x64
 #>
 param(
     [switch]$Clean,
@@ -25,7 +25,9 @@ $ErrorActionPreference = 'Stop'
 $Root = Split-Path $PSScriptRoot -Parent
 $ReleaseBuild = Join-Path $Root 'build-release'
 $Packaging = Join-Path $Root 'packaging'
-$Sdk = Join-Path $Root 'tools\rexglue\win-amd64\bin'
+$SdkRoot = Join-Path $Root 'tools\rexglue\win-amd64'
+$Sdk = Join-Path $SdkRoot 'bin'
+. (Join-Path $PSScriptRoot 'rexruntime-patch.ps1')
 
 $Utf8NoBom = New-Object System.Text.UTF8Encoding $false
 $RootFiles = @('geometry_wars_retro_evolved_2.exe', 'rexruntime.dll', 'rexgpu-xenos.dll', 'geometry_wars_retro_evolved_2.toml', 'README.txt', 'LICENSE')
@@ -109,6 +111,10 @@ $ShaFile = Join-Path $Dist "$Name.sha256"
 Write-Host ''
 Write-Host "Geometry Wars: Retro Evolved 2 $Version - Windows release package (local only)"
 
+# rexruntime.dll must be the project's patched build, rexgpu-xenos.dll the stock release file.
+$runtimeProblems = Test-PatchedRuntime $SdkRoot
+if ($runtimeProblems.Count) { Write-Problems $runtimeProblems; throw 'tools\rexglue does not hold the patched runtime (run tools\build-patched-rexruntime.ps1)' }
+
 if (-not $SkipBuild) {
     $build = @{ Config = 'Release'; BuildDir = $ReleaseBuild }
     if ($Clean) { $build.Clean = $true }
@@ -128,8 +134,8 @@ foreach ($leaf in @('geometry_wars_retro_evolved_2.exe', 'rexruntime.dll', 'rexg
 }
 foreach ($leaf in @('rexruntime.dll', 'rexgpu-xenos.dll')) {
     $built = (Get-FileHash (Join-Path $Stage $leaf) -Algorithm SHA256).Hash
-    $official = (Get-FileHash (Join-Path $Sdk $leaf) -Algorithm SHA256).Hash
-    if ($built -ne $official) { throw "$leaf is not the ReXGlue SDK release file" }
+    $installed = (Get-FileHash (Join-Path $Sdk $leaf) -Algorithm SHA256).Hash
+    if ($built -ne $installed) { throw "$leaf is not the file installed in tools\rexglue" }
 }
 $RootLicense = Join-Path $Root 'LICENSE'
 if (-not (Test-Path -LiteralPath $RootLicense -PathType Leaf)) { throw "Missing project license: $RootLicense" }
