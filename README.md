@@ -30,9 +30,7 @@
 
 ## What you need
 
-- Windows 10 or 11, 64-bit, and a DirectX 12 graphics card
-- The latest Microsoft Visual C++ 2015-2022 Redistributable (x64). Most PCs already have it.
-- **Or** 64-bit Linux (x86_64, glibc 2.35 or newer) or a Steam Deck with a Vulkan driver (experimental, see [Linux and Steam Deck](#linux-and-steam-deck))
+- Windows 10 or 11, 64-bit, and a DirectX 12 graphics card, **or** 64-bit Linux / a Steam Deck with Vulkan (experimental)
 - **Your own Geometry Wars: Retro Evolved 2 Xbox Live Arcade package**, this exact game version:
 
 | | |
