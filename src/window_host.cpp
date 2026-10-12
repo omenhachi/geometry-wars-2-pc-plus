@@ -6,6 +6,7 @@
 
 #include <rex/hook.h>
 #include <rex/ppc.h>
+#include <rex/ui/imgui_dialog.h>
 #include <rex/ui/ui_event.h>
 #include <rex/ui/virtual_key.h>
 #include <rex/ui/window.h>
@@ -37,6 +38,9 @@ std::function<void()> g_toggle_window_mode;
 FrameRateSampler g_sampler;
 GuestFrameStats g_stats;
 std::string g_title = kWindowTitle;
+std::function<bool()> g_gameplay_active;
+// UI thread only.
+CursorHider g_cursor;
 
 // Runs on the UI thread. The guest thread only queues the sampled rate.
 void ShowFrameRate(double fps) {
@@ -59,7 +63,40 @@ void CountGuestFrame() {
   }
 }
 
-class WindowHost final : public rex::ui::WindowInputListener {
+rex::ui::Window* CurrentWindow() {
+  std::lock_guard lock(g_mutex);
+  return g_window;
+}
+
+void ApplyCursor(rex::ui::Window* window, bool gameplay) {
+  if (const auto visible = g_cursor.Update(gameplay, window->IsFullscreen(), window->HasFocus(),
+                                           CursorHider::Clock::now())) {
+    window->SetCursorVisibility(*visible ? rex::ui::Window::CursorVisibility::kVisible
+                                         : rex::ui::Window::CursorVisibility::kHidden);
+  }
+}
+
+void UpdateCursor() {
+  std::function<bool()> gameplay_active;
+  rex::ui::Window* window = nullptr;
+  {
+    std::lock_guard lock(g_mutex);
+    window = g_window;
+    gameplay_active = g_gameplay_active;
+  }
+  if (!window) {
+    return;
+  }
+  ApplyCursor(window, gameplay_active && gameplay_active());
+}
+
+void RestoreCursor() {
+  if (rex::ui::Window* window = CurrentWindow()) {
+    ApplyCursor(window, false);
+  }
+}
+
+class WindowHost final : public rex::ui::WindowInputListener, public rex::ui::WindowListener {
  public:
   void OnKeyDown(rex::ui::KeyEvent& e) override {
     if (e.virtual_key() != rex::ui::VirtualKey::kF11) {
@@ -80,36 +117,67 @@ class WindowHost final : public rex::ui::WindowInputListener {
       return;
     }
     toggle();
+    UpdateCursor();
     std::lock_guard lock(g_mutex);
     if (g_window) {
       g_window->SetTitle(g_title);
     }
   }
+
+  void OnMouseMove(rex::ui::MouseEvent& e) override {
+    if (e.target() != CurrentWindow()) {
+      return;
+    }
+    g_cursor.MouseMoved(CursorHider::Clock::now());
+    UpdateCursor();
+  }
+
+  void OnGotFocus(rex::ui::UISetupEvent&) override { UpdateCursor(); }
+  void OnLostFocus(rex::ui::UISetupEvent&) override { UpdateCursor(); }
+  void OnClosing(rex::ui::UIEvent&) override { RestoreCursor(); }
 };
 
 WindowHost g_window_host;
 
+// Dialogs are drawn on the UI thread every frame, which gives the idle timer a periodic check.
+class CursorTick final : public rex::ui::ImGuiDialog {
+ public:
+  explicit CursorTick(rex::ui::ImGuiDrawer* drawer) : ImGuiDialog(drawer) {}
+
+ protected:
+  void OnDraw(ImGuiIO&) override { UpdateCursor(); }
+};
+
 }  // namespace
 
 void AttachWindowHost(rex::ui::Window* window, rex::ui::WindowedAppContext& app_context,
-                      std::function<void()> toggle_window_mode) {
+                      std::function<void()> toggle_window_mode, std::function<bool()> gameplay_active) {
   {
     std::lock_guard lock(g_mutex);
     g_window = window;
     g_app_context = &app_context;
     g_toggle_window_mode = std::move(toggle_window_mode);
+    g_gameplay_active = std::move(gameplay_active);
     g_title = kWindowTitle;
     window->SetTitle(g_title);
   }
   window->AddInputListener(&g_window_host, kWindowHostZOrder);
+  window->AddListener(&g_window_host);
 }
 
-// The guest can end without the window closing, so the listener stays and only the pointers are cleared.
+void CreateCursorTick(rex::ui::ImGuiDrawer* drawer) {
+  new CursorTick(drawer);  // retained by the drawer for the session
+}
+
+// The guest can end without the window closing, so the listeners stay.
+// The cursor is restored, then only the pointers are cleared.
 void DetachWindowHost() {
+  RestoreCursor();
   std::lock_guard lock(g_mutex);
   g_window = nullptr;
   g_app_context = nullptr;
   g_toggle_window_mode = nullptr;
+  g_gameplay_active = nullptr;
 }
 
 GuestFrameStats GetGuestFrameStats() {

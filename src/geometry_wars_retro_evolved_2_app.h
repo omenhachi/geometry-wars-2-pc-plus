@@ -98,6 +98,7 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
   void OnCreateDialogs(rex::ui::ImGuiDrawer* drawer) override {
     if (drawer) {
       gw2::CreateFrameCounter(drawer);
+      gw2::CreateCursorTick(drawer);
     }
   }
 
@@ -109,7 +110,8 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
   // Valid files open it after the runtime is built, so the Achievements page reads the game's own achievement data.
   std::optional<rex::PathConfig> OnFinalizePaths(const rex::PathConfig& defaults,
                                                  std::function<void(rex::PathConfig)> resume) override {
-    gw2::AttachWindowHost(window(), app_context(), [this] { ToggleWindowMode(); });
+    gw2::AttachWindowHost(window(), app_context(), [this] { ToggleWindowMode(); },
+                          [this] { return !launcher_open_; });
     gw2::ApplyWindowIcon();
     settings_->CaptureLateRegistered();
     const bool game_ready = gw2::CheckGameFiles(defaults.game_data_root).state == gw2::GameFileState::kValid;
