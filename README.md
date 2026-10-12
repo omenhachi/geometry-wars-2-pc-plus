@@ -46,7 +46,7 @@ The launcher checks the Title ID and content type when you pick the package, and
 
 ## Installing
 
-1. Download **GeometryWarsRetroEvolved2-v0.2.1-windows-x64.zip** from the [latest release](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled/releases/latest) and extract it anywhere you can write to.
+1. Download **GeometryWarsRetroEvolved2-v0.2.2-windows-x64.zip** from the [latest release](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled/releases/latest) and extract it anywhere you can write to.
 2. Run **geometry_wars_retro_evolved_2.exe**. The launcher opens.
 3. On the **Play** page click **Install from package...** and pick your package. It is one file with a long hexadecimal name and no extension. On an Xbox 360 drive it is in `Content\0000000000000000\584108FF\000D0000\`.
 4. Wait until **Ready to play** appears. The game files are copied into the `game` folder next to the program. The package file itself is not copied there.
@@ -97,6 +97,7 @@ Window size, monitor and VSync take effect when you press **PLAY**. If one diffe
 - **Anti-aliasing**: Off, FXAA or FXAA Extreme
 - **Multisampling**: 2x MSAA on or off
 - **Texture filtering**: Game, Off, 2x, 4x, 8x or 16x
+- **Bloom**: Original (the game's own glow), Reduced (lower glow) or Off (no glow). The bright geometry and colors are kept
 
 ### Gameplay
 - **Frame rate**: 30, 60, 90, 120, 144, 165, 240 or Unlimited. 60 is the original game and the default. The game's speed stays the same at every rate; a slower graphics card or heavier graphics settings lower the frame rate without changing the speed.

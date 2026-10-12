@@ -47,6 +47,7 @@ std::string RenderScaleLabel(int scale);
 
 std::vector<SettingChoice> AntiAliasingChoices();
 std::vector<SettingChoice> TextureFilteringChoices();
+std::vector<SettingChoice> BloomChoices();
 std::vector<SettingChoice> FrameRateChoices();
 
 std::string KeyList(std::string keys);

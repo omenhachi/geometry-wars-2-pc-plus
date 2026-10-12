@@ -14,6 +14,7 @@
 #include <utility>
 #include <vector>
 
+#include "bloom_rules.h"
 #include "cheats.h"
 #include "frame_limiter.h"
 #include "launcher_options.h"
@@ -114,6 +115,7 @@ void RegisterGameDefaults(FakeCvars& cvars) {
   cvars.Register(kAntiAliasingKey, "none");
   cvars.Register(kMultisamplingKey, "true");
   cvars.Register(kTextureFilteringKey, "3");
+  cvars.Register(kBloomKey, "original");
   cvars.Register(kKeyboardKey, "true");
   cvars.Register(kFrameRateKey, std::to_string(kFrameRateDefault));
   cvars.Register(kLauncherXKey, "0");
@@ -540,6 +542,59 @@ void TestFrameLimitSetting() {
   CHECK(ReadText(file).find("gw2_frame_rate = 60") != std::string::npos);
 }
 
+void TestBloomSetting() {
+  Section("bloom setting");
+  CHECK(std::string_view(kBloomKey) == "gw2_bloom");
+  int managed = 0;
+  for (const ManagedSetting& setting : ManagedSettings()) {
+    if (setting.key == kBloomKey) {
+      ++managed;
+      CHECK(setting.kind == ValueKind::kString);
+    }
+  }
+  CHECK(managed == 1);
+  CHECK(!IsWindowSetting(kBloomKey));
+
+  const std::vector<SettingChoice> choices = BloomChoices();
+  CHECK(choices.size() == 3);
+  CHECK(choices[0].value == "original" && choices[0].label == "Original");
+  CHECK(choices[1].value == "reduced" && choices[1].label == "Reduced");
+  CHECK(choices[2].value == "off" && choices[2].label == "Off");
+  for (const SettingChoice& choice : choices) {
+    CHECK(bloom::ModeName(bloom::ParseMode(choice.value)) == choice.value);
+  }
+  CHECK(bloom::Scale(bloom::ParseMode("original")) == 1.0f);
+  CHECK(bloom::Scale(bloom::ParseMode("reduced")) == 0.5f);
+  CHECK(bloom::Scale(bloom::ParseMode("off")) == 0.0f);
+  CHECK(bloom::ParseMode("") == bloom::Mode::kOriginal);
+  CHECK(bloom::ParseMode("Off") == bloom::Mode::kOriginal);
+
+  const fs::path dir = FreshDir("bloom");
+  const fs::path file = LauncherSettingsPath(dir);
+  FakeCvars cvars;
+  RegisterGameDefaults(cvars);
+  GameSettings settings(cvars, file, dir / "missing.toml");
+  settings.Capture();
+  settings.MarkWindowCreated();
+  CHECK(settings.Get(kBloomKey) == "original");
+
+  settings.Set(kBloomKey, "reduced");
+  CHECK(!settings.WindowChanged());
+  CHECK(!settings.Apply());
+  CHECK(cvars.values[kBloomKey] == "reduced");
+  CHECK(settings.Save());
+  CHECK(ReadText(file).find("gw2_bloom = \"reduced\"") != std::string::npos);
+
+  settings.Set(kBloomKey, "off");
+  CHECK(settings.Save());
+  CHECK(ReadText(file).find("gw2_bloom = \"off\"") != std::string::npos);
+
+  settings.ResetToDefaults();
+  CHECK(settings.Get(kBloomKey) == "original");
+  CHECK(settings.Save());
+  CHECK(ReadText(file).find("gw2_bloom = \"original\"") != std::string::npos);
+}
+
 void TestLauncherPlacementSettings() {
   Section("launcher placement");
   for (const char* key : {kLauncherXKey, kLauncherYKey, kLauncherWidthKey, kLauncherHeightKey, kLauncherMaximizedKey,
@@ -826,6 +881,7 @@ int main() {
   TestFrameRateSetting();
   TestFrameCounterSetting();
   TestFrameLimitSetting();
+  TestBloomSetting();
   TestLauncherPlacementSettings();
   TestCheatSettings();
   TestUnregisteredCheatIsRejected();

@@ -6,6 +6,7 @@
 #include <string_view>
 #include <vector>
 
+#include "bloom_rules.h"
 #include "frame_limiter.h"
 
 namespace gw2 {
@@ -94,6 +95,12 @@ std::vector<SettingChoice> AntiAliasingChoices() {
 
 std::vector<SettingChoice> TextureFilteringChoices() {
   return {{"-1", "Game"}, {"0", "Off"}, {"2", "2x"}, {"3", "4x"}, {"4", "8x"}, {"5", "16x"}};
+}
+
+std::vector<SettingChoice> BloomChoices() {
+  return {{std::string(bloom::ModeName(bloom::Mode::kOriginal)), "Original"},
+          {std::string(bloom::ModeName(bloom::Mode::kReduced)), "Reduced"},
+          {std::string(bloom::ModeName(bloom::Mode::kOff)), "Off"}};
 }
 
 std::vector<SettingChoice> FrameRateChoices() {

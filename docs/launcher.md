@@ -53,6 +53,9 @@ Window size, monitor and VSync need a new window, so changing them restarts the 
 | Anti-aliasing | Off, FXAA, FXAA Extreme | `swap_post_effect` (`none`, `fxaa`, `fxaa_extreme`) |
 | Multisampling | Off, 2x MSAA | `native_2x_msaa` |
 | Texture filtering | Game, Off, 2x, 4x, 8x, 16x | `anisotropic_override` (`-1`, `0`, `2`–`5`) |
+| Bloom | Original, Reduced, Off (default Original) | `gw2_bloom` (`original`, `reduced`, `off`) |
+
+Bloom scales the intensity of the game's own bloom: Reduced halves its gains and Off sets them to zero. The bright geometry, colors and HUD are not changed, and the menus lose their glow too. Original is the default and leaves the game's rendering unchanged. A missing or unknown value is treated as Original. Like Frame rate, it applies on PLAY without a restart. Off does not change performance.
 
 Render resolution labels use the presented size 1280×720 (Original): 2x is 2560×1440, 3x 3840×2160, 4x 5120×2880. The guest video mode does not change this size. This value is derived from this project's pinned 1280×720 guest mode; it was not measured at run time. The 2x label is marked as recommended for 1440p displays.
 
@@ -150,7 +153,8 @@ TRG Launcher is the `third_party/trg-launcher` submodule pinned to `b384a28` (ve
 2. Open About and check the rows.
 3. Change a Display setting and press Save. Restart the executable and confirm the value persisted.
 4. Check the Display page: window size list, monitor, VSync and aspect ratio.
-5. Check the Graphics page: render resolution labels, anti-aliasing, multisampling and texture filtering. On the Gameplay page, check that Frame rate in title is On and Frame counter is Hidden by default.
+5. Check the Graphics page: render resolution labels, anti-aliasing, multisampling, texture filtering and Bloom (Original by default). On the Gameplay page, check that Frame rate in title is On and Frame counter is Hidden by default.
+5a. Bloom: compare Original, Reduced and Off in a level with many enemies and projectiles (choose each on the Graphics page and press PLAY). Reduced shows less glow than Original and Off shows none. In every mode the geometry, colors and HUD stay intact.
 6. Check the Controls page: keyboard toggle and the keybind list. Check the Cheats page: Invincible, Infinite Shield and Infinite Bombs, all Off. Turn one On, press Save, restart the executable and confirm it persisted.
 7. Check Achievements: 12 entries, 200G, icons and earned state.
 8. Change one setting and press PLAY. Confirm "Settings saved. Starting game..." and that the game starts.

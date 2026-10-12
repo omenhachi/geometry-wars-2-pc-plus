@@ -505,6 +505,8 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
               "Forces anisotropic filtering for eligible textures. Higher values keep textures sharper at oblique "
               "angles, but increase texture sampling cost.",
               kTextureFilteringKey, "-1", ToTrgOptions(TextureFilteringChoices()), 6);
+    ui.Choice("Bloom", "Controls the intensity of the game's original bloom/glow effect.", kBloomKey, "original",
+              ToTrgOptions(BloomChoices()));
     ui.EndRows();
   }
 

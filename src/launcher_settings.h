@@ -27,6 +27,7 @@ inline constexpr char kRenderScaleKey[] = "resolution_scale";
 inline constexpr char kAntiAliasingKey[] = "swap_post_effect";
 inline constexpr char kMultisamplingKey[] = "native_2x_msaa";
 inline constexpr char kTextureFilteringKey[] = "anisotropic_override";
+inline constexpr char kBloomKey[] = "gw2_bloom";
 inline constexpr char kKeyboardKey[] = "mnk_mode";
 inline constexpr char kShowFpsKey[] = "gw2_show_fps";
 inline constexpr bool kShowFpsDefault = true;

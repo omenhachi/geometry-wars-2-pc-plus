@@ -30,6 +30,7 @@ constexpr ManagedSetting kManagedSettings[] = {
     {kAntiAliasingKey, ValueKind::kString},
     {kMultisamplingKey, ValueKind::kBool},
     {kTextureFilteringKey, ValueKind::kInt},
+    {kBloomKey, ValueKind::kString},
     {kKeyboardKey, ValueKind::kBool},
     {kFrameRateKey, ValueKind::kInt},
     {kShowFpsKey, ValueKind::kBool},
