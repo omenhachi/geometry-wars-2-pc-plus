@@ -16,7 +16,7 @@
 
 ## Features
 
-- Native static recompilation for Windows x64, and an experimental native Linux x86_64 / Steam Deck AppImage
+- Native static recompilation for Windows, plus an experimental native Linux / Steam Deck AppImage
 - TRG launcher that installs the game from your own package and remembers its window position, size, maximized and fullscreen state
 - High frame rate support: 30, 60 (the original), 90, 120, 144, 165, 240 or Unlimited, without speeding up the game
 - Render resolution up to 4x (5120×2880), FXAA, 2x MSAA, texture filtering up to 16x, VSync and aspect ratio options
