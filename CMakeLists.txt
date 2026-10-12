@@ -58,6 +58,7 @@ set(GW2_SOURCES
     src/launcher_options.cpp
     src/launcher_platform.cpp
     src/launcher_settings.cpp
+    src/user_data.cpp
     src/window_host.cpp
 )
 if(WIN32)
@@ -125,6 +126,7 @@ gw2_add_test(window_host_tests)
 gw2_add_test(frame_counter_tests)
 gw2_add_test(frame_limiter_tests src/frame_wait.cpp)
 gw2_add_test(launcher_placement_tests)
+gw2_add_test(user_data_tests src/user_data.cpp)
 # TRG's settings and platform sources without its ImGui dependency; C++17 like the launcher library.
 add_library(gw2_trg_test_support STATIC EXCLUDE_FROM_ALL
     "${_trg_dir}/src/settings.cpp" "${_trg_dir}/src/platform.cpp")

@@ -6,6 +6,7 @@
 #include <optional>
 
 #include <rex/filesystem.h>
+#include <rex/logging.h>
 #include <rex/rex_app.h>
 #include <rex/runtime.h>
 #include <rex/system/kernel_state.h>
@@ -20,6 +21,7 @@
 #include "launcher_platform.h"
 #include "launcher_settings.h"
 #include "live_fix.h"
+#include "user_data.h"
 #include "window_host.h"
 
 inline rex::ui::FrameStats DebugOverlayFrameStats() {
@@ -44,6 +46,7 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
       paths.game_data_root = port_folder / "game";
     }
     shipped_config_ = paths.config_path;
+    ChooseUserData(paths, port_folder);
     // ReXGlue writes its logs beside the executable, which is read-only inside an AppImage.
     if (port_folder != rex::filesystem::GetExecutableFolder() && rex::cvar::GetFlagByName("log_file").empty()) {
       for (const auto& logs : {port_folder / "logs", paths.user_data_root / "logs"}) {
@@ -56,7 +59,15 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
     }
   }
 
-  void OnPostInitLogging() override { gw2::LoadPlayerSettings(gw2::LauncherSettingsPath(user_data_root())); }
+  void OnPostInitLogging() override {
+    const gw2::UserDataMessage message = gw2::DescribeUserData(user_data_);
+    if (message.warning) {
+      REXLOG_WARN("{}", message.text);
+    } else {
+      REXLOG_INFO("{}", message.text);
+    }
+    gw2::LoadPlayerSettings(gw2::LauncherSettingsPath(user_data_root()));
+  }
 
   // The requested window is recorded before the display fit caps it, so a size the player saved is not reported as
   // changed.
@@ -110,7 +121,8 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
       return defaults;
     }
     launcher_open_ = true;
-    gw2::ShowLauncher(imgui_drawer(), {defaults.game_data_root, defaults.user_data_root}, *settings_, {},
+    gw2::ShowLauncher(imgui_drawer(), {defaults.game_data_root, defaults.user_data_root, user_data_.outcome},
+                      *settings_, {},
                       {.play = [this, resume, defaults] {
                          launcher_open_ = false;
                          app_context().CallInUIThreadDeferred([resume, defaults] { resume(defaults); });
@@ -132,7 +144,7 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
     }
     show_launcher_after_runtime_ = false;
     launcher_open_ = true;
-    gw2::ShowLauncher(imgui_drawer(), {game_data_root(), user_data_root()}, *settings_,
+    gw2::ShowLauncher(imgui_drawer(), {game_data_root(), user_data_root(), user_data_.outcome}, *settings_,
                       {runtime(), immediate_drawer(), &achievements()},
                       {.play = [this] {
                          launcher_open_ = false;
@@ -180,6 +192,18 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
   }
 
  private:
+  // The cache folder ReXGlue derived from the system root follows the user data root unless it was set explicitly.
+  void ChooseUserData(rex::PathConfig& paths, const std::filesystem::path& port_folder) {
+    user_data_ = gw2::SelectUserData({port_folder, paths.user_data_root, !REXCVAR_GET(user_data_root).empty()});
+    if (user_data_.root == paths.user_data_root) {
+      return;
+    }
+    paths.user_data_root = user_data_.root;
+    if (REXCVAR_GET(cache_root).empty()) {
+      paths.cache_root = user_data_.root / "cache";
+    }
+  }
+
   bool RestartInNewWindow() {
     if (!gw2::RelaunchSelf(L"--gw2_skip_launcher=true")) {
       return false;
@@ -216,6 +240,7 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
 
   std::unique_ptr<gw2::AchievementsOverlay> achievements_;
   std::filesystem::path shipped_config_;
+  gw2::UserDataSelection user_data_;
   gw2::RexCvars cvars_;
   std::unique_ptr<gw2::GameSettings> settings_;
   bool show_launcher_after_runtime_ = false;

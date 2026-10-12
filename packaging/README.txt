@@ -47,6 +47,18 @@ To repair the game files, use "Reinstall from package..." on the Play page.
 Your settings and saves are kept.
 
 
+UPGRADING FROM 0.1.0
+--------------------
+Version 0.1.0 kept your profile, scores, achievements and settings in
+Documents\geometry_wars_retro_evolved_2. The first start of this version moves
+that folder into "user_data" next to the program, and the old folder in
+Documents is removed once the move has succeeded. If the move fails, the old
+folder is left untouched and used, and the move is tried again at the next
+start. If "user_data" already holds data, it is used and the old folder is left
+alone. If the program folder cannot be written to, the old Documents folder is
+used for that run.
+
+
 WINDOWS SMARTSCREEN
 -------------------
 The first time you run geometry_wars_retro_evolved_2.exe, Windows SmartScreen
@@ -73,8 +85,14 @@ WHERE THINGS ARE
 ----------------
 - Game files:     the "game" folder next to geometry_wars_retro_evolved_2.exe
 - Logs:           the "logs" folder next to geometry_wars_retro_evolved_2.exe
-- Settings, profile, scores and achievements:
-                  Documents\geometry_wars_retro_evolved_2
+- Settings, profile, scores, achievements and launcher settings:
+                  the "user_data" folder next to geometry_wars_retro_evolved_2.exe
+                  (created the first time it is needed)
+
+Copy the whole program folder to another PC to take your profile, scores,
+achievements and launcher settings with it. To update, extract the new version
+over the old folder, or move "user_data" (and "game") into the new one:
+deleting the old folder deletes "user_data" with it.
 
 If the game does not start or crashes, please attach the newest file from the
 "logs" folder to a report at

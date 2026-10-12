@@ -32,7 +32,7 @@ $RootFiles = @('geometry_wars_retro_evolved_2.exe', 'rexruntime.dll', 'rexgpu-xe
 $LicenseFiles = @('ReXGlue-LICENSE.txt', 'THIRD-PARTY-LICENSES.txt')
 # Names that mean game data, a package, saves, settings, caches or logs.
 $ForbiddenNames = @('default.xex', 'Data.bin', 'game', 'game-install-temp', 'game-install-backup', 'user_data',
-    'content', 'cache', 'logs', 'settings.toml', 'settings.toml.bak', 'ArcadeInfo.xml', 'nxeart', '584108FF')
+    'user_data.migrating', 'content', 'cache', 'logs', 'settings.toml', 'settings.toml.bak', 'ArcadeInfo.xml', 'nxeart', '584108FF')
 $ForbiddenPatterns = @('*.xex', '*.log', '*.dmp', '*.pdb', '*.xsh', '*.xpso', '*.bak', '*.tmp', '*.sav')
 
 # The repository folder, as text or UTF-16, in either slash style.

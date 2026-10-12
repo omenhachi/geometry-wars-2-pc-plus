@@ -44,6 +44,12 @@ The launcher checks the Title ID and content type when you pick the package, and
 
 **Reinstall from package...** repairs the game files and keeps your settings and saves.
 
+### Saves and settings
+
+Your profile, scores, achievements and launcher settings are stored in a portable `user_data` folder next to the program (next to the AppImage on Linux), beside `game` and `logs`. It is created the first time it is needed and is not part of the download. Copying the whole application folder to another PC takes your profile, scores, achievements and launcher settings with it.
+
+**Upgrading from v0.1.0:** the first start moves your old data into `user_data` automatically (from `Documents\geometry_wars_retro_evolved_2` on Windows, from `~/.local/share/geometry_wars_retro_evolved_2` or `$XDG_DATA_HOME` on Linux). After a successful move the old folder is removed. If the move fails, the old folder is left untouched and used, and the move is tried again at the next start. If `user_data` already holds data, it is used and the old folder is left alone. If the program folder is read-only, the old system location is used for that run. Details are in [docs/user-data.md](docs/user-data.md).
+
 ### Linux and Steam Deck
 
 **Experimental, not yet tested on real hardware.** This is a native Linux build (ReXGlue's Linux runtime with Vulkan), not Proton or Wine.
@@ -52,7 +58,7 @@ The launcher checks the Title ID and content type when you pick the package, and
 2. Run it, then install your package from the **Play** page as above. The game files go in a `game` folder next to the AppImage. The package picker needs `zenity` or `kdialog`.
 3. On a Steam Deck (intended flow, not yet tried on a Deck), do this in **Desktop Mode**, then add the AppImage with **Games > Add a Non-Steam Game to My Library** and play it from **Game Mode**.
 
-Settings and saves are in `~/.local/share/geometry_wars_retro_evolved_2` (`$XDG_DATA_HOME` when set), logs in `logs` next to the AppImage. Requirements, known limits and building the AppImage are in [docs/linux.md](docs/linux.md).
+Settings and saves are in `user_data` and logs in `logs`, both next to the AppImage file (not inside it). Requirements, known limits and building the AppImage are in [docs/linux.md](docs/linux.md).
 
 ### Windows SmartScreen
 
@@ -60,7 +66,7 @@ Windows may warn the first time you run the program, because the release is not 
 
 ## The launcher
 
-The launcher opens before the game. Your choices are saved to `settings.toml` in the `launcher` folder of your user data (`Documents\geometry_wars_retro_evolved_2` on Windows). To turn the launcher off, set **Show this launcher** to **Off** on the Play page. Hold **Shift** while starting to bring it back. The launcher remembers its window position, size and whether it was maximized.
+The launcher opens before the game. Your choices are saved to `settings.toml` in the `launcher` folder of your user data (`user_data` next to the program). To turn the launcher off, set **Show this launcher** to **Off** on the Play page. Hold **Shift** while starting to bring it back. The launcher remembers its window position, size and whether it was maximized.
 
 ### Play
 - **Install from package...** with the Title ID and game version checks, and **Reinstall from package...**
@@ -103,7 +109,7 @@ Everything stays offline: there is no Xbox Live connection, Microsoft sign-in or
 
 ### About
 - The port version, game version and library versions
-- Open the game folder, or the saves and settings folder
+- Open the game folder, or the saves and settings folder (the active `user_data`)
 - **Show settings file**, and **Reset all settings**
 
 ## Screenshots
@@ -143,6 +149,7 @@ How the launcher, settings and installer work is described in [docs/launcher.md]
 - [First boot](docs/first-boot.md)
 - [Offline profile and save](docs/offline-profile.md)
 - [Offline Xbox Live services](docs/offline-live.md)
+- [Saves and settings: the portable user_data folder](docs/user-data.md)
 - [Linux and Steam Deck](docs/linux.md)
 
 ## Credits

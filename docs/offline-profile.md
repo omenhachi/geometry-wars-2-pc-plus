@@ -18,7 +18,7 @@ ReXGlue provides one local user: index 0, signed in locally, with a fixed XUID a
 <user_data_root>/584108FF/profile/User/63E83FFF
 ```
 
-`tools\build.ps1 -Run` passes `build\user_data` as the user data root, and `-Clean` keeps that folder. Delete `build\user_data`, or only its `584108FF\profile` folder, to start with a fresh profile.
+`<user_data_root>` is the `user_data` folder next to the program (see [user-data.md](user-data.md)). `tools\build.ps1 -Run` passes `build\user_data` as the user data root, and `-Clean` keeps that folder. Delete `build\user_data`, or only its `584108FF\profile` folder, to start with a fresh profile.
 
 ## First run
 

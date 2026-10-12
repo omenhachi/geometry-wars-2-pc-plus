@@ -6,6 +6,10 @@
 /dist/
 /out/
 
+# Player data created when the program runs from a source folder
+user_data/
+user_data.migrating/
+
 # Downloaded ReXGlue SDK
 /tools/rexglue/
 

@@ -583,6 +583,30 @@ void TestLauncherPlacementSettings() {
   CHECK(settings.Get(kShowFpsKey) == "true");
 }
 
+void TestSettingsFollowTheUserDataRoot() {
+  Section("settings and launcher placement are written below the user data root");
+  const fs::path dir = FreshDir("user_data_root");
+  for (const char* name : {"user_data", "chosen"}) {
+    const fs::path root = dir / name;
+    const fs::path file = LauncherSettingsPath(root);
+    CHECK(file == root / "launcher" / "settings.toml");
+    FakeCvars cvars;
+    RegisterGameDefaults(cvars);
+    GameSettings settings(cvars, file, dir / "missing.toml");
+    settings.Capture();
+    settings.MarkWindowCreated();
+    settings.Set(kFullscreenKey, "true");
+    CHECK(settings.Save());
+    CHECK(settings.SaveNow({{kLauncherXKey, "40"}, {kLauncherYKey, "60"}}));
+    CHECK(ReadText(file).find("gw2_launcher_x = 40") != std::string::npos);
+  }
+  int files = 0;
+  for (const auto& entry : fs::recursive_directory_iterator(dir)) {
+    files += entry.is_regular_file() ? 1 : 0;
+  }
+  CHECK(files == 2);
+}
+
 }  // namespace
 
 int main() {
@@ -607,6 +631,7 @@ int main() {
   TestFrameCounterSetting();
   TestFrameLimitSetting();
   TestLauncherPlacementSettings();
+  TestSettingsFollowTheUserDataRoot();
   fs::remove_all(kRoot, ec);
   std::printf("%d checks, %d failures\n", g_checks, g_failures);
   return g_failures == 0 ? 0 : 1;

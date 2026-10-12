@@ -44,11 +44,18 @@ The launcher takes mouse, keyboard and controller input: the D-pad, left stick, 
 | What | Where |
 | --- | --- |
 | Game files | `game` next to the AppImage |
-| Logs | `logs` next to the AppImage (`~/.local/share/geometry_wars_retro_evolved_2/logs` if that folder is not writable) |
-| Settings, profile, scores, achievements, shader cache | `$XDG_DATA_HOME/geometry_wars_retro_evolved_2`, normally `~/.local/share/geometry_wars_retro_evolved_2` |
+| Logs | `logs` next to the AppImage (`logs` inside the user data folder in use if that folder is not writable) |
+| Settings, profile, scores, achievements, shader cache | `user_data` next to the AppImage |
 
-The settings and save folder is ReXGlue's own Linux location. A build run outside an AppImage keeps `game` and
-`logs` next to the program instead. `--game_data_root` and `--user_data_root` override the folders, as on Windows.
+`user_data` sits beside the AppImage file, never inside its read-only mount, so it stays when the AppImage exits and
+moves with the AppImage folder. A build run outside an AppImage keeps `game`, `logs` and `user_data` next to the
+program instead. `--game_data_root` and `--user_data_root` override the folders, as on Windows.
+
+XDG matters in two cases only. Version 0.1.0 kept everything in `$XDG_DATA_HOME/geometry_wars_retro_evolved_2`,
+normally `~/.local/share/geometry_wars_retro_evolved_2`: the first start of a newer AppImage moves that folder into
+`user_data` and removes it. And if `user_data` cannot be written (an AppImage on a read-only location), that XDG folder
+is used for that run and a warning is logged. See [user-data.md](user-data.md) for the move, the collision rule and the
+failure rules.
 
 ## How it differs from Windows
 
@@ -72,6 +79,8 @@ The settings and save folder is ReXGlue's own Linux location. A build run outsid
 
 - Not tested on real hardware yet: rendering, audio, controllers, performance and the frame rates above 60 are
   unconfirmed on Linux. They were validated on Windows only.
+- The portable `user_data` folder and the move from the XDG folder are covered by unit tests with temporary folders
+  only. They have not been tried with an AppImage on a real Linux PC or Steam Deck.
 - Holding **Shift** to bring the launcher back works only if the window gets keyboard focus while Shift is still
   held, because SDL cannot read the keyboard before the window has focus. Keep Shift held until the launcher appears.
 - On a Wayland desktop with display scaling above 100%, window sizes can come out larger than chosen. ReXGlue

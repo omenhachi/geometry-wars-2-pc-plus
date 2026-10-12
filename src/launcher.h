@@ -3,6 +3,8 @@
 #include <filesystem>
 #include <functional>
 
+#include "user_data.h"
+
 struct ImFontAtlas;
 
 namespace rex {
@@ -25,6 +27,7 @@ void LoadLauncherFonts(ImFontAtlas* atlas, float density);
 struct LauncherPaths {
   std::filesystem::path game_dir;
   std::filesystem::path user_data_root;
+  UserDataOutcome user_data_outcome = UserDataOutcome::kPortable;
 };
 
 // Empty when the launcher opens before the runtime exists, which is only when the game files are not installed.

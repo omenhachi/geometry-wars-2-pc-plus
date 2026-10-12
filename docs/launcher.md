@@ -22,7 +22,7 @@ A window restart skips the launcher once. The launcher is the only way to instal
 
 ## Settings
 
-- **File**: `<user data>\launcher\settings.toml`, written by TRG's text settings, which keep comments and other lines and replace the file atomically. Only changed keys are written.
+- **File**: `<user data>\launcher\settings.toml` (`user_data` next to the program, see [user-data.md](user-data.md)), written by TRG's text settings, which keep comments and other lines and replace the file atomically. Only changed keys are written.
 - **Defaults**: the shipped `geometry_wars_retro_evolved_2.toml`, then ReXGlue's registered default for any key it does not set.
 - **Pending edits** stay in the launcher until Save or PLAY. Nothing reaches the running game sooner.
 - **Apply** (PLAY): a changed setting is assigned to its cvar. ReXGlue reports the cvars that only take effect after a restart; if any changed, or the window needs a new size, monitor or VSync, the game starts again once in a new window (`--gw2_skip_launcher=true`) and the launcher skips itself.
@@ -93,7 +93,7 @@ Read-only, unchanged: the same `AchievementManager` and icon cache as the in-gam
 
 ## About
 
-Rows: Game files (Open game folder, when it exists), Saves and settings (Open data folder), Settings file, Reset all settings, Port version (the `project()` VERSION in `CMakeLists.txt`, passed in as `GW2_PORT_VERSION`), Libraries (ReXGlue SDK 0.10.0, TRG Launcher 1.1.0), Game (title 584108FF, game version 0.0.1.2), and the repository as a line of text.
+Rows: Game files (Open game folder, when it exists), Saves and settings (Open data folder: the folder in use, and the row says whether that is the portable `user_data`, the system folder after a fallback, or the `--user_data_root` folder), Settings file, Reset all settings, Port version (the `project()` VERSION in `CMakeLists.txt`, passed in as `GW2_PORT_VERSION`), Libraries (ReXGlue SDK 0.10.0, TRG Launcher 1.1.0), Game (title 584108FF, game version 0.0.1.2), and the repository as a line of text.
 
 ## Launcher window
 
@@ -122,7 +122,7 @@ TRG Launcher is the `third_party/trg-launcher` submodule pinned to `b384a28` (ve
 
 ## Tests
 
-`tools\test.ps1` builds and runs the focused suites with synthetic data and temporary folders: the live services, the achievement overlay rules, the launcher, the window title, the frame counter, the frame limiter and time step, the launcher window placement and the launcher settings. `launcher_tests.cpp` covers the game-file states, SHA-256, package parsing and path rejection, install success and failure, cancel, damaged reinstall, foreign folders, user data left untouched, the window fit and the achievement summary. `launcher_settings_tests.cpp` covers saving only changed keys, the PLAY gate (one save per request, failed save prevents start), apply and restart needs, window-change detection, F11 persistence, reset isolation, the Display, Graphics and Controls values and labels, shipped-default reading, and the page order. `window_host_tests.cpp` covers the title format and the one-second frame-rate sampler, with synthetic time. `frame_counter_tests.cpp` covers the counter's text and when it is drawn. `frame_limiter_tests.cpp` covers the frame periods, the limiter schedule and resync, the pacing policy, the time step and that the wait reaches its deadline. `launcher_placement_tests.cpp` covers the saved window placement, maximize and restore, off-screen recovery and the pre-show plan.
+`tools\test.ps1` builds and runs the focused suites with synthetic data and temporary folders: the live services, the achievement overlay rules, the launcher, the window title, the frame counter, the frame limiter and time step, the launcher window placement, the launcher settings and the portable user data. `launcher_tests.cpp` covers the game-file states, SHA-256, package parsing and path rejection, install success and failure, cancel, damaged reinstall, foreign folders, user data left untouched, the window fit and the achievement summary. `launcher_settings_tests.cpp` covers saving only changed keys, the PLAY gate (one save per request, failed save prevents start), apply and restart needs, window-change detection, F11 persistence, reset isolation, the Display, Graphics and Controls values and labels, shipped-default reading, and the page order. `window_host_tests.cpp` covers the title format and the one-second frame-rate sampler, with synthetic time. `frame_counter_tests.cpp` covers the counter's text and when it is drawn. `frame_limiter_tests.cpp` covers the frame periods, the limiter schedule and resync, the pacing policy, the time step and that the wait reaches its deadline. `launcher_placement_tests.cpp` covers the saved window placement, maximize and restore, off-screen recovery and the pre-show plan. `user_data_tests.cpp` covers the portable user data root, the move from the system folder (by rename and by copy), the collision, empty-folder and fallback rules, failed moves that keep the old folder, and the `--user_data_root` precedence.
 
 ## Manual test
 

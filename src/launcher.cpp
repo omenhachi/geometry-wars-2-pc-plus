@@ -548,7 +548,7 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
     if (std::filesystem::is_directory(paths_.game_dir, ec)) {
       ui.FolderRow("Game files", "Where the game data is read from.", "Open game folder", Utf8(paths_.game_dir));
     }
-    ui.FolderRow("Saves and settings", "Profile, scores, achievements and launcher settings.", "Open data folder",
+    ui.FolderRow("Saves and settings", UserDataFolderHelp(paths_.user_data_outcome), "Open data folder",
                  Utf8(paths_.user_data_root));
     if (ui.ButtonRow("Settings file", "Launcher choices stored as plain text.", "Show settings file") &&
         launcher_->Save()) {

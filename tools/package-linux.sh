@@ -155,7 +155,7 @@ while IFS= read -r -d '' item; do
   rel="${item#"$APPDIR"/}"
   base="$(basename "$item")"
   case "$base" in
-    default.xex | Data.bin | game | game-install-temp | game-install-backup | user_data | content | cache | logs | saves | \
+    default.xex | Data.bin | game | game-install-temp | game-install-backup | user_data | user_data.migrating | content | cache | logs | saves | \
       settings.toml | settings.toml.bak | ArcadeInfo.xml | nxeart | 584108FF) problem "forbidden name: $rel" ;;
     *.xex | *.log | *.dmp | *.pdb | *.xsh | *.xpso | *.bak | *.tmp | *.sav) problem "forbidden file type: $rel" ;;
   esac
