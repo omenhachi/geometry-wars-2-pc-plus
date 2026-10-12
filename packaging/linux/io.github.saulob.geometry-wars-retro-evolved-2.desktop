@@ -6,3 +6,4 @@ Exec=geometry_wars_retro_evolved_2
 Icon=geometry_wars_retro_evolved_2
 Categories=Game;
 Terminal=false
+StartupWMClass=io.github.saulob.geometry-wars-retro-evolved-2

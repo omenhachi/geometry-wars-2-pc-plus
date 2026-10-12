@@ -44,6 +44,10 @@ download() {  # url file sha256
 
 VERSION="$(sed -nE 's/^[[:space:]]*project\([[:space:]]*geometry_wars_retro_evolved_2[[:space:]]+VERSION[[:space:]]+([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' "$ROOT/CMakeLists.txt")"
 [ -n "$VERSION" ] || fail "project VERSION not found in CMakeLists.txt"
+APP_ID="$(sed -nE 's/^[[:space:]]*constexpr char kApplicationId\[\] = "([^"]+)";.*/\1/p' "$ROOT/src/launcher_platform_linux.cpp")"
+[[ "$APP_ID" =~ ^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)+$ ]] ||
+  fail "src/launcher_platform_linux.cpp must declare kApplicationId exactly once, as a dotted name on one line (found: '$APP_ID')"
+[ -f "$ROOT/packaging/linux/$APP_ID.desktop" ] || fail "packaging/linux/$APP_ID.desktop is missing: the desktop file is named after kApplicationId"
 NAME="GeometryWarsRetroEvolved2-v$VERSION-linux-x86_64"
 echo "Geometry Wars: Retro Evolved 2 $VERSION - Linux AppImage (local only)"
 
@@ -127,11 +131,22 @@ cp "$WORK/LICENSE" "$WORK/packaging/licenses/ReXGlue-LICENSE.txt" "$WORK/packagi
 CXX_COPYRIGHT=/usr/share/doc/libstdc++6/copyright
 [ -f "$CXX_COPYRIGHT" ] || fail "missing $CXX_COPYRIGHT (the license of the bundled C++ runtime)"
 cp "$CXX_COPYRIGHT" "$DOC/libstdc++-copyright.txt"
-cp "$WORK/packaging/linux/AppRun" "$WORK/packaging/linux/geometry_wars_retro_evolved_2.desktop" \
-  "$WORK/packaging/linux/geometry_wars_retro_evolved_2.svg" "$APPDIR/"
+cp "$WORK/packaging/linux/AppRun" "$WORK/packaging/linux/$APP_ID.desktop" "$APPDIR/"
+# The icon is the root file the .desktop names, the .DirIcon file managers show, and the theme the desktop integrates.
+ICONS="$WORK/packaging/icons"
+THEME="$APPDIR/usr/share/icons/hicolor"
+for size in 16 24 32 48 64 128 256 512; do
+  mkdir -p "$THEME/${size}x${size}/apps"
+  cp "$ICONS/app-icon-$size.png" "$THEME/${size}x${size}/apps/geometry_wars_retro_evolved_2.png"
+done
+mkdir -p "$THEME/scalable/apps"
+cp "$ICONS/app-icon.svg" "$THEME/scalable/apps/geometry_wars_retro_evolved_2.svg"
+cp "$ICONS/app-icon-256.png" "$APPDIR/geometry_wars_retro_evolved_2.png"
+cp "$ICONS/app-icon-256.png" "$APPDIR/.DirIcon"
 chmod 755 "$APPDIR/AppRun" "$APPDIR/usr/bin/geometry_wars_retro_evolved_2"
-chmod 644 "$APPDIR/"*.desktop "$APPDIR/"*.svg "$APPDIR/usr/bin/"*.so "$APPDIR/usr/bin/geometry_wars_retro_evolved_2.toml" \
-  "$APPDIR/usr/lib/"* "$DOC/"*
+chmod 644 "$APPDIR/"*.desktop "$APPDIR/"*.png "$APPDIR/.DirIcon" "$APPDIR/usr/bin/"*.so \
+  "$APPDIR/usr/bin/geometry_wars_retro_evolved_2.toml" "$APPDIR/usr/lib/"* "$DOC/"*
+find "$THEME" -type f -exec chmod 644 {} +
 
 echo "== Release check"
 problems=0
@@ -154,9 +169,10 @@ while IFS= read -r -d '' item; do
     [ "$(head -c 2 "$item")" = MZ ] && problem "Windows binary: $rel"
   fi
 done < <(find "$APPDIR" -mindepth 1 -print0)
-EXPECTED="AppRun
-geometry_wars_retro_evolved_2.desktop
-geometry_wars_retro_evolved_2.svg
+EXPECTED=".DirIcon
+AppRun
+geometry_wars_retro_evolved_2.png
+$APP_ID.desktop
 usr/bin/geometry_wars_retro_evolved_2
 usr/bin/geometry_wars_retro_evolved_2.toml
 usr/bin/librexgpu-xenos.so
@@ -167,9 +183,20 @@ usr/share/doc/geometry_wars_retro_evolved_2/LICENSE
 usr/share/doc/geometry_wars_retro_evolved_2/ReXGlue-LICENSE.txt
 usr/share/doc/geometry_wars_retro_evolved_2/THIRD-PARTY-LICENSES-LINUX.txt
 usr/share/doc/geometry_wars_retro_evolved_2/THIRD-PARTY-LICENSES.txt
-usr/share/doc/geometry_wars_retro_evolved_2/libstdc++-copyright.txt"
+usr/share/doc/geometry_wars_retro_evolved_2/libstdc++-copyright.txt
+usr/share/icons/hicolor/128x128/apps/geometry_wars_retro_evolved_2.png
+usr/share/icons/hicolor/16x16/apps/geometry_wars_retro_evolved_2.png
+usr/share/icons/hicolor/24x24/apps/geometry_wars_retro_evolved_2.png
+usr/share/icons/hicolor/256x256/apps/geometry_wars_retro_evolved_2.png
+usr/share/icons/hicolor/32x32/apps/geometry_wars_retro_evolved_2.png
+usr/share/icons/hicolor/48x48/apps/geometry_wars_retro_evolved_2.png
+usr/share/icons/hicolor/512x512/apps/geometry_wars_retro_evolved_2.png
+usr/share/icons/hicolor/64x64/apps/geometry_wars_retro_evolved_2.png
+usr/share/icons/hicolor/scalable/apps/geometry_wars_retro_evolved_2.svg"
 ACTUAL="$(cd "$APPDIR" && find . -type f | sed 's|^\./||' | LC_ALL=C sort)"
 [ "$ACTUAL" = "$EXPECTED" ] || { problem "unexpected AppDir contents:"; diff <(echo "$EXPECTED") <(echo "$ACTUAL") >&2 || true; }
+grep -qxF "StartupWMClass=$APP_ID" "$APPDIR/$APP_ID.desktop" || problem "StartupWMClass in $APP_ID.desktop is not $APP_ID"
+grep -qaF "$APP_ID" "$APPDIR/usr/bin/geometry_wars_retro_evolved_2" || problem "the program does not contain the application id $APP_ID"
 readelf -d "$APPDIR/usr/bin/geometry_wars_retro_evolved_2" | grep -q 'R.*PATH.*\[\$ORIGIN\]' || problem "the program's RPATH is not \$ORIGIN"
 missing="$(ldd "$APPDIR/usr/bin/geometry_wars_retro_evolved_2" | grep 'not found' || true)"
 [ -z "$missing" ] || problem "unresolved libraries: $missing"

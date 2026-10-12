@@ -61,7 +61,12 @@ set(GW2_SOURCES
     src/window_host.cpp
 )
 if(WIN32)
-    list(APPEND GW2_SOURCES src/launcher_platform_win32.cpp)
+    # Resource 1 is the first icon in the executable: Explorer, and SDL's window class, use it.
+    enable_language(RC)
+    set(GW2_APP_RC "${CMAKE_CURRENT_SOURCE_DIR}/packaging/windows/geometry_wars_retro_evolved_2.rc")
+    set_source_files_properties("${GW2_APP_RC}" PROPERTIES
+        OBJECT_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/packaging/icons/app-icon.ico")
+    list(APPEND GW2_SOURCES src/launcher_platform_win32.cpp "${GW2_APP_RC}")
     add_executable(geometry_wars_retro_evolved_2 WIN32 ${GW2_SOURCES})
 else()
     list(APPEND GW2_SOURCES src/launcher_platform_linux.cpp)

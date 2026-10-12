@@ -720,6 +720,19 @@ The referenced revision does not include an explicit license file.
 
 
 ========================================================================
+Application icon: Game Console Ecommerce
+========================================================================
+
+Source: SVG Repo, https://www.svgrepo.com/svg/425126/game-console-ecommerce
+Collection: Ecommerce Duotone Filled Icons
+License: CC0
+Modified to use the Geometry Wars: Retro Evolved 2 launcher accent color and a lighter tint of it.
+The ICO and PNG icon files are renderings of the modified SVG.
+
+CC0 requires no attribution; the source is listed for reference.
+
+
+========================================================================
 FFmpeg (libavcodec, libavutil)
 ========================================================================
 

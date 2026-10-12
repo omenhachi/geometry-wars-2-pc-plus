@@ -32,6 +32,7 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
   using rex::ReXApp::ReXApp;
 
   static std::unique_ptr<rex::ui::WindowedApp> Create(rex::ui::WindowedAppContext& ctx) {
+    gw2::SetApplicationId();
     return std::unique_ptr<GeometryWarsRetroEvolved2App>(
         new GeometryWarsRetroEvolved2App(ctx, "geometry_wars_retro_evolved_2", PPCImageConfig));
   }
@@ -96,6 +97,7 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
   std::optional<rex::PathConfig> OnFinalizePaths(const rex::PathConfig& defaults,
                                                  std::function<void(rex::PathConfig)> resume) override {
     gw2::AttachWindowHost(window(), app_context(), [this] { ToggleWindowMode(); });
+    gw2::ApplyWindowIcon();
     settings_->CaptureLateRegistered();
     const bool game_ready = gw2::CheckGameFiles(defaults.game_data_root).state == gw2::GameFileState::kValid;
     const bool show = gw2::LauncherWanted(game_ready, gw2::ShowLauncherSetting(*settings_), gw2::ShiftHeld(),
