@@ -93,6 +93,14 @@ std::optional<WindowState> QueryWindowState(void* native_handle);
 // Puts the window at the placement: the restored rectangle first, then maximized when asked.
 void ApplyWindowPlacement(void* native_handle, const WindowPlacement& placement);
 
+// Gives the window the application icon. Windows takes it from the executable's resources already; on Linux SDL
+// does not, so the AppImage's icon is loaded.
+void ApplyWindowIcon();
+
+// Names the application to the Linux desktop: SDL uses it as the Wayland app_id and the X11 WM_CLASS class. It has to
+// be set before the window is created. A no-op on Windows.
+void SetApplicationId();
+
 // Applies the plan to the next top-level window of this thread, before it is first shown. The window's size
 // before the change is kept for TakePreShowResult. Windows only: elsewhere the launcher places the window once it
 // exists.
@@ -116,7 +124,7 @@ struct UiFontFiles {
 };
 UiFontFiles FindUiFonts();
 
-// Feeds a game controller to Dear ImGui while the launcher is open.
+// Feeds a game controller to Dear ImGui while the launcher or the in-game cheat menu is open.
 class LauncherGamepad {
  public:
   void Update(ImGuiIO& io);

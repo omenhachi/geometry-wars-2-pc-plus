@@ -78,7 +78,7 @@ Choosing Achievements in the game opens the achievements overlay: the 12 achieve
 | `584108FF/live/stats.toml` | best score per view |
 | `achievements/584108FF.toml` | unlocked achievements |
 
-`tools\build.ps1 -Run` uses `build\user_data` as the user data root, and `-Clean` keeps it. Delete that folder for a fresh player.
+`<user_data_root>` is the `user_data` folder next to the program (see [user-data.md](user-data.md)). `tools\build.ps1 -Run` uses `build\user_data` as the user data root, and `-Clean` keeps it. Delete that folder for a fresh player.
 
 ## Diagnostics
 

@@ -23,10 +23,12 @@ struct Rect {
   bool operator==(const Rect&) const = default;
 };
 
-// The launcher window's restored rectangle in screen pixels, and whether it is maximized.
+// The launcher window's restored rectangle in screen pixels, whether it is maximized, and whether it was left in its
+// own F11 fullscreen. Fullscreen sits on top of the other two, which keep describing the window underneath.
 struct WindowPlacement {
   Rect normal;
   bool maximized = false;
+  bool fullscreen = false;
 
   bool operator==(const WindowPlacement&) const = default;
 };
@@ -74,6 +76,9 @@ struct PreShowPlan {
 
 inline PreShowPlan PlanPreShow(const WindowPlacement& saved, std::span<const Rect> work_areas) {
   PreShowPlan plan;
+  if (saved.fullscreen) {
+    return plan;
+  }
   if (PlacementIsVisible(saved, work_areas)) {
     plan.normal = saved.normal;
   }
@@ -89,6 +94,7 @@ WindowPlacement ReadPlacement(const Settings& settings) {
   placement.normal.right = placement.normal.left + settings.GetInt(kLauncherWidthKey, 0);
   placement.normal.bottom = placement.normal.top + settings.GetInt(kLauncherHeightKey, 0);
   placement.maximized = settings.GetBool(kLauncherMaximizedKey, false);
+  placement.fullscreen = settings.GetBool(kLauncherFullscreenKey, false);
   return placement;
 }
 
@@ -99,23 +105,24 @@ inline Values PlacementValues(const WindowPlacement& placement) {
       {kLauncherWidthKey, std::to_string(placement.normal.width())},
       {kLauncherHeightKey, std::to_string(placement.normal.height())},
       {kLauncherMaximizedKey, placement.maximized ? "true" : "false"},
+      {kLauncherFullscreenKey, placement.fullscreen ? "true" : "false"},
   };
 }
 
 // Follows the window and says when its placement has changed and settled, so it is saved once and not on every move.
-// A maximized window keeps the restored rectangle; a minimized or fullscreen one changes nothing.
+// A maximized window keeps the restored rectangle; a fullscreen one keeps both it and the maximized flag.
 class PlacementTracker {
  public:
   explicit PlacementTracker(std::optional<WindowPlacement> saved = std::nullopt) : saved_(saved), current_(saved) {}
 
   void Observe(const WindowState& state, bool fullscreen, double now) {
-    if (fullscreen) {
-      return;
-    }
     WindowPlacement next = current_.value_or(WindowPlacement{});
-    next.maximized = state.maximized;
-    if (!state.minimized && !state.maximized) {
-      next.normal = state.rect;
+    next.fullscreen = fullscreen;
+    if (!fullscreen) {
+      next.maximized = state.maximized;
+      if (!state.minimized && !state.maximized) {
+        next.normal = state.rect;
+      }
     }
     if (!saved_) {
       saved_ = next;
@@ -125,6 +132,8 @@ class PlacementTracker {
       changed_at_ = now;
     }
   }
+
+  const std::optional<WindowPlacement>& Current() const { return current_; }
 
   std::optional<WindowPlacement> TakeSettled(double now) {
     if (!Dirty() || now - changed_at_ < kPlacementSaveDelaySeconds) {

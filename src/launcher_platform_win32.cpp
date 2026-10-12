@@ -140,6 +140,10 @@ void ApplyWindowPlacement(void* native_handle, const WindowPlacement& placement)
   }
 }
 
+void ApplyWindowIcon() {}
+
+void SetApplicationId() {}
+
 namespace {
 
 PreShowPlan g_plan;

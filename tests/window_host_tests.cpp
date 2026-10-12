@@ -86,9 +86,46 @@ void TestSamplerReportsSlowerRates() {
   CHECK(stats.has_value() && stats->frame_count == 15);
 }
 
+void TestCursorHider() {
+  Section("cursor hider");
+  using Clock = CursorHider::Clock;
+  const auto at = [](int ms) { return Clock::time_point{} + std::chrono::milliseconds(ms); };
+  const std::optional<bool> hide = false, show = true;
+
+  CursorHider launcher;
+  CHECK(!launcher.Update(false, true, true, at(0)) && !launcher.Update(false, true, true, at(60000)));
+  CursorHider windowed;
+  CHECK(!windowed.Update(true, false, true, at(0)) && !windowed.Update(true, false, true, at(60000)));
+
+  CursorHider c;
+  CHECK(!c.Update(true, true, true, at(0)) && c.visible());
+  CHECK(!c.Update(true, true, true, at(4999)));
+  CHECK(c.Update(true, true, true, at(5000)) == hide);
+  CHECK(!c.Update(true, true, true, at(5100)));
+
+  c.MouseMoved(at(6000));
+  CHECK(c.Update(true, true, true, at(6000)) == show);
+  c.MouseMoved(at(8000));
+  CHECK(!c.Update(true, true, true, at(12999)) && c.Update(true, true, true, at(13000)) == hide);
+
+  CHECK(c.Update(true, false, true, at(13100)) == show);
+  CHECK(!c.Update(true, true, true, at(20000)) && !c.Update(true, true, true, at(24999)));
+  CHECK(c.Update(true, true, true, at(25000)) == hide);
+
+  CHECK(c.Update(true, true, false, at(25100)) == show);
+  CHECK(!c.Update(true, true, true, at(30000)) && !c.Update(true, true, true, at(34999)));
+  CHECK(c.Update(true, true, true, at(35000)) == hide);
+
+  c.MouseMoved(at(36000));
+  CHECK(c.Update(true, true, true, at(36000)) == show);
+  CHECK(c.Update(true, true, true, at(41000)) == hide);
+  CHECK(c.Update(false, true, true, at(41100)) == show);
+}
+
 }  // namespace
 
 int main() {
+  TestCursorHider();
   TestTitles();
   TestSamplerWaitsForOneSecond();
   TestSamplerRestartsEachInterval();

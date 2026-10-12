@@ -44,9 +44,9 @@ int main() {
     gate.Poll(0, kXinputButtonB, 0);
     gate.SetOpen(false);
     auto v = gate.Poll(0, kXinputButtonB, 0);
-    Check(!v.close && v.hide_input, "B still held after close is not passed on");
+    Check(!v.close && v.clear_b && !v.hide_input, "B still held after close is removed from the state, nothing else");
     v = gate.Poll(0, kNone, 0);
-    Check(!v.hide_input, "input returns once B is released");
+    Check(!v.hide_input && !v.clear_b, "input returns once B is released");
   }
 
   {
@@ -55,7 +55,46 @@ int main() {
     gate.Poll(0, kNone, 0);
     gate.SetOpen(false);
     auto v = gate.Poll(0, kNone, 0);
-    Check(!v.hide_input && !v.close, "closing without B returns input at once");
+    Check(!v.hide_input && !v.clear_b && !v.close, "closing without B returns input at once");
+  }
+
+  {
+    AchievementsOverlayGate gate;
+    gate.SetOpen(true);
+    Check(gate.HoldsInput(), "the open overlay holds the input");
+    gate.Poll(0, kNone, 0);
+    auto v = gate.Poll(0, kXinputButtonB, 0);
+    Check(v.close && v.hide_input && !v.clear_b, "new B with the overlay open: close requested and B consumed");
+    gate.SetOpen(false);
+    Check(gate.HoldsInput(), "the gate holds the input while the closing B is held");
+    v = gate.Poll(0, kXinputButtonB | kXinputDpadDown, 0);
+    Check(v.clear_b && !v.hide_input && !v.close, "B held after the overlay closed is still consumed");
+    Check(v.scroll == 0.0f, "no scrolling once closed");
+    v = gate.Poll(0, kXinputButtonB, 0);
+    Check(v.clear_b, "B stays consumed on every read while held");
+    v = gate.Poll(0, kNone, 0);
+    Check(!v.clear_b && !v.hide_input && !gate.HoldsInput(), "releasing B ends the suppression");
+    v = gate.Poll(0, kXinputButtonB, 0);
+    Check(!v.clear_b && !v.hide_input && !v.close, "the next B press reaches the game");
+    Check(!gate.HoldsInput(), "a game B press does not hold the input");
+  }
+
+  {
+    AchievementsOverlayGate gate;
+    gate.SetOpen(true);
+    gate.Poll(0, kNone, 0);
+    gate.Poll(0, kXinputButtonB, 0);
+    gate.SetOpen(false);
+    auto v = gate.Poll(0, kXinputDpadUp | kXinputButtonB, 0);
+    Check(v.clear_b && !v.hide_input, "only B is flagged for removal, other buttons stay");
+  }
+
+  {
+    AchievementsOverlayGate gate;
+    gate.SetOpen(true);
+    gate.Poll(0, kNone, 0);
+    gate.SetOpen(false);
+    Check(!gate.HoldsInput(), "closing without B, as with Escape or the X, holds nothing");
   }
 
   {
@@ -104,6 +143,13 @@ int main() {
   Check(Near(gw2::FitWindowExtent(600, 420, 560), 420), "600 wide gives the 420 minimum");
   Check(Near(gw2::FitWindowExtent(360, 320, 460), 320), "360 high gives the 320 minimum");
   Check(Near(gw2::FitWindowExtent(300, 320, 460), 268), "300 high stays inside the viewport");
+
+  Check(gw2::GameInputAllowed(false, false, false), "game input flows with nothing open");
+  Check(!gw2::GameInputAllowed(false, false, true), "a pointer over an overlay keeps clicks from the game");
+  Check(gw2::GameInputAllowed(false, true, true), "B reaches the achievements gate with the pointer over the overlay");
+  Check(gw2::GameInputAllowed(false, true, false), "B reaches the achievements gate with the pointer elsewhere");
+  Check(!gw2::GameInputAllowed(true, false, false), "the cheat menu blocks the game");
+  Check(!gw2::GameInputAllowed(true, true, true), "the cheat menu blocks the game over the achievements overlay");
 
   if (failures) {
     std::printf("ACHIEVEMENTS OVERLAY RULES: %d failure(s)\n", failures);

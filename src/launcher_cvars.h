@@ -18,6 +18,7 @@ REXCVAR_DECLARE(int32_t, gw2_launcher_y);
 REXCVAR_DECLARE(int32_t, gw2_launcher_width);
 REXCVAR_DECLARE(int32_t, gw2_launcher_height);
 REXCVAR_DECLARE(bool, gw2_launcher_maximized);
+REXCVAR_DECLARE(bool, gw2_launcher_fullscreen);
 
 namespace gw2 {
 

@@ -20,6 +20,8 @@ constexpr float kMaxWidth = 560.0f;
 constexpr float kMinHeight = 320.0f;
 constexpr float kMaxHeight = 460.0f;
 constexpr float kScrollPixelsPerSecond = 480.0f;
+constexpr float kHintScale = 1.2f;
+constexpr float kHintPadding = 6.0f;
 constexpr ImGuiWindowFlags kWindowFlags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize |
                                           ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings;
 
@@ -92,6 +94,25 @@ void DrawRow(const rex::ui::AchievementsStyle& style, rex::ui::ImmediateTexture*
   ImGui::PopID();
 }
 
+// A square X centered on the first header row.
+bool DrawCloseButton(const rex::ui::AchievementsStyle& style, float row_y) {
+  constexpr float size = 22.0f;
+  const float button_y = row_y + (ImGui::GetTextLineHeight() - size) * 0.5f - 2.0f;
+  const ImVec2 restore = ImGui::GetCursorPos();
+  ImGui::SetCursorPos(ImVec2(ImGui::GetWindowWidth() - style.window_padding.x - size, button_y));
+  ImGui::PushStyleColor(ImGuiCol_Text, style.progress_bar);
+  ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+  ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(style.progress_bar.x, style.progress_bar.y, style.progress_bar.z, 0.30f));
+  ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(style.progress_bar.x, style.progress_bar.y, style.progress_bar.z, 0.50f));
+  ImGui::PushStyleColor(ImGuiCol_Border, style.progress_bar);
+  ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
+  const bool clicked = ImGui::Button("X##close_achievements", ImVec2(size, size));
+  ImGui::PopStyleVar();
+  ImGui::PopStyleColor(5);
+  ImGui::SetCursorPos(restore);
+  return clicked;
+}
+
 }  // namespace
 
 AchievementsOverlay::AchievementsOverlay(rex::ui::ImGuiDrawer* imgui_drawer,
@@ -127,9 +148,12 @@ void AchievementsOverlay::OnDraw(ImGuiIO& io) {
         earned_gs += static_cast<int>(a.gamerscore);
       }
     }
+    const float header_row_y = ImGui::GetCursorPosY();
     DrawHeader(style, unlocked_count, static_cast<int>(achievements.size()), earned_gs, total_gs);
+    if (DrawCloseButton(style, header_row_y)) controls_.request_close();
 
-    ImGui::BeginChild("##achlist", ImVec2(0.0f, -ImGui::GetFrameHeightWithSpacing()), false);
+    const float hint_size = ImGui::GetFontSize() * kHintScale;
+    ImGui::BeginChild("##achlist", ImVec2(0.0f, -(hint_size + 2.0f * style.item_spacing.y + kHintPadding * 0.5f)), false);
     if (const float axis = controls_.scroll_axis(); axis != 0.0f) {
       const float target = ImGui::GetScrollY() + axis * kScrollPixelsPerSecond * io.DeltaTime;
       ImGui::SetScrollY(std::clamp(target, 0.0f, ImGui::GetScrollMaxY()));
@@ -140,7 +164,10 @@ void AchievementsOverlay::OnDraw(ImGuiIO& io) {
     }
     ImGui::EndChild();
 
+    ImGui::Dummy(ImVec2(0.0f, kHintPadding * 0.5f));
+    ImGui::PushFont(nullptr, hint_size);
     ImGui::TextColored(style.header_text, "B  Back");
+    ImGui::PopFont();
   }
   ImGui::End();
   ImGui::PopStyleVar(2);

@@ -9,6 +9,9 @@ ReXGlue SDK 0.10.0 pins.
 The AppImage also carries the GNU C++ runtime (libstdc++.so.6, libgcc_s.so.1) of its build system,
 under the GCC Runtime Library Exception; its notice is in libstdc++-copyright.txt.
 
+The AppImage also carries the application icon, Game Console Ecommerce (CC0), as SVG and PNG files. Its
+source is listed in THIRD-PARTY-LICENSES.txt.
+
 ========================================================================
 glslang (in librexgpu-xenos.so)
 ========================================================================

@@ -1,7 +1,7 @@
 # SDK boilerplate lives in generated/rexglue.cmake.
 
 cmake_minimum_required(VERSION 3.25)
-project(geometry_wars_retro_evolved_2 VERSION 0.1.0 LANGUAGES C CXX)
+project(geometry_wars_retro_evolved_2 VERSION 0.2.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -45,6 +45,9 @@ set(GW2_SOURCES
     src/profile_fix.cpp
     src/live_fix.cpp
     src/achievements_overlay.cpp
+    src/cheat_menu.cpp
+    src/cheat_hooks.cpp
+    src/cheats.cpp
     src/live_stats.cpp
     src/local_stats.cpp
     src/game_files.cpp
@@ -58,10 +61,16 @@ set(GW2_SOURCES
     src/launcher_options.cpp
     src/launcher_platform.cpp
     src/launcher_settings.cpp
+    src/user_data.cpp
     src/window_host.cpp
 )
 if(WIN32)
-    list(APPEND GW2_SOURCES src/launcher_platform_win32.cpp)
+    # Resource 1 is the first icon in the executable: Explorer, and SDL's window class, use it.
+    enable_language(RC)
+    set(GW2_APP_RC "${CMAKE_CURRENT_SOURCE_DIR}/packaging/windows/geometry_wars_retro_evolved_2.rc")
+    set_source_files_properties("${GW2_APP_RC}" PROPERTIES
+        OBJECT_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/packaging/icons/app-icon.ico")
+    list(APPEND GW2_SOURCES src/launcher_platform_win32.cpp "${GW2_APP_RC}")
     add_executable(geometry_wars_retro_evolved_2 WIN32 ${GW2_SOURCES})
 else()
     list(APPEND GW2_SOURCES src/launcher_platform_linux.cpp)
@@ -120,6 +129,9 @@ gw2_add_test(window_host_tests)
 gw2_add_test(frame_counter_tests)
 gw2_add_test(frame_limiter_tests src/frame_wait.cpp)
 gw2_add_test(launcher_placement_tests)
+gw2_add_test(user_data_tests src/user_data.cpp)
+gw2_add_test(cheats_tests)
+target_compile_definitions(cheats_tests PRIVATE GW2_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src")
 # TRG's settings and platform sources without its ImGui dependency; C++17 like the launcher library.
 add_library(gw2_trg_test_support STATIC EXCLUDE_FROM_ALL
     "${_trg_dir}/src/settings.cpp" "${_trg_dir}/src/platform.cpp")

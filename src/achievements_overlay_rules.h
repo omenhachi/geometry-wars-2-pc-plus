@@ -13,6 +13,12 @@ constexpr uint16_t kXinputButtonB = 0x2000;
 constexpr int kXinputThumbDeadzone = 8000;
 constexpr int kXinputThumbMax = 32767;
 
+// The game may read input unless the cheat menu is open. A pointer over an overlay keeps its clicks from the game,
+// except while the achievements gate holds the input: it has to read the real B to close and to swallow that press.
+constexpr bool GameInputAllowed(bool cheat_menu_open, bool achievements_holds_input, bool pointer_over_overlay) {
+  return !cheat_menu_open && (achievements_holds_input || !pointer_over_overlay);
+}
+
 constexpr float kOverlayViewportFraction = 0.7f;
 constexpr float kOverlayViewportMargin = 16.0f;
 
@@ -28,7 +34,8 @@ class AchievementsOverlayGate {
   static constexpr uint32_t kUsers = 4;
 
   struct Verdict {
-    bool hide_input = false;
+    bool hide_input = false;  // the overlay is up: the whole pad is neutral
+    bool clear_b = false;     // closed, but the B that closed it is still held: only B is removed
     bool close = false;
     float scroll = 0.0f;  // -1 up .. 1 down
   };
@@ -39,6 +46,9 @@ class AchievementsOverlayGate {
     open_ = open;
   }
 
+  // While true the game's input has to reach the gate unfiltered by the host, so the real B is seen.
+  bool HoldsInput() const { return open_ || swallow_b_; }
+
   Verdict Poll(uint32_t user, uint16_t buttons, int thumb_y) {
     Verdict verdict;
     if (user < kUsers) {
@@ -48,7 +58,8 @@ class AchievementsOverlayGate {
     }
     if (verdict.close) swallow_b_ = true;
     if (!open_ && !AnyBDown()) swallow_b_ = false;
-    verdict.hide_input = open_ || swallow_b_;
+    verdict.hide_input = open_;
+    verdict.clear_b = !open_ && swallow_b_;
     if (open_) verdict.scroll = ScrollFrom(buttons, thumb_y);
     return verdict;
   }

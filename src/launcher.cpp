@@ -24,6 +24,7 @@
 #include "trg/launcher.h"
 #include "trg/platform.h"
 
+#include "cheats.h"
 #include "frame_limiter.h"
 #include "game_files.h"
 #include "launcher_achievements.h"
@@ -51,6 +52,8 @@ constexpr char kShowFpsHelp[] =
 constexpr char kFrameRateHelp[] =
     "Controls the game's frame-rate limit. 60 matches the original game.";
 constexpr char kFrameCounterHelp[] = "Shows the game's frame rate in the corner. F2 toggles it while playing.";
+constexpr char kCheatsHelp[] =
+    "Press F10 while playing to open the Cheats menu. Changes made there apply only to the current session.";
 
 trg::Theme LauncherTheme() {
   return trg::Theme::Midnight().WithAccent(kAccent);
@@ -260,8 +263,10 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
       launcher_->SetStatus("Could not start the game in a new window. Press Play to try again.", 8.0);
       return;
     }
+    LeaveLauncherFullscreen();
     SavePlacement(placement_.Flush());
     RestoreStartupWindow();
+    ApplyGameDisplayMode();
     Finish(callbacks_.play);
   }
 
@@ -272,19 +277,25 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
   void RestorePlacement() {
     if (const auto placed = TakePreShowResult()) {
       startup_ = placed->startup;
+      tracking_ = true;
       placement_ = PlacementTracker(placed->applied);
       return;
     }
     void* window = WindowHandle();
     const auto state = QueryWindowState(window);
-    if (!state || WindowFullscreen()) {
+    if (!state) {
       return;
     }
     const WindowPlacement saved = ReadPlacement(settings_);
     const std::vector<Rect> areas = WorkAreas();
     const bool restorable = PlacementIsVisible(saved, areas);
-    startup_ = WindowPlacement{state->rect, state->maximized};
+    tracking_ = true;
+    was_fullscreen_ = WindowFullscreen();
     placement_ = PlacementTracker(restorable ? std::optional<WindowPlacement>(saved) : std::nullopt);
+    if (was_fullscreen_) {
+      return;
+    }
+    startup_ = WindowPlacement{state->rect, state->maximized};
     if (restorable) {
       ApplyWindowPlacement(window, saved);
       REXLOG_INFO("Launcher window restored{}", saved.maximized ? " (maximized)" : "");
@@ -292,11 +303,16 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
   }
 
   void TrackPlacement() {
-    if (!startup_) {
+    if (!tracking_) {
       return;
     }
+    const bool fullscreen = WindowFullscreen();
+    if (was_fullscreen_ && !fullscreen && placement_.Current() && PlacementIsSet(*placement_.Current())) {
+      ApplyWindowPlacement(WindowHandle(), *placement_.Current());
+    }
+    was_fullscreen_ = fullscreen;
     if (const auto state = QueryWindowState(WindowHandle())) {
-      placement_.Observe(*state, WindowFullscreen(), ImGui::GetTime());
+      placement_.Observe(*state, fullscreen, ImGui::GetTime());
       SavePlacement(placement_.TakeSettled(ImGui::GetTime()));
     }
   }
@@ -304,6 +320,21 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
   void SavePlacement(const std::optional<WindowPlacement>& placement) {
     if (placement && !settings_.SaveNow(PlacementValues(*placement))) {
       REXLOG_WARN("Could not save the launcher window placement");
+    }
+  }
+
+  void ApplyGameDisplayMode() {
+    settings_.ApplyDisplayMode();
+    const bool fullscreen = settings_.GetBool(kFullscreenKey, false);
+    if (callbacks_.set_window_fullscreen && WindowFullscreen() != fullscreen) {
+      callbacks_.set_window_fullscreen(fullscreen);
+    }
+  }
+
+  // Leaving for Play is not an F11 by the player: the tracker is not told, so the saved fullscreen choice stays.
+  void LeaveLauncherFullscreen() {
+    if (WindowFullscreen() && callbacks_.set_window_fullscreen) {
+      callbacks_.set_window_fullscreen(false);
     }
   }
 
@@ -367,6 +398,8 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
                 [this](trg::Ui& ui) { PageGameplay(ui); }, nullptr};
       case PageId::kControls:
         return {name, "Controller and keyboard.", [this](trg::Ui& ui) { PageControls(ui); }, nullptr};
+      case PageId::kCheats:
+        return {name, "Optional gameplay modifiers", [this](trg::Ui& ui) { PageCheats(ui); }, nullptr};
       case PageId::kAchievements:
         return {name, "Your achievements on this PC.", [this](trg::Ui& ui) { PageAchievements(ui); }, nullptr};
       case PageId::kAbout:
@@ -493,6 +526,14 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
     }
   }
 
+  void PageCheats(trg::Ui& ui) {
+    ui.Help(kCheatsHelp);
+    ui.Spacer(8);
+    for (const cheats::CheatInfo& cheat : cheats::kCheats) {
+      ui.Toggle(cheat.label, cheat.description, cheat.key, cheats::kCheatDefault, "Off", "On");
+    }
+  }
+
   void PageAchievements(trg::Ui& ui) {
     if (!game_.achievements) {
       ui.Paragraph(files_ == GameFileState::kValid
@@ -548,7 +589,7 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
     if (std::filesystem::is_directory(paths_.game_dir, ec)) {
       ui.FolderRow("Game files", "Where the game data is read from.", "Open game folder", Utf8(paths_.game_dir));
     }
-    ui.FolderRow("Saves and settings", "Profile, scores, achievements and launcher settings.", "Open data folder",
+    ui.FolderRow("Saves and settings", UserDataFolderHelp(paths_.user_data_outcome), "Open data folder",
                  Utf8(paths_.user_data_root));
     if (ui.ButtonRow("Settings file", "Launcher choices stored as plain text.", "Show settings file") &&
         launcher_->Save()) {
@@ -650,6 +691,8 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
   bool nav_taken_ = false;
   bool done_ = false;
   std::optional<WindowPlacement> startup_;
+  bool tracking_ = false;
+  bool was_fullscreen_ = false;
   PlacementTracker placement_;
   double play_started_ = 0.0;
   ImGuiConfigFlags saved_nav_flags_ = 0;
@@ -678,6 +721,18 @@ void LoadLauncherFonts(ImFontAtlas* atlas, float density) {
   g_fonts.regular = load(fonts.regular);
   g_fonts.semibold = load(fonts.semibold);
   g_fonts.bold = load(fonts.bold);
+}
+
+ImFont* LauncherRegularFont() {
+  return g_fonts.regular;
+}
+
+ImFont* LauncherSemiboldFont() {
+  return g_fonts.semibold;
+}
+
+ImVec4 LauncherAccent() {
+  return kAccent;
 }
 
 void ShowLauncher(rex::ui::ImGuiDrawer* drawer, LauncherPaths paths, GameSettings& settings,

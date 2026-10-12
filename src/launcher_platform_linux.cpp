@@ -12,6 +12,7 @@
 #include <SDL3/SDL.h>
 #include <imgui.h>
 
+#include <rex/filesystem.h>
 #include <rex/logging.h>
 
 #include "launcher_placement.h"
@@ -20,6 +21,8 @@ extern char** environ;
 
 namespace gw2 {
 namespace {
+
+constexpr char kApplicationId[] = "io.github.saulob.geometry-wars-retro-evolved-2";
 
 struct ButtonKey {
   ImGuiKey key;
@@ -162,6 +165,23 @@ void ApplyWindowPlacement(void*, const WindowPlacement& placement) {
   SDL_SetWindowPosition(window, placement.normal.left, placement.normal.top);
   if (placement.maximized) {
     SDL_MaximizeWindow(window);
+  }
+}
+
+void SetApplicationId() {
+  SDL_SetAppMetadataProperty(SDL_PROP_APP_METADATA_IDENTIFIER_STRING, kApplicationId);
+}
+
+void ApplyWindowIcon() {
+  SDL_Window* window = LauncherWindow();
+  if (!window) {
+    return;
+  }
+  const std::filesystem::path icon_file = rex::filesystem::GetExecutableFolder() / ".." / "share" / "icons" /
+                                          "hicolor" / "256x256" / "apps" / "geometry_wars_retro_evolved_2.png";
+  if (SDL_Surface* icon = SDL_LoadPNG(Utf8(icon_file).c_str())) {
+    SDL_SetWindowIcon(window, icon);
+    SDL_DestroySurface(icon);
   }
 }
 

@@ -47,6 +47,18 @@ To repair the game files, use "Reinstall from package..." on the Play page.
 Your settings and saves are kept.
 
 
+UPGRADING FROM 0.1.0
+--------------------
+Version 0.1.0 kept your profile, scores, achievements and settings in
+Documents\geometry_wars_retro_evolved_2. The first start of this version moves
+that folder into "user_data" next to the program, and the old folder in
+Documents is removed once the move has succeeded. If the move fails, the old
+folder is left untouched and used, and the move is tried again at the next
+start. If "user_data" already holds data, it is used and the old folder is left
+alone. If the program folder cannot be written to, the old Documents folder is
+used for that run.
+
+
 WINDOWS SMARTSCREEN
 -------------------
 The first time you run geometry_wars_retro_evolved_2.exe, Windows SmartScreen
@@ -57,13 +69,20 @@ info", then "Run anyway".
 
 PLAYING
 -------
-- F11 switches between Windowed and Borderless Fullscreen.
+- F11 in the game switches between Windowed and Borderless Fullscreen. F11 in
+  the launcher switches only the launcher; the launcher remembers its position,
+  size and state, separately from the game.
+- In fullscreen the mouse cursor hides after about 5 seconds without movement
+  and returns when the mouse moves.
 - Xbox controllers work without setup.
 - The keyboard works too; the Controls page lists the keys.
 - Frame rate: the Gameplay page offers 30, 60, 90, 120, 144, 165, 240 and
   Unlimited. 60 is the original game. Game speed stays the same at every rate.
 - F2 shows or hides a frame counter in the corner of the window.
 - F7 opens the achievements list.
+- F10 opens the Cheats menu (Invincible, Infinite Shield, Infinite Bombs). All
+  are Off by default. Choices made in the menu last for the current session;
+  the launcher's Cheats page saves them.
 - Scores, leaderboards and achievements are kept on this PC only. There is no
   Xbox Live connection and no online play.
 - To open the launcher again after turning it off, hold Shift while starting.
@@ -73,8 +92,14 @@ WHERE THINGS ARE
 ----------------
 - Game files:     the "game" folder next to geometry_wars_retro_evolved_2.exe
 - Logs:           the "logs" folder next to geometry_wars_retro_evolved_2.exe
-- Settings, profile, scores and achievements:
-                  Documents\geometry_wars_retro_evolved_2
+- Settings, profile, scores, achievements and launcher settings:
+                  the "user_data" folder next to geometry_wars_retro_evolved_2.exe
+                  (created the first time it is needed)
+
+Copy the whole program folder to another PC to take your profile, scores,
+achievements and launcher settings with it. To update, extract the new version
+over the old folder, or move "user_data" (and "game") into the new one:
+deleting the old folder deletes "user_data" with it.
 
 If the game does not start or crashes, please attach the newest file from the
 "logs" folder to a report at

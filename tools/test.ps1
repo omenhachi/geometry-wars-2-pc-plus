@@ -4,8 +4,11 @@
   services), tests\achievements_overlay_rules_tests.cpp (the achievements overlay's controller and window-size
   rules), tests\launcher_tests.cpp (game-file validation, package reading and safe install, launcher settings,
   the window fit and the achievement summary), tests\launcher_settings_tests.cpp (the settings model, the PLAY gate,
-  the Display, Graphics and Gameplay options) and tests\window_host_tests.cpp (the window title, the frame-rate
-  format and the sampler), with Visual Studio's clang++. No game files and no ReXGlue runtime are needed. The
+  the Display, Graphics and Gameplay options), tests\window_host_tests.cpp (the window title, the frame-rate
+  format and the sampler), tests\cheats_tests.cpp (the cheat settings, the in-game menu model and the host
+  hotkeys) and tests\user_data_tests.cpp (the portable user_data root and the move of the system
+  folder into it), with Visual Studio's clang++, then checks that the release folder check refuses user data and
+  saves (scratch folders only). No game files and no ReXGlue runtime are needed. The
   launcher tests need TRG Launcher: third_party\trg-launcher, or the folder named by GW2_TRG_LAUNCHER_DIR.
 
 .EXAMPLE
@@ -23,6 +26,8 @@ $WindowHostExe = Join-Path $OutDir 'window_host_tests.exe'
 $FrameCounterExe = Join-Path $OutDir 'frame_counter_tests.exe'
 $FrameLimiterExe = Join-Path $OutDir 'frame_limiter_tests.exe'
 $PlacementExe = Join-Path $OutDir 'launcher_placement_tests.exe'
+$UserDataExe = Join-Path $OutDir 'user_data_tests.exe'
+$CheatsExe = Join-Path $OutDir 'cheats_tests.exe'
 
 $TrgDir = Join-Path $Root 'third_party\trg-launcher'
 if (-not (Test-Path (Join-Path $TrgDir 'src\settings.cpp'))) {
@@ -81,6 +86,13 @@ try {
         (Join-Path $TrgDir 'src\settings.cpp') (Join-Path $TrgDir 'src\platform.cpp') `
         -lshell32 -lole32 -lcomdlg32 -lwinmm -luser32 -o $SettingsExe
     if ($LASTEXITCODE) { throw "Test build failed ($LASTEXITCODE)" }
+    & $ClangXX -std=c++23 -O1 -Wall -Wextra -D_CRT_SECURE_NO_WARNINGS -D_SILENCE_ALL_CXX20_DEPRECATION_WARNINGS `
+        -I (Join-Path $Root 'src') -isystem (Join-Path $Root 'tools\rexglue\win-amd64\include') -I (Join-Path $TrgDir 'include') `
+        (Join-Path $Root 'tests\user_data_tests.cpp') (Join-Path $Root 'src\user_data.cpp') -o $UserDataExe
+    if ($LASTEXITCODE) { throw "Test build failed ($LASTEXITCODE)" }
+    & $ClangXX -std=c++23 -O1 -Wall -Wextra -I (Join-Path $Root 'src') `
+        (Join-Path $Root 'tests\cheats_tests.cpp') -o $CheatsExe
+    if ($LASTEXITCODE) { throw "Test build failed ($LASTEXITCODE)" }
 } finally {
     foreach ($name in @([Environment]::GetEnvironmentVariables().Keys)) {
         if (-not $SavedEnv.Contains($name)) { Remove-Item "Env:$name" }
@@ -104,3 +116,53 @@ if ($LASTEXITCODE) { throw "Frame limiter tests failed ($LASTEXITCODE)" }
 if ($LASTEXITCODE) { throw "Launcher placement tests failed ($LASTEXITCODE)" }
 & $SettingsExe
 if ($LASTEXITCODE) { throw "Launcher settings tests failed ($LASTEXITCODE)" }
+& $UserDataExe
+if ($LASTEXITCODE) { throw "User data tests failed ($LASTEXITCODE)" }
+& $CheatsExe
+if ($LASTEXITCODE) { throw "Cheats tests failed ($LASTEXITCODE)" }
+
+# The release check accepts a fresh extraction and refuses user data, migration leftovers, saves, logs and game files.
+$ReleaseCheck = Join-Path $PSScriptRoot 'package-release.ps1'
+$StageRoot = Join-Path $OutDir 'release_check'
+$ReleaseCases = [ordered]@{
+    'fresh extraction'    = $null
+    'empty user_data'     = 'user_data\'
+    'profile'             = 'user_data\584108FF\profile\User\63E83FFF'
+    'scores'              = 'user_data\584108FF\live\stats.toml'
+    'achievements'        = 'user_data\achievements\584108FF.toml'
+    'launcher settings'   = 'user_data\launcher\settings.toml'
+    'cache'               = 'cache\shaders\a.bin'
+    'migration leftover'  = 'user_data.migrating\'
+    'log'                 = 'logs\geometry_wars_retro_evolved_2_001.log'
+    'game file'           = 'game\default.xex'
+}
+Write-Host 'release check'
+$releaseFailures = 0
+foreach ($case in $ReleaseCases.Keys) {
+    $stage = Join-Path $StageRoot ($case -replace '\W', '_')
+    New-Item -ItemType Directory -Force (Join-Path $stage 'licenses') | Out-Null
+    foreach ($leaf in 'geometry_wars_retro_evolved_2.exe', 'rexruntime.dll', 'rexgpu-xenos.dll', 'geometry_wars_retro_evolved_2.toml', 'README.txt', 'LICENSE',
+        'licenses\ReXGlue-LICENSE.txt', 'licenses\THIRD-PARTY-LICENSES.txt') {
+        Set-Content -LiteralPath (Join-Path $stage $leaf) -Value 'placeholder'
+    }
+    $extra = $ReleaseCases[$case]
+    if ($extra) {
+        $target = Join-Path $stage $extra
+        if ($extra.EndsWith('\')) {
+            New-Item -ItemType Directory -Force $target | Out-Null
+        } else {
+            New-Item -ItemType Directory -Force (Split-Path $target) | Out-Null
+            Set-Content -LiteralPath $target -Value 'placeholder'
+        }
+    }
+    $global:LASTEXITCODE = 0
+    & $ReleaseCheck -VerifyOnly $stage *> $null
+    if (($LASTEXITCODE -eq 0) -ne ($null -eq $extra)) {
+        Write-Host "  FAIL $case"
+        $releaseFailures++
+    }
+}
+Remove-Item -LiteralPath $StageRoot -Recurse -Force
+Write-Host "$($ReleaseCases.Count) release check cases, $releaseFailures failures"
+if ($releaseFailures) { throw 'Release check tests failed' }
+$global:LASTEXITCODE = 0

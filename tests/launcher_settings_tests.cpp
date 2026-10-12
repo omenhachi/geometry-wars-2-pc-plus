@@ -14,6 +14,7 @@
 #include <utility>
 #include <vector>
 
+#include "cheats.h"
 #include "frame_limiter.h"
 #include "launcher_options.h"
 #include "launcher_play.h"
@@ -120,8 +121,12 @@ void RegisterGameDefaults(FakeCvars& cvars) {
   cvars.Register(kLauncherWidthKey, "0");
   cvars.Register(kLauncherHeightKey, "0");
   cvars.Register(kLauncherMaximizedKey, "false");
+  cvars.Register(kLauncherFullscreenKey, "false");
   cvars.Register(kShowFpsKey, kShowFpsDefault ? "true" : "false");
   cvars.Register(kShowFrameCounterKey, kShowFrameCounterDefault ? "true" : "false");
+  for (const cheats::CheatInfo& cheat : cheats::kCheats) {
+    cvars.Register(cheat.key, cheats::kCheatDefault ? "true" : "false");
+  }
 }
 
 void TestShippedValues() {
@@ -393,14 +398,15 @@ void TestGraphicsOptions() {
 
 void TestPagesAndKeyList() {
   Section("pages and key list");
-  CHECK(std::size(kPageOrder) == 7);
+  CHECK(std::size(kPageOrder) == 8);
   CHECK(PageName(kPageOrder[0]) == "Play");
   CHECK(PageName(kPageOrder[1]) == "Display");
   CHECK(PageName(kPageOrder[2]) == "Graphics");
   CHECK(PageName(kPageOrder[3]) == "Gameplay");
-  CHECK(PageName(kPageOrder[4]) == "Controls");
-  CHECK(PageName(kPageOrder[5]) == "Achievements");
-  CHECK(PageName(kPageOrder[6]) == "About");
+  CHECK(PageName(kPageOrder[4]) == "Cheats");
+  CHECK(PageName(kPageOrder[5]) == "Controls");
+  CHECK(PageName(kPageOrder[6]) == "Achievements");
+  CHECK(PageName(kPageOrder[7]) == "About");
   CHECK(KeyList("Semicolon,Space") == "Semicolon or Space");
   CHECK(KeyList("") == "None");
 }
@@ -536,7 +542,8 @@ void TestFrameLimitSetting() {
 
 void TestLauncherPlacementSettings() {
   Section("launcher placement");
-  for (const char* key : {kLauncherXKey, kLauncherYKey, kLauncherWidthKey, kLauncherHeightKey, kLauncherMaximizedKey}) {
+  for (const char* key : {kLauncherXKey, kLauncherYKey, kLauncherWidthKey, kLauncherHeightKey, kLauncherMaximizedKey,
+                          kLauncherFullscreenKey}) {
     bool managed = false;
     for (const ManagedSetting& setting : ManagedSettings()) {
       managed = managed || setting.key == key;
@@ -583,6 +590,219 @@ void TestLauncherPlacementSettings() {
   CHECK(settings.Get(kShowFpsKey) == "true");
 }
 
+void TestCheatSettings() {
+  Section("cheat settings");
+  int cheat_keys = 0;
+  for (const ManagedSetting& setting : ManagedSettings()) {
+    if (setting.key.starts_with("gw2_cheat_")) {
+      ++cheat_keys;
+      CHECK(setting.kind == ValueKind::kBool);
+      CHECK(!IsWindowSetting(setting.key));
+      CHECK(!IsLauncherPlacementSetting(setting.key));
+    }
+  }
+  CHECK(cheat_keys == 3);
+  for (const cheats::CheatInfo& cheat : cheats::kCheats) {
+    bool managed = false;
+    for (const ManagedSetting& setting : ManagedSettings()) {
+      managed = managed || setting.key == cheat.key;
+    }
+    CHECK(managed);
+  }
+
+  const fs::path dir = FreshDir("cheats");
+  const fs::path file = LauncherSettingsPath(dir);
+  FakeCvars cvars;
+  RegisterGameDefaults(cvars);
+  GameSettings settings(cvars, file, dir / "missing.toml");
+  settings.Capture();
+  settings.MarkWindowCreated();
+  for (const cheats::CheatInfo& cheat : cheats::kCheats) {
+    CHECK(settings.Get(cheat.key) == "false");
+    CHECK(!settings.GetBool(cheat.key, true));
+  }
+
+  settings.Set(cheats::kInfiniteShieldKey, "true");
+  CHECK(settings.GetBool(cheats::kInfiniteShieldKey, false));
+  CHECK(!settings.GetBool(cheats::kInvincibleKey, true));
+  CHECK(!settings.GetBool(cheats::kInfiniteBombsKey, true));
+  CHECK(!settings.WindowChanged());
+
+  CHECK(settings.Save());
+  CHECK(cvars.assigns == 0);
+  const std::string text = ReadText(file);
+  CHECK(text.find("gw2_cheat_infinite_shield = true") != std::string::npos);
+  CHECK(text.find("gw2_cheat_invincible") == std::string::npos);
+  CHECK(text.find("gw2_cheat_infinite_bombs") == std::string::npos);
+
+  CHECK(!settings.Apply());
+  CHECK(cvars.values[cheats::kInfiniteShieldKey] == "true");
+  CHECK(cvars.values[cheats::kInvincibleKey] == "false");
+  CHECK(cvars.assigns == 1);
+
+  const Values stored = ReadSettingsValues(file);
+  CHECK(stored.at(cheats::kInfiniteShieldKey) == "true");
+  CHECK(stored.find(cheats::kInvincibleKey) == stored.end());
+  FakeCvars restarted;
+  RegisterGameDefaults(restarted);
+  for (const auto& [key, value] : stored) {
+    if (restarted.IsRegistered(key)) {
+      restarted.values[key] = value;
+    }
+  }
+  GameSettings reloaded(restarted, file, dir / "missing.toml");
+  reloaded.Capture();
+  CHECK(reloaded.GetBool(cheats::kInfiniteShieldKey, false));
+  CHECK(!reloaded.GetBool(cheats::kInvincibleKey, true));
+  CHECK(!reloaded.GetBool(cheats::kInfiniteBombsKey, true));
+
+  settings.Set(cheats::kInvincibleKey, "true");
+  settings.Set(cheats::kInfiniteBombsKey, "true");
+  CHECK(settings.Save());
+  settings.ResetToDefaults();
+  for (const cheats::CheatInfo& cheat : cheats::kCheats) {
+    CHECK(settings.Get(cheat.key) == "false");
+  }
+  CHECK(settings.Save());
+  const std::string reset = ReadText(file);
+  CHECK(reset.find("gw2_cheat_invincible = false") != std::string::npos);
+  CHECK(reset.find("gw2_cheat_infinite_shield = false") != std::string::npos);
+  CHECK(reset.find("gw2_cheat_infinite_bombs = false") != std::string::npos);
+  CHECK(reset.find("= true") == std::string::npos);
+}
+
+void TestUnregisteredCheatIsRejected() {
+  Section("unregistered cheat key");
+  const fs::path dir = FreshDir("cheats_unregistered");
+  const fs::path file = LauncherSettingsPath(dir);
+  FakeCvars cvars;
+  RegisterGameDefaults(cvars);
+  GameSettings settings(cvars, file, dir / "missing.toml");
+  settings.Capture();
+  settings.Set("gw2_cheat_god_mode", "true");
+  CHECK(!settings.Save());
+  CHECK(!settings.SaveNow("gw2_cheat_unknown", "true"));
+  CHECK(!fs::exists(file));
+
+  for (const ManagedSetting& setting : ManagedSettings()) {
+    CHECK(setting.key != "gw2_cheat_god_mode");
+    CHECK(setting.key != "gw2_cheat_unknown");
+  }
+
+  cvars.registered.erase(cheats::kInfiniteBombsKey);
+  GameSettings missing(cvars, file, dir / "missing.toml");
+  missing.Capture();
+  missing.Set(cheats::kInfiniteBombsKey, "true");
+  CHECK(!missing.Save());
+  CHECK(!fs::exists(file));
+}
+
+void TestSettingsFollowTheUserDataRoot() {
+  Section("settings and launcher placement are written below the user data root");
+  const fs::path dir = FreshDir("user_data_root");
+  for (const char* name : {"user_data", "chosen"}) {
+    const fs::path root = dir / name;
+    const fs::path file = LauncherSettingsPath(root);
+    CHECK(file == root / "launcher" / "settings.toml");
+    FakeCvars cvars;
+    RegisterGameDefaults(cvars);
+    GameSettings settings(cvars, file, dir / "missing.toml");
+    settings.Capture();
+    settings.MarkWindowCreated();
+    settings.Set(kFullscreenKey, "true");
+    CHECK(settings.Save());
+    CHECK(settings.SaveNow({{kLauncherXKey, "40"}, {kLauncherYKey, "60"}}));
+    CHECK(ReadText(file).find("gw2_launcher_x = 40") != std::string::npos);
+  }
+  int files = 0;
+  for (const auto& entry : fs::recursive_directory_iterator(dir)) {
+    files += entry.is_regular_file() ? 1 : 0;
+  }
+  CHECK(files == 2);
+}
+
+void TestDisplayModeStaysWithTheGame() {
+  Section("display mode is the game's");
+  const fs::path dir = FreshDir("display_mode");
+  const fs::path file = LauncherSettingsPath(dir);
+  FakeCvars cvars;
+  RegisterGameDefaults(cvars);
+  cvars.values[kFullscreenKey] = "false";
+  GameSettings settings(cvars, file, dir / "missing.toml");
+  settings.Capture();
+  settings.MarkWindowCreated();
+
+  settings.Set(kFullscreenKey, "true");
+  settings.Set(kAntiAliasingKey, "fxaa");
+  CHECK(!settings.Apply());
+  CHECK(cvars.values[kFullscreenKey] == "false");
+  CHECK(cvars.values[kAntiAliasingKey] == "fxaa");
+  CHECK(!settings.WindowChanged());
+  CHECK(settings.ApplyDisplayMode());
+  CHECK(cvars.values[kFullscreenKey] == "true");
+  const int assigns = cvars.assigns;
+  CHECK(settings.ApplyDisplayMode());
+  CHECK(cvars.assigns == assigns);
+
+  // The launcher window was opened windowed while the saved Display mode stays Borderless Fullscreen.
+  const fs::path saved_dir = FreshDir("display_mode_saved");
+  WriteText(LauncherSettingsPath(saved_dir), "fullscreen = true\ngw2_launcher_width = 1200\n");
+  FakeCvars next;
+  RegisterGameDefaults(next);
+  next.values[kFullscreenKey] = "true";
+  GameSettings reopened(next, LauncherSettingsPath(saved_dir), saved_dir / "missing.toml");
+  reopened.Capture();
+  next.values[kFullscreenKey] = "false";
+  CHECK(reopened.Get(kFullscreenKey) == "true");
+  CHECK(reopened.Save());
+  CHECK(ReadText(LauncherSettingsPath(saved_dir)).find("fullscreen = true") != std::string::npos);
+  CHECK(reopened.ApplyDisplayMode());
+  CHECK(next.values[kFullscreenKey] == "true");
+
+  CHECK(!IsLauncherPlacementSetting(kFullscreenKey));
+  CHECK(!IsLauncherPlacementSetting(kMonitorKey));
+  CHECK(!IsWindowSetting(kLauncherXKey));
+  CHECK(!IsWindowSetting(kLauncherWidthKey));
+}
+
+void TestLauncherFullscreenIsSeparate() {
+  Section("launcher fullscreen is separate");
+  const fs::path dir = FreshDir("launcher_fullscreen");
+  const fs::path file = LauncherSettingsPath(dir);
+  FakeCvars cvars;
+  RegisterGameDefaults(cvars);
+  GameSettings settings(cvars, file, dir / "missing.toml");
+  settings.Capture();
+  settings.MarkWindowCreated();
+
+  CHECK(IsLauncherPlacementSetting(kLauncherFullscreenKey));
+  CHECK(!IsWindowSetting(kLauncherFullscreenKey));
+  CHECK(!IsLauncherPlacementSetting(kFullscreenKey));
+
+  settings.Set(kFullscreenKey, "true");
+  CHECK(settings.Save());
+  CHECK(settings.Get(kLauncherFullscreenKey, "false") == "false");
+  CHECK(ReadText(file).find("gw2_launcher_fullscreen = true") == std::string::npos);
+
+  CHECK(settings.SaveNow({{kLauncherFullscreenKey, "true"}}));
+  CHECK(ReadText(file).find("gw2_launcher_fullscreen = true") != std::string::npos);
+  CHECK(settings.Get(kFullscreenKey) == "true");
+  CHECK(!settings.WindowChanged());
+
+  settings.Set(kFullscreenKey, "false");
+  CHECK(settings.Save());
+  CHECK(settings.Get(kLauncherFullscreenKey) == "true");
+
+  settings.ResetToDefaults();
+  CHECK(settings.Get(kLauncherFullscreenKey) == "true");
+  CHECK(settings.Get(kFullscreenKey) == "false");
+
+  settings.Set(kMonitorKey, "2");
+  settings.Set(kWindowWidthKey, "853");
+  CHECK(settings.Get(kLauncherFullscreenKey) == "true");
+  CHECK(settings.Get(kLauncherWidthKey, "0") == "0");
+}
+
 }  // namespace
 
 int main() {
@@ -607,6 +827,11 @@ int main() {
   TestFrameCounterSetting();
   TestFrameLimitSetting();
   TestLauncherPlacementSettings();
+  TestCheatSettings();
+  TestUnregisteredCheatIsRejected();
+  TestSettingsFollowTheUserDataRoot();
+  TestDisplayModeStaysWithTheGame();
+  TestLauncherFullscreenIsSeparate();
   fs::remove_all(kRoot, ec);
   std::printf("%d checks, %d failures\n", g_checks, g_failures);
   return g_failures == 0 ? 0 : 1;

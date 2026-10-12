@@ -38,6 +38,7 @@ AppBridge g_bridge;
 std::mutex g_gate_mutex;
 AchievementsOverlayGate g_gate;  // guarded by g_gate_mutex
 std::atomic<float> g_scroll_axis{0.0f};
+std::atomic<bool> g_holds_input{false};
 
 Services* Active() { return g_services.load(std::memory_order_acquire); }
 
@@ -67,10 +68,15 @@ void FilterGuestInput(PPCContext& ctx, uint8_t* base, uint32_t user, uint32_t st
   {
     std::lock_guard lock(g_gate_mutex);
     verdict = g_gate.Poll(user, buttons, thumb_y);
+    g_holds_input.store(g_gate.HoldsInput(), std::memory_order_release);
   }
   g_scroll_axis.store(verdict.scroll, std::memory_order_relaxed);
   if (verdict.close && g_bridge.close_achievements) g_bridge.close_achievements();
-  if (verdict.hide_input) std::memset(base + state + kInputStateGamepadOffset, 0, kInputStateGamepadSize);
+  if (verdict.hide_input) {
+    std::memset(base + state + kInputStateGamepadOffset, 0, kInputStateGamepadSize);
+  } else if (verdict.clear_b) {
+    StoreBE<uint16_t>(base, state + kInputStateGamepadOffset, buttons & ~kXinputButtonB);
+  }
 }
 
 }  // namespace
@@ -94,9 +100,12 @@ void SetAchievementsModal(bool modal) {
   {
     std::lock_guard lock(g_gate_mutex);
     g_gate.SetOpen(modal);
+    g_holds_input.store(g_gate.HoldsInput(), std::memory_order_release);
   }
   g_scroll_axis.store(0.0f, std::memory_order_relaxed);
 }
+
+bool AchievementsHoldInput() { return g_holds_input.load(std::memory_order_acquire); }
 
 float AchievementsScrollAxis() { return g_scroll_axis.load(std::memory_order_relaxed); }
 
