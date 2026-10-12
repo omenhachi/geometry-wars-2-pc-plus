@@ -3,6 +3,7 @@
 
 #include <cstdio>
 #include <map>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -55,7 +56,8 @@ void TestValues() {
   for (const auto& [key, value] : PlacementValues({kNormal, true})) {
     settings.values[key] = value;
   }
-  CHECK(settings.values.size() == 5);
+  CHECK(settings.values.size() == 6);
+  CHECK(settings.values.at("gw2_launcher_fullscreen") == "false");
   CHECK(settings.values.at("gw2_launcher_x") == "200");
   CHECK(settings.values.at("gw2_launcher_y") == "100");
   CHECK(settings.values.at("gw2_launcher_width") == "1280");
@@ -137,7 +139,8 @@ void TestMinimizeAndFullscreen() {
   CHECK(!normal.Flush().has_value());
 
   normal.Observe(Normal(kScreen), true, 2.0);
-  CHECK(!normal.Flush().has_value());
+  const auto fullscreen = normal.Flush();
+  CHECK(fullscreen && fullscreen->fullscreen && fullscreen->normal == kNormal);
 }
 
 void TestFirstObservation() {
@@ -191,6 +194,116 @@ void TestRestoreAfterMaximizedStart() {
   CHECK(restored && !restored->maximized && restored->normal == kNormal);
 }
 
+const WindowState kDesktop{kScreen, false, false};
+
+WindowPlacement Reopen(const std::optional<WindowPlacement>& saved) {
+  FakeSettings settings;
+  for (const auto& [key, value] : PlacementValues(*saved)) {
+    settings.values[key] = value;
+  }
+  return ReadPlacement(settings);
+}
+
+void TestLauncherFullscreenPersists() {
+  Section("launcher fullscreen persists");
+  PlacementTracker normal(WindowPlacement{kNormal, false});
+  const Rect moved{300, 150, 1500, 950};
+  normal.Observe(Normal(moved), false, 1.0);
+  const WindowPlacement closed_normal = Reopen(normal.Flush());
+  CHECK(closed_normal.normal == moved && !closed_normal.maximized && !closed_normal.fullscreen);
+
+  PlacementTracker maximized(WindowPlacement{kNormal, false});
+  maximized.Observe(WindowState{kScreen, true, false}, false, 1.0);
+  const WindowPlacement closed_maximized = Reopen(maximized.Flush());
+  CHECK(closed_maximized.maximized && !closed_maximized.fullscreen && closed_maximized.normal == kNormal);
+
+  PlacementTracker from_normal(WindowPlacement{kNormal, false});
+  from_normal.Observe(kDesktop, true, 1.0);
+  const WindowPlacement closed_fullscreen = Reopen(from_normal.Flush());
+  CHECK(closed_fullscreen.fullscreen && !closed_fullscreen.maximized && closed_fullscreen.normal == kNormal);
+
+  PlacementTracker second_start(closed_fullscreen);
+  second_start.Observe(kDesktop, true, 0.0);
+  CHECK(!second_start.Flush().has_value());
+  second_start.Observe(Normal(kNormal), false, 1.0);
+  const auto back = second_start.Flush();
+  CHECK(back && !back->fullscreen && !back->maximized && back->normal == kNormal);
+
+  PlacementTracker from_maximized(WindowPlacement{kNormal, true});
+  from_maximized.Observe(WindowState{kScreen, true, false}, false, 0.0);
+  from_maximized.Observe(kDesktop, true, 1.0);
+  const WindowPlacement closed_both = Reopen(from_maximized.Flush());
+  CHECK(closed_both.fullscreen && closed_both.maximized && closed_both.normal == kNormal);
+
+  PlacementTracker reopened(closed_both);
+  reopened.Observe(kDesktop, true, 0.0);
+  CHECK(!reopened.Flush().has_value());
+  reopened.Observe(WindowState{kScreen, true, false}, false, 1.0);
+  const auto maximized_again = reopened.Flush();
+  CHECK(maximized_again && !maximized_again->fullscreen && maximized_again->maximized &&
+        maximized_again->normal == kNormal);
+  reopened.Observe(Normal(kNormal), false, 2.0);
+  const auto restored = reopened.Flush();
+  CHECK(restored && !restored->maximized && restored->normal == kNormal);
+
+  const Rect game{0, 0, 3840, 2160};
+  PlacementTracker game_sized(WindowPlacement{kNormal, false});
+  game_sized.Observe(WindowState{game, false, false}, true, 1.0);
+  const auto kept = game_sized.Flush();
+  CHECK(kept && kept->normal == kNormal);
+}
+
+void TestUserExitVersusPlayTransition() {
+  Section("user F11 exit versus leaving for Play");
+  PlacementTracker tracker(WindowPlacement{kNormal, false, true});
+  tracker.Observe(kDesktop, true, 0.0);
+  CHECK(!tracker.Flush().has_value());
+  CHECK(tracker.Current() && tracker.Current()->fullscreen);
+
+  // The window leaves fullscreen for Play without the tracker being told: the saved choice stays.
+  CHECK(!tracker.Flush().has_value());
+  CHECK(Reopen(tracker.Current()).fullscreen);
+
+  tracker.Observe(Normal(kNormal), false, 1.0);
+  const auto user_exit = tracker.Flush();
+  CHECK(user_exit && !user_exit->fullscreen);
+  CHECK(!Reopen(user_exit).fullscreen);
+
+  tracker.Observe(kDesktop, true, 2.0);
+  CHECK(tracker.TakeSettled(2.2) == std::nullopt);
+  const auto settled = tracker.TakeSettled(3.0);
+  CHECK(settled && settled->fullscreen);
+}
+
+void TestLauncherStateIsNotGameState() {
+  Section("launcher state is not the game's");
+  const auto values = PlacementValues({kNormal, true, true});
+  for (const char* key : {"fullscreen", "monitor", "window_width", "window_height"}) {
+    CHECK(values.find(key) == values.end());
+  }
+  CHECK(values.size() == 6);
+
+  FakeSettings game_only;
+  game_only.values["fullscreen"] = "true";
+  game_only.values["monitor"] = "2";
+  game_only.values["window_width"] = "853";
+  game_only.values["window_height"] = "480";
+  const WindowPlacement read = ReadPlacement(game_only);
+  CHECK(!read.fullscreen && !read.maximized && !PlacementIsSet(read));
+
+  const WindowPlacement fullscreen_launcher{kNormal, false, true};
+  FakeSettings launcher_only;
+  for (const auto& [key, value] : PlacementValues(fullscreen_launcher)) {
+    launcher_only.values[key] = value;
+  }
+  CHECK(launcher_only.values.find("fullscreen") == launcher_only.values.end());
+
+  const Rect negative{-1700, 80, -420, 800};
+  const std::vector<Rect> two{{-1920, 0, 0, 1040}, kScreen};
+  CHECK(PlanPreShow(WindowPlacement{negative, false}, two).normal == negative);
+  CHECK(!PlanPreShow(WindowPlacement{negative, true, true}, two).Needed());
+}
+
 }  // namespace
 
 int main() {
@@ -201,6 +314,9 @@ int main() {
   TestMoveAndResize();
   TestMaximize();
   TestMinimizeAndFullscreen();
+  TestLauncherFullscreenPersists();
+  TestUserExitVersusPlayTransition();
+  TestLauncherStateIsNotGameState();
   TestFirstObservation();
   TestFlushOnClose();
   std::printf("%d checks, %d failures\n", g_checks, g_failures);

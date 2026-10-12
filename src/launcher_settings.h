@@ -36,6 +36,7 @@ inline constexpr char kLauncherYKey[] = "gw2_launcher_y";
 inline constexpr char kLauncherWidthKey[] = "gw2_launcher_width";
 inline constexpr char kLauncherHeightKey[] = "gw2_launcher_height";
 inline constexpr char kLauncherMaximizedKey[] = "gw2_launcher_maximized";
+inline constexpr char kLauncherFullscreenKey[] = "gw2_launcher_fullscreen";
 inline constexpr char kShowFrameCounterKey[] = "gw2_show_frame_counter";
 inline constexpr bool kShowFrameCounterDefault = false;
 
@@ -89,9 +90,11 @@ class GameSettings final : public trg::SettingsStore {
   bool Save() override;
   void ResetToDefaults() override;
 
-  // Assigns the pending values that differ from the running game. Returns true when the game needs a new process
-  // for one of them.
+  // Assigns the pending values that differ from the running game, except the Display mode. Returns true when the
+  // game needs a new process for one of them.
   bool Apply();
+  // Assigns the pending Display mode; it changes the window, so it waits until the launcher has left it.
+  bool ApplyDisplayMode();
   // Records the window settings this process creates its window with.
   void MarkWindowCreated();
   // Whether the pending window size, monitor or VSync needs a new window.

@@ -25,6 +25,8 @@ REXCVAR_DEFINE_INT32(gw2_launcher_width, 0, "Launcher", "Launcher window width; 
 REXCVAR_DEFINE_INT32(gw2_launcher_height, 0, "Launcher",
                      "Launcher window height; 0 uses the default (set by the launcher)");
 REXCVAR_DEFINE_BOOL(gw2_launcher_maximized, false, "Launcher", "Open the launcher maximized (set by the launcher)");
+REXCVAR_DEFINE_BOOL(gw2_launcher_fullscreen, false, "Launcher",
+                    "Open the launcher borderless fullscreen (set by the launcher)");
 
 namespace gw2 {
 namespace {

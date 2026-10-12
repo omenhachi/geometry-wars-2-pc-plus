@@ -83,15 +83,16 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
     PlaceLauncherWindow();
   }
 
-  // The window is shown inside Open(), so a saved placement has to be in effect before it is created.
+  // The window is shown inside Open(), so a saved placement has to be in effect before it is created. The SDK opens
+  // it fullscreen from the `fullscreen` cvar, which carries the launcher's own choice until Play applies Display mode.
   void PlaceLauncherWindow() {
     const bool game_ready = gw2::CheckGameFiles(game_data_root()).state == gw2::GameFileState::kValid;
-    if (rex::cvar::GetFlagByName("fullscreen") == "true" ||
-        !gw2::LauncherWanted(game_ready, gw2::ShowLauncherSetting(*settings_), gw2::ShiftHeld(),
+    if (!gw2::LauncherWanted(game_ready, gw2::ShowLauncherSetting(*settings_), gw2::ShiftHeld(),
                              REXCVAR_GET(gw2_skip_launcher))) {
       return;
     }
     const gw2::WindowPlacement saved = gw2::ReadPlacement(*settings_);
+    rex::cvar::SetFlagByName(gw2::kFullscreenKey, saved.fullscreen ? "true" : "false");
     gw2::InstallPreShowPlacement(gw2::PlanPreShow(saved, gw2::WorkAreas()), saved);
   }
 
@@ -137,7 +138,8 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
                          app_context().CallInUIThreadDeferred([this] { app_context().QuitFromUIThread(); });
                        },
                        .window_handle = [this] { return window() ? window()->GetNativeWindowHandle() : nullptr; },
-                       .window_fullscreen = [this] { return window() && window()->IsFullscreen(); }});
+                       .window_fullscreen = [this] { return window() && window()->IsFullscreen(); },
+                       .set_window_fullscreen = [this](bool on) { if (window()) window()->SetFullscreen(on); }});
     return std::nullopt;
   }
 
@@ -160,7 +162,8 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
                          app_context().CallInUIThreadDeferred([this] { app_context().QuitFromUIThread(); });
                        },
                        .window_handle = [this] { return window() ? window()->GetNativeWindowHandle() : nullptr; },
-                       .window_fullscreen = [this] { return window() && window()->IsFullscreen(); }});
+                       .window_fullscreen = [this] { return window() && window()->IsFullscreen(); },
+                       .set_window_fullscreen = [this](bool on) { if (window()) window()->SetFullscreen(on); }});
   }
 
   void OnPostSetup() override {
@@ -234,8 +237,13 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
     return true;
   }
 
-  // F11 changes the window at once and keeps the choice as the player's setting for the next start.
+  // In the game, F11 changes the window at once and keeps the choice as the player's Display mode. In the launcher it
+  // only toggles the launcher's own fullscreen, which is saved with the launcher placement.
   void ToggleWindowMode() {
+    if (launcher_open_) {
+      window()->SetFullscreen(!window()->IsFullscreen());
+      return;
+    }
     const bool fullscreen = !window()->IsFullscreen();
     const std::string value = fullscreen ? "true" : "false";
     window()->SetFullscreen(fullscreen);

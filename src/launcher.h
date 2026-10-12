@@ -50,6 +50,7 @@ struct LauncherCallbacks {
   std::function<void()> quit;
   std::function<void*()> window_handle;      // the native window the launcher is drawn in
   std::function<bool()> window_fullscreen;
+  std::function<void(bool)> set_window_fullscreen;  // the launcher's own F11 state, not the game's Display mode
 };
 
 // Creates the launcher dialog; it deletes itself when closed.
