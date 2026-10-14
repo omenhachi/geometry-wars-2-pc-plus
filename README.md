@@ -155,10 +155,10 @@ In an existing clone, run `git submodule update --init --recursive`.
 1. Install Visual Studio with the C++ and LLVM/Clang components. See [docs/minimal-native-build.md](docs/minimal-native-build.md).
 2. Extract your package's files into `game\extracted` (`.\tools\extract_stfs.ps1 -Package "<package file>" -OutDir game\extracted`), so that `game\extracted\default.xex` exists.
 3. `.\tools\codegen.ps1` downloads the pinned ReXGlue SDK 0.10.0, checks `default.xex` and generates the C++ into `generated\`.
-4. `.\tools\build.ps1` builds `build\geometry_wars_retro_evolved_2.exe`. `.\tools\build.ps1 -Run` also starts it.
+4. `.\tools\build.ps1` builds `build\geometry_wars_retro_evolved_2.exe`. `.\tools\build.ps1 -Run` also starts it. The first build also builds the project's patched ReXGlue runtime (see [docs/rexglue-runtime-patch.md](docs/rexglue-runtime-patch.md)).
 5. `.\tools\package-release.ps1` builds a Release into `build-release\` (add `-Clean` for a clean build) and makes the release ZIP and its `.sha256` file in `dist\`.
 
-The Linux AppImage is built on Linux or WSL with `tools/package-linux.sh`, after the steps above have generated the C++. See [docs/linux.md](docs/linux.md).
+On Linux, `tools/build.sh` is the normal build and `tools/package-linux.sh` makes the AppImage. See [docs/linux.md](docs/linux.md).
 
 Both packaging scripts are local only: they build and write files under `dist/`, and never upload, tag or publish anything. The release version is the `project()` VERSION in `CMakeLists.txt`.
 
@@ -171,6 +171,7 @@ How the launcher, settings and installer work is described in [docs/launcher.md]
 - [Offline Xbox Live services](docs/offline-live.md)
 - [Cheats](docs/cheats.md)
 - [ReXGlue runtime patch](docs/rexglue-runtime-patch.md)
+- [ReXGlue GPU plugin patch](docs/rexglue-gpu-patch.md)
 - [Saves and settings: the portable user_data folder](docs/user-data.md)
 - [Linux and Steam Deck](docs/linux.md)
 

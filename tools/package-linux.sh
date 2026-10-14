@@ -9,8 +9,9 @@
 # GCC 13+ C++ runtime. Release builds are made on Ubuntu 22.04: the AppImage needs the build machine's glibc.
 # Needs generated/default (tools/codegen.ps1) and game/extracted/default.xex: the build re-runs codegen
 # when its inputs look changed, and it never packages either of them.
-# The ReXGlue runtime is built from source with the project's patch (tools/build-patched-rexruntime.sh) the
-# first time, which also needs network access and the packages in docs/rexglue-runtime-patch.md.
+# The ReXGlue runtime and GPU plugin are built from source with the project's patches
+# (tools/build-patched-rexruntime.sh) the first time, which also needs network access and the packages in
+# docs/rexglue-runtime-patch.md.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -74,11 +75,11 @@ XEX="$ROOT/game/extracted/default.xex"
 echo "$XEX_SHA256  $XEX" | sha256sum -c --status - || fail "unsupported $XEX"
 
 echo "== Source -> $WORK"
-mkdir -p "$WORK/game/extracted" "$WORK/third_party"
-for f in CMakeLists.txt CMakePresets.json geometry_wars_retro_evolved_2_manifest.toml LICENSE; do
+mkdir -p "$WORK/game/extracted" "$WORK/third_party" "$WORK/tools"
+for f in CMakeLists.txt CMakePresets.json geometry_wars_retro_evolved_2_manifest.toml LICENSE tools/build-patched-rexruntime.sh; do
   rsync -a "$ROOT/$f" "$WORK/$f"
 done
-for d in config src tests generated packaging third_party/trg-launcher; do
+for d in config src tests generated packaging patches/rexglue-sdk third_party/trg-launcher; do
   mkdir -p "$WORK/$d"
   rsync -a --delete --exclude .git "$ROOT/$d/" "$WORK/$d/"
 done
@@ -101,11 +102,12 @@ if [ ! -x "$SDK/bin/rexglue" ]; then
 fi
 [ "$("$SDK/bin/rexglue" --version | tr -d '[:space:]')" = "$SDK_VERSION" ] || fail "tools/rexglue/linux-amd64 is not ReXGlue $SDK_VERSION"
 
-echo "== Patched ReXGlue runtime"
-if ! bash "$ROOT/tools/build-patched-rexruntime.sh" --check "$SDK" >/dev/null 2>&1; then
-  bash "$ROOT/tools/build-patched-rexruntime.sh" "$SDK" "$WORK/rexglue-sdk-src"
+echo "== Patched ReXGlue runtime and GPU plugin"
+PATCHED="$ROOT/tools/build-patched-rexruntime.sh"
+if ! bash "$PATCHED" --check "$SDK" --config Release >/dev/null 2>&1; then
+  bash "$PATCHED" "$SDK" "$WORK/rexglue-sdk-src" --config Release
 fi
-bash "$ROOT/tools/build-patched-rexruntime.sh" --check "$SDK"
+bash "$PATCHED" --check "$SDK" --config Release
 
 echo "== Build ($PRESET)"
 BIN="$WORK/out/build/$PRESET"
@@ -114,8 +116,7 @@ BIN="$WORK/out/build/$PRESET"
 for f in geometry_wars_retro_evolved_2 librexruntime.so librexgpu-xenos.so geometry_wars_retro_evolved_2.toml; do
   [ -f "$BIN/$f" ] || fail "build output is missing $f"
 done
-cmp -s "$BIN/librexruntime.so" "$SDK/lib/librexruntime.so" || fail "librexruntime.so is not the patched runtime"
-cmp -s "$BIN/librexgpu-xenos.so" "$SDK/lib/librexgpu-xenos.so" || fail "librexgpu-xenos.so is not the ReXGlue SDK release file"
+bash "$PATCHED" --check "$SDK" --config Release --staged "$BIN" || fail "the build folder does not hold the patched ReXGlue libraries"
 
 echo "== AppDir"
 APPDIR="$WORK/AppDir"
@@ -154,6 +155,7 @@ chmod 755 "$APPDIR/AppRun" "$APPDIR/usr/bin/geometry_wars_retro_evolved_2"
 chmod 644 "$APPDIR/"*.desktop "$APPDIR/"*.png "$APPDIR/.DirIcon" "$APPDIR/usr/bin/"*.so \
   "$APPDIR/usr/bin/geometry_wars_retro_evolved_2.toml" "$APPDIR/usr/lib/"* "$DOC/"*
 find "$THEME" -type f -exec chmod 644 {} +
+bash "$PATCHED" --check "$SDK" --config Release --staged "$APPDIR/usr/bin" || fail "the AppDir does not hold the patched ReXGlue libraries"
 
 echo "== Release check"
 problems=0

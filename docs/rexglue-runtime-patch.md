@@ -1,8 +1,8 @@
 # ReXGlue runtime patch
 
 Geometry Wars: Retro Evolved 2 ships ReXGlue **v0.10.0** (tag `v0.10.0`, commit `f5337cdc947ff6d4c4196737e2c807a48f2a1fc2`) with
-one local patch to the runtime library (`rexruntime.dll` / `librexruntime.so`). Everything else in the SDK, including
-the Xenos GPU plugin, is the stock release.
+local patches, built by the normal build. This page covers the runtime patch and how every build gets the patched
+files; the GPU plugin patch is in [rexglue-gpu-patch.md](rexglue-gpu-patch.md).
 
 | | |
 | --- | --- |
@@ -25,39 +25,49 @@ still reports the parent's size.
 The error needs two threads to hit the window between the two releases, so how often it happens in the game depends on
 timing. The stock runtime fails the allocator stress test below on every run.
 
-## Building the patched runtime
+## Which patches each platform uses
 
-Windows (Visual Studio with the LLVM/Clang component, and git), after `tools\codegen.ps1` has put the SDK in
-`tools\rexglue`:
+[patches/rexglue-sdk/patches.txt](../patches/rexglue-sdk/patches.txt) lists every patch with the platforms that apply it
+and the ReXGlue targets it changes. It is the only list; the Windows and Linux scripts both read it.
 
-```powershell
-.\tools\build-patched-rexruntime.ps1                 # fetch v0.10.0 (network), patch, build, install
-.\tools\build-patched-rexruntime.ps1 -Restore        # put the stock runtime back
-```
+| Patch | Target | Windows | Linux | Why |
+| --- | --- | --- | --- | --- |
+| `0001-physical-release-order` | `rexruntime` | yes | yes | Shared runtime code. |
+| `0002-spirv-texture-exp-adjust` | `rexgpu-xenos` | no | yes | Fixes the SPIR-V (Vulkan) translator. The Windows plugin is built without Vulkan, and its DXBC translator already reads the right field. |
 
-It builds the RelWithDebInfo and Release runtime into `out\rexglue-sdk-src` (use `-WorkDir` for a shorter path) and
-replaces them in `tools\rexglue\win-amd64`. The Debug runtime stays stock.
+A target that no patch for the platform changes must be the stock release file. Patch numbers must be unique, every
+`.patch` file must be listed, and the list must be in numeric order; the scripts stop otherwise. A patch for one
+platform can be named `NNNN-name.<platform>.patch` for clarity, but only `patches.txt` decides where it applies.
 
-Linux (Ubuntu 22.04, see [linux.md](linux.md)): `tools/package-linux.sh` runs `tools/build-patched-rexruntime.sh`
-itself the first time. Besides the packages in linux.md it needs git, network access and the SDK's build
-dependencies: `libgtk-3-dev libx11-dev libx11-xcb-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev
-libxfixes-dev libxrender-dev libxss-dev libvulkan-dev libwayland-dev libwayland-bin wayland-protocols
-libxkbcommon-dev libdecor-0-dev libasound2-dev libpulse-dev libpipewire-0.3-dev libgl1-mesa-dev libudev-dev
-pkg-config`.
+## How the normal build gets the patched files
 
-Both scripts check the source is exactly the pinned commit, stop if the patch no longer applies, compile with
-`-ffile-prefix-map` so no build folder ends up in the library, and refuse a result that equals the stock file. The
-binaries are not bit-for-bit reproducible; what is verified is the source commit, the patch hash and the hash of each
-installed file.
+Windows: `.\tools\build.ps1` (any `-Config`) first checks `tools\rexglue\win-amd64` for that configuration and, when
+it does not match the branch, runs `tools\build-patched-rexruntime.ps1 -Config <config>`. Linux: `tools/build.sh`
+does the same with `tools/build-patched-rexruntime.sh <sdk> --config <config>`. The scripts fetch v0.10.0 into
+`out/rexglue-sdk-src` the first time (git and network access), check the pinned commit, reset every tracked file of
+that tree (so another branch's patches cannot stay), apply this platform's patches, build the patched targets for the
+configuration, install them, and put the stock files back for the other targets. Each configuration is prepared the
+first time it is built; later builds only check.
 
-## What packaging verifies
+`rexruntime-patch.txt` beside the SDK records the inputs: the SDK version, tag and commit, the platform, each applied
+patch with its SHA-256 and targets, the patched targets, the compiler (and MSVC toolset on Windows) and the flags,
+followed by the SHA-256 of every installed file. Any other input makes the installed files stale, so switching to a
+branch with other patches rebuilds them on the next build.
 
-The scripts record the installed runtime in `rexruntime-patch.txt` next to the SDK: the source commit, the SHA-256
-of the patch file and the SHA-256 of each installed runtime file. `tools/package-release.ps1` and
-`tools/package-linux.sh` accept the runtime only if the commit is the pinned one, the patch hash equals the tracked
-patch, the files match the recorded hashes, and none of them is the stock release file. The packaged runtime must also
-be identical to the installed one. Editing the patch therefore requires rebuilding the runtime before packaging.
-`rexgpu-xenos` is still compared with the stock release file.
+The CMake build itself checks the same thing on Windows and Linux: before the program is compiled it stops when the
+SDK does not match (also for a plain `cmake --build`), and after linking it copies the runtime and GPU plugin next to
+the program and stops unless those copies are the SDK's. `tools/package-release.ps1` and `tools/package-linux.sh` run
+the same checks again on what they package; they are not needed to get the patched files.
+
+The Linux build also needs, besides the packages in [linux.md](linux.md), the SDK's build dependencies:
+`libgtk-3-dev libx11-dev libx11-xcb-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxfixes-dev
+libxrender-dev libxss-dev libvulkan-dev libwayland-dev libwayland-bin wayland-protocols libxkbcommon-dev
+libdecor-0-dev libasound2-dev libpulse-dev libpipewire-0.3-dev libgl1-mesa-dev libudev-dev pkg-config`.
+
+The Release libraries are compiled with `-ffile-prefix-map`, and the scripts refuse a Release file that embeds the
+build folder or equals the stock one. The binaries are not bit-for-bit reproducible; what is verified is the inputs
+and the hash of each installed file. `.\tools\build-patched-rexruntime.ps1 -Restore` puts every stock Windows file
+back; the next build prepares the branch's files again.
 
 ## Allocator stress test
 
