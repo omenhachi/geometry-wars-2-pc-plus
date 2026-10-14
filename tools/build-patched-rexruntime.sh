@@ -281,8 +281,10 @@ if [ "${#PATCHED_TARGETS[@]}" -gt 0 ]; then
   FLAGS="${FLAGS_TEMPLATE/<source>/$SRC}"
   (
     cd "$SRC"
+    # The libraries are taken from the build tree, which lies outside the binary folder, so CMake would give them an
+    # absolute build RUNPATH; the install RUNPATH ($ORIGIN) is what the release files carry.
     cmake --preset linux-amd64 "-DCMAKE_C_COMPILER=$CC" "-DCMAKE_CXX_COMPILER=$CXX" \
-      "-DCMAKE_C_FLAGS=$FLAGS" "-DCMAKE_CXX_FLAGS=$FLAGS" >/dev/null
+      "-DCMAKE_C_FLAGS=$FLAGS" "-DCMAKE_CXX_FLAGS=$FLAGS" -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON >/dev/null
     for config in "${CONFIGS[@]}"; do
       cmake --build out/build/linux-amd64 --config "$config" --target "${PATCHED_TARGETS[@]}" --parallel
     done
