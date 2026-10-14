@@ -71,4 +71,11 @@ void FitWindowToDisplay() {
   rex::cvar::SetFlagByName(kWindowHeightKey, std::to_string(fit_height));
 }
 
+void SettleStartupCvars() {
+  FitWindowToDisplay();
+  // The SDK marks a restart-only cvar as pending whenever a config file sets it, but nothing it configures exists
+  // yet. Starting from none makes PLAY restart only for what the launcher changes.
+  rex::cvar::ClearPendingRestartFlags();
+}
+
 }  // namespace gw2

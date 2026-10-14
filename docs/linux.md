@@ -86,6 +86,23 @@ failure rules.
 - On a Wayland desktop with display scaling above 100%, window sizes can come out larger than chosen. ReXGlue
   sizes its window this way on Linux.
 
+## Building
+
+After `tools/codegen.sh` has put the SDK in `tools/rexglue/linux-amd64` and generated `generated/default`:
+
+```sh
+tools/build.sh                   # out/build/linux-amd64-release
+tools/build.sh relwithdebinfo    # or debug
+```
+
+It first makes sure the SDK holds the patched ReXGlue runtime and GPU plugin this branch needs for that
+configuration, building them from source when it does not (git and network access the first time, then a few minutes;
+see [rexglue-runtime-patch.md](rexglue-runtime-patch.md)), then configures and builds the matching preset. A plain
+`cmake --preset linux-amd64-release` and `cmake --build --preset linux-amd64-release` checks the same thing and stops
+before compiling the program, with the command to run, when the SDK does not match. The unit tests build with
+`cmake --build --preset linux-amd64-release --target gw2_tests` into `out/build/<preset>/tests`; they need no game
+files and no graphics.
+
 ## Building the AppImage
 
 Run on Linux or WSL, from a clone with the TRG launcher submodule, after `tools/codegen.ps1` has generated
@@ -107,15 +124,9 @@ Ubuntu 22.04, clang 20 comes from [apt.llvm.org](https://apt.llvm.org) and the G
 ships 3.22.
 
 The script copies the sources to `~/gw2-linux-build` (set `GW2_WORK` to change it), downloads the pinned ReXGlue
-SDK, appimagetool and AppImage runtime with their SHA-256 checks, builds the patched ReXGlue runtime from source the first
-time (git and network access; see [rexglue-runtime-patch.md](rexglue-runtime-patch.md)), builds the `linux-amd64-release` preset, checks
-that the AppDir holds no game files, packages, saves, logs or local paths, and writes
+SDK, appimagetool and AppImage runtime with their SHA-256 checks, prepares the patched ReXGlue runtime and GPU plugin
+the same way `tools/build.sh` does, builds the `linux-amd64-release` preset, checks the libraries again in the build
+folder and the AppDir, checks that the AppDir holds no game files, packages, saves, logs or local paths, and writes
 `dist/GeometryWarsRetroEvolved2-v<version>-linux-x86_64.AppImage` with its `.sha256`. The version is the
 `project()` VERSION in `CMakeLists.txt`. The script publishes nothing, and the game's `default.xex` only enters the
 temporary build folder as input for code generation, never the AppImage.
-
-For a plain build without packaging, `cmake --preset linux-amd64-release` and
-`cmake --build --preset linux-amd64-release` (also `linux-amd64-debug` and `linux-amd64-relwithdebinfo`) build
-into `out/build/<preset>`, with `tools/rexglue/linux-amd64` holding the SDK. The unit tests build with
-`cmake --build --preset linux-amd64-release --target gw2_tests` into `out/build/<preset>/tests`; they need no game
-files and no graphics.

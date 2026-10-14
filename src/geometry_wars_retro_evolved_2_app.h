@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdlib>
 #include <filesystem>
 #include <functional>
 #include <memory>
@@ -78,7 +79,7 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
                                                     shipped_config_);
     settings_->Capture();
     settings_->MarkWindowCreated();
-    gw2::FitWindowToDisplay();
+    gw2::SettleStartupCvars();
     SetGuestFrameStats(DebugOverlayFrameStats);
     PlaceLauncherWindow();
   }
@@ -229,11 +230,17 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
     }
   }
 
+  // The new process owns the game, so this one exits the way ReXApp::OnClosing does, without the subsystem teardown.
+  // Deferred, so the launcher has saved its placement first.
   bool RestartInNewWindow() {
     if (!gw2::RelaunchSelf(L"--gw2_skip_launcher=true")) {
       return false;
     }
-    app_context().CallInUIThreadDeferred([this] { app_context().QuitFromUIThread(); });
+    app_context().CallInUIThreadDeferred([] {
+      REXLOG_INFO("Restarted in a new window; hard-exiting this process.");
+      rex::FlushLogging();
+      std::_Exit(0);
+    });
     return true;
   }
 
