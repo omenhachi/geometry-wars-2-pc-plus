@@ -28,8 +28,8 @@ The bug is known upstream ([rexglue-sdk#334](https://github.com/rexglue/rexglue-
 ## Linux
 
 The normal Linux build (`tools/build.sh`) builds `librexruntime.so` and this plugin from the same pinned source, with
-`0001-physical-release-order.patch` and this patch, for each configuration it builds, and the CMake build stops while
-the SDK or the copy next to the program is the stock plugin (see
+every Linux patch in `patches.txt` (0001, this one and 0003), for each configuration it builds, and the CMake build
+stops while the SDK or the copy next to the program is the stock plugin (see
 [rexglue-runtime-patch.md](rexglue-runtime-patch.md#how-the-normal-build-gets-the-patched-files)). Besides that, the
 plugin build stops unless the plugin links the runtime, exports `rex_gpu_abi_version` and `rex_gpu_create`, and exports
 the same strong symbols as the release plugin (the weak ones depend on the C++ library headers), and unless no library

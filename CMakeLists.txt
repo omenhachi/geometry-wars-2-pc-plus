@@ -186,7 +186,19 @@ target_include_directories(gw2_restart_state_tests PRIVATE src)
 target_compile_options(gw2_restart_state_tests PRIVATE -Wall -Wextra)
 target_compile_definitions(gw2_restart_state_tests PRIVATE GW2_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(gw2_restart_state_tests PRIVATE rex::runtime gw2_trg_test_support)
-foreach(_runtime_test gw2_physical_heap_stress gw2_restart_state_tests)
+set(_runtime_tests gw2_physical_heap_stress gw2_restart_state_tests)
+# The fake librenderdoc.so goes into renderdoc/, out of reach of the runtime's $ORIGIN RUNPATH.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    add_library(gw2_fake_renderdoc SHARED EXCLUDE_FROM_ALL tests/fake_renderdoc.cpp)
+    set_target_properties(gw2_fake_renderdoc PROPERTIES OUTPUT_NAME renderdoc
+        LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/renderdoc")
+    add_executable(gw2_renderdoc_detect_tests EXCLUDE_FROM_ALL tests/renderdoc_detect_tests.cpp)
+    target_link_libraries(gw2_renderdoc_detect_tests PRIVATE rex::runtime rex::renderdoc ${CMAKE_DL_LIBS})
+    target_compile_options(gw2_renderdoc_detect_tests PRIVATE -Wall -Wextra)
+    add_dependencies(gw2_renderdoc_detect_tests gw2_fake_renderdoc)
+    list(APPEND _runtime_tests gw2_renderdoc_detect_tests)
+endif()
+foreach(_runtime_test ${_runtime_tests})
     add_custom_command(TARGET ${_runtime_test} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             "$<TARGET_FILE:rex::runtime>"

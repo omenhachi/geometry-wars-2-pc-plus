@@ -168,6 +168,10 @@ while IFS= read -r -d '' item; do
       settings.toml | settings.toml.bak | ArcadeInfo.xml | nxeart | 584108FF) problem "forbidden name: $rel" ;;
     *.xex | *.log | *.dmp | *.pdb | *.xsh | *.xpso | *.bak | *.tmp | *.sav) problem "forbidden file type: $rel" ;;
   esac
+  case "${base,,}" in
+    *renderdoc* | *vklayer* | *.json | implicit_layer.d | explicit_layer.d) problem "RenderDoc or Vulkan layer file: $rel" ;;
+  esac
+  [ -L "$item" ] && problem "symbolic link: $rel"
   if [ -f "$item" ]; then
     case "$(head -c 4 "$item" | tr -d '\0')" in LIVE | PIRS | "CON ") problem "Xbox 360 package: $rel" ;; esac
     for path in "$ROOT" "$WORK" "$HOME"; do
@@ -202,10 +206,14 @@ usr/share/icons/hicolor/48x48/apps/geometry_wars_retro_evolved_2.png
 usr/share/icons/hicolor/512x512/apps/geometry_wars_retro_evolved_2.png
 usr/share/icons/hicolor/64x64/apps/geometry_wars_retro_evolved_2.png
 usr/share/icons/hicolor/scalable/apps/geometry_wars_retro_evolved_2.svg"
-ACTUAL="$(cd "$APPDIR" && find . -type f | sed 's|^\./||' | LC_ALL=C sort)"
+ACTUAL="$(cd "$APPDIR" && find . ! -type d | sed 's|^\./||' | LC_ALL=C sort)"
 [ "$ACTUAL" = "$EXPECTED" ] || { problem "unexpected AppDir contents:"; diff <(echo "$EXPECTED") <(echo "$ACTUAL") >&2 || true; }
 grep -qxF "StartupWMClass=$APP_ID" "$APPDIR/$APP_ID.desktop" || problem "StartupWMClass in $APP_ID.desktop is not $APP_ID"
 grep -qaF "$APP_ID" "$APPDIR/usr/bin/geometry_wars_retro_evolved_2" || problem "the program does not contain the application id $APP_ID"
+for f in geometry_wars_retro_evolved_2 librexruntime.so librexgpu-xenos.so; do
+  dynamic="$(readelf -d "$APPDIR/usr/bin/$f")"
+  if grep -qi renderdoc <<< "$dynamic"; then problem "$f depends on RenderDoc"; fi
+done
 readelf -d "$APPDIR/usr/bin/geometry_wars_retro_evolved_2" | grep -q 'R.*PATH.*\[\$ORIGIN\]' || problem "the program's RPATH is not \$ORIGIN"
 missing="$(ldd "$APPDIR/usr/bin/geometry_wars_retro_evolved_2" | grep 'not found' || true)"
 [ -z "$missing" ] || problem "unresolved libraries: $missing"

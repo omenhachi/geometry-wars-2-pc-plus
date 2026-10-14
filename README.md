@@ -170,7 +170,7 @@ How the launcher, settings and installer work is described in [docs/launcher.md]
 - [Offline profile and save](docs/offline-profile.md)
 - [Offline Xbox Live services](docs/offline-live.md)
 - [Cheats](docs/cheats.md)
-- [ReXGlue runtime patch](docs/rexglue-runtime-patch.md)
+- [ReXGlue runtime patches](docs/rexglue-runtime-patch.md)
 - [ReXGlue GPU plugin patch](docs/rexglue-gpu-patch.md)
 - [Saves and settings: the portable user_data folder](docs/user-data.md)
 - [Linux and Steam Deck](docs/linux.md)

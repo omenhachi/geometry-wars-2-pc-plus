@@ -7,11 +7,13 @@
 #   tools/build-patched-rexruntime.sh SDK_DIR [WORK_DIR] [--config CONFIG]...   prepare (network needed the first time)
 #   tools/build-patched-rexruntime.sh --check SDK_DIR [--config CONFIG] [--staged DIR]   verify only
 #   tools/build-patched-rexruntime.sh --stress SDK_DIR BUILD_DIR   run the allocator stress test (see below)
+#   tools/build-patched-rexruntime.sh --loader-test SDK_DIR BUILD_DIR   run the RenderDoc detection test (see below)
 #
 # CONFIG is Debug, RelWithDebInfo or Release (default Release). WORK_DIR holds the fetched source and its build
 # (default: out/rexglue-sdk-src in this repository). Needs git, clang-20, clang++-20, cmake 3.25+, ninja, binutils and
-# the packages listed in docs/rexglue-runtime-patch.md. --stress runs gw2_physical_heap_stress from an already
-# configured project build in BUILD_DIR.
+# the packages listed in docs/rexglue-runtime-patch.md. --stress and --loader-test run gw2_physical_heap_stress and
+# gw2_renderdoc_detect_tests from an already configured Release project build in BUILD_DIR, beside the installed
+# runtime; --loader-test also runs its test against the stock runtime, which must fail.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -181,7 +183,7 @@ STAGED=""
 CONFIGS=()
 while [ $# -gt 0 ]; do
   case "$1" in
-    --check | --stress) MODE="${1#--}" ;;
+    --check | --stress | --loader-test) MODE="${1#--}" ;;
     --config) CONFIGS+=("${2:?--config needs a configuration}"); shift ;;
     --staged) STAGED="${2:?--staged needs a folder}"; shift ;;
     -*) fail "unknown option $1" ;;
@@ -214,6 +216,38 @@ if [ "$MODE" = stress ]; then
   mkdir -p "$stage"
   cp "$SRC/gw2_physical_heap_stress" "$SDK/lib/librexruntime.so" "$stage/"
   (cd "$stage" && ./gw2_physical_heap_stress | grep -E '^(view|PASS|FAIL)')
+  exit 0
+fi
+
+stage_loader_test() {  # STAGE_DIR RUNTIME: the test, its fake RenderDoc and the runtime under test
+  rm -rf "$1"
+  mkdir -p "$1/renderdoc"
+  cp "$SRC/gw2_renderdoc_detect_tests" "$1/"
+  cp "$SRC/renderdoc/librenderdoc.so" "$1/renderdoc/"
+  cp "$2" "$1/librexruntime.so"
+}
+
+if [ "$MODE" = loader-test ]; then
+  [ -n "$SRC" ] || fail "usage: $0 --loader-test SDK_DIR BUILD_DIR"
+  check_stamp "$SDK" Release || fail "$SDK does not hold the patched ReXGlue libraries"
+  cmake --build "$SRC" --target gw2_renderdoc_detect_tests
+  stage="$SRC/renderdoc_detect"
+  stage_loader_test "$stage" "$SDK/lib/librexruntime.so"
+  echo "== Patched runtime (must pass)"
+  (cd "$stage" && ./gw2_renderdoc_detect_tests)
+  # The stock runtime must fail by loading the discoverable fake itself, which shows the test detects the bug.
+  stock="$SRC/renderdoc_detect_stock"
+  stage_loader_test "$stock" "$SDK/lib/librexruntime.so"
+  stock_file "$SDK" rexruntime Release "$stock/librexruntime.so" ||
+    fail "no stock librexruntime.so for the control run: keep rexglue-sdk-$SDK_VERSION-linux-amd64.zip beside $SDK"
+  echo "== Stock runtime (must fail)"
+  if output="$(cd "$stock" && ./gw2_renderdoc_detect_tests 2>&1)"; then
+    echo "$output"
+    fail "the test passed against the stock runtime, so it does not detect the bug"
+  fi
+  echo "$output"
+  grep -qxE 'FAIL: (absent|not loaded): CreateIfConnected returns nullptr' <<< "$output" ||
+    fail "the stock runtime failed the test, but not by loading RenderDoc itself"
   exit 0
 fi
 
