@@ -1,7 +1,7 @@
 # Linux and Steam Deck
 
-> **Experimental.** The Linux build is a native x86_64 program, not a Windows build under Proton or Wine. It is
-> compiled and packaged, but it has not yet been played on a real Linux PC or Steam Deck. Reports are welcome.
+> **Experimental.** The Linux build is a native x86_64 program, not a Windows build under Proton or Wine. Testing on
+> real hardware is limited to one report so far (see [Known limits](#known-limits)). Reports are welcome.
 
 The Linux build uses the same code as the Windows build: ReXGlue SDK 0.10.0's Linux runtime, the Xenos GPU
 plugin's Vulkan backend, and the same TRG launcher. It ships as one AppImage, which is also the Steam Deck build.
@@ -77,8 +77,12 @@ failure rules.
 
 ## Known limits
 
-- Not tested on real hardware yet: rendering, audio, controllers, performance and the frame rates above 60 are
-  unconfirmed on Linux. They were validated on Windows only.
+- On a Steam Machine the game was reported to run in slow motion while the frame counter shows 60
+  ([#1](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled/issues/1)). This is not fixed yet. The same
+  report's very dark image is fixed since v0.2.3 (see [rexglue-gpu-patch.md](rexglue-gpu-patch.md)), but the fix has
+  not been confirmed on Linux hardware yet.
+- Otherwise untested on real hardware: audio, controllers, performance and the frame rates above 60 are unconfirmed on
+  Linux. They were validated on Windows only.
 - The portable `user_data` folder and the move from the XDG folder are covered by unit tests with temporary folders
   only. They have not been tried with an AppImage on a real Linux PC or Steam Deck.
 - Holding **Shift** to bring the launcher back works only if the window gets keyboard focus while Shift is still
