@@ -150,6 +150,8 @@ void ApplyWindowIcon() {}
 
 void SetApplicationId() {}
 
+void ReportGraphicsFailure() {}
+
 namespace {
 
 PreShowPlan g_plan;

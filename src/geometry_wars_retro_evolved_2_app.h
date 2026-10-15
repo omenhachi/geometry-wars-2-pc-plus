@@ -62,6 +62,14 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
     }
   }
 
+  bool SetupPresentation() override {
+    if (rex::ReXApp::SetupPresentation()) {
+      return true;
+    }
+    gw2::ReportGraphicsFailure();
+    return false;
+  }
+
   void OnPostInitLogging() override {
     const gw2::UserDataMessage message = gw2::DescribeUserData(user_data_);
     if (message.warning) {

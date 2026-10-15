@@ -172,6 +172,16 @@ void SetApplicationId() {
   SDL_SetAppMetadataProperty(SDL_PROP_APP_METADATA_IDENTIFIER_STRING, kApplicationId);
 }
 
+// SDL's X11 message box hangs on empty lines in the text.
+void ReportGraphicsFailure() {
+  SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Geometry Wars: Retro Evolved 2",
+                           "Geometry Wars: Retro Evolved 2 could not start the graphics system.\n"
+                           "A working Vulkan-compatible graphics driver is required.\n"
+                           "Check your graphics driver and try again.\n"
+                           "The logs folder next to the AppImage has the details.",
+                           nullptr);
+}
+
 void ApplyWindowIcon() {
   SDL_Window* window = LauncherWindow();
   if (!window) {

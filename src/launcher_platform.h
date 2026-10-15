@@ -101,6 +101,10 @@ void ApplyWindowIcon();
 // be set before the window is created. A no-op on Windows.
 void SetApplicationId();
 
+// Tells the player, in a window that needs no GPU, that graphics could not start; the SDK only logs it. A no-op on
+// Windows.
+void ReportGraphicsFailure();
+
 // Applies the plan to the next top-level window of this thread, before it is first shown. The window's size
 // before the change is kept for TakePreShowResult. Windows only: elsewhere the launcher places the window once it
 // exists.
