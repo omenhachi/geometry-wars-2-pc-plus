@@ -21,7 +21,7 @@ Mechanism, evolved over `ab4631e` -> `9e6f05b` -> `273dc0c`:
 1. **Present hook**: the game's present callback `sub_820A1FA0` takes the present interval in bits 8-11 of `r3`; for rates above 60 or Unlimited the hook clears them (`kPresentIntervalMask = 0xF00`) so the game swaps at once instead of waiting for the guest vblank (`PresentMode::kImmediate`). The guest vblank stays at the SDK's 60 Hz.
 2. **Limiter**: `__imp__VdSwap` hook (`src/window_host.cpp`) calls `PaceGuestFrame()` before the SDK's `VdSwap_entry`. `FrameLimiter::Next` keeps a schedule (target advances by one period; if more than one period late it resyncs from now). Rate 60 is held by the original pacing and Unlimited by nothing (`ProjectLimiterRate`).
 3. **Waiting**: `WaitUntil` (`src/frame_wait.cpp`) waits coarsely until 500 us before the deadline, then yield-spins. Windows uses a high-resolution waitable timer; Linux uses `sleep_until`. Before `9e6f05b` this lived in the Windows-only `frame_limiter.cpp`; moving it made the limiter portable.
-4. **Time step**: the game reads one float time step, set once at startup to 1/refresh (1/60) at `0x8219D280` (`kGameDeltaAddress`). For rates other than 60, `SyncGameDelta` after each swap overwrites it with the measured frame interval clamped to 1 ms-50 ms (`GameFrameDelta`), so game speed follows the wall clock; at 60 it restores the original bits. Interpolation is not implemented. Game-side frame counts (Deadline's last-seconds tick) are not adjusted, so above 60 FPS the tick may sound more than once (known limit).
+4. **Time step**: the game reads one float time step, set once at startup to 1/refresh (1/60) at `0x8219D280` (`kGameDeltaAddress`). For rates other than 60, `SyncGameDelta` after each swap overwrites it with the measured frame interval clamped to 1 ms-50 ms (`GameFrameDelta`), so game speed follows the wall clock. At 60 it keeps the original step for a frame on time and gives a frame that missed vblanks a whole multiple of it (`GameStepCounter`: the interval in steps, rounded, at most 3; the rounding remainder carries over, time past the cap is dropped), so a host that cannot hold 60 keeps the game's speed instead of halving it at 30 FPS. Interpolation is not implemented. Game-side frame counts (Deadline's last-seconds tick) are not adjusted, so above 60 FPS the tick may sound more than once (known limit).
 5. **Repeated presents excluded** (`273dc0c`): the game's Direct3D layer has a thread that presents the last frame again when the game has not swapped for 30 ms (`sub_820A25D8`). A hook sets a thread-local flag so that swap is not paced, not counted by the frame counter and not used for the time step. Without this, stalls looked like extra frames.
 6. **Frame counting**: `VdSwap` hook counts every game swap; `FrameRateSampler` samples about once a second; the same numbers feed the window title (`WindowTitle`, "| FPS: 60.00"), the F2 frame counter and the SDK's F3 overlay (`SetGuestFrameStats`). On a slow system this is the game's swap rate, not frames on screen.
 
@@ -30,9 +30,10 @@ placement code are generic and tested. Addresses `0x820A1FA0`, `0x820A25D8`, `0x
 Port requirements: find the present callback, the time-step variable, and the game's idea of a fixed step (many games
 accumulate a fixed step; then wall-clock delta is wrong and the rate must be changed differently). `UNCERTAIN` for other
 engines.
-Validation: `tests/frame_limiter_tests.cpp` (periods, schedule, resync, policy, time step, wait reaches deadline),
-`window_host_tests.cpp` (sampler, title). Real timing validated on Windows only; Linux reporter's slow-motion issue (#1)
-is not confirmed fixed.
+Validation: `tests/frame_limiter_tests.cpp` (periods, schedule, resync, policy, time step, game steps at 60, wait
+reaches deadline), `window_host_tests.cpp` (sampler, title). Real timing validated on Windows only; the game steps at 60
+are covered by the unit tests only, and the Linux reporter's slow motion (#1) is not yet confirmed fixed. The Linux
+reporter's low frame rate (about 30 FPS) has no known cause.
 
 ## SDK pacing changes
 ### 0025 `WAIT_REG_MEM` woken by vblank

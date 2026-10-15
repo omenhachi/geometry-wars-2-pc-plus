@@ -1,5 +1,6 @@
 #include "launcher_cvars.h"
 
+#include <algorithm>
 #include <cstdlib>
 #include <string>
 #include <system_error>
@@ -7,6 +8,7 @@
 #include <rex/logging.h>
 
 #include "frame_limiter.h"
+#include "launcher_options.h"
 #include "launcher_platform.h"
 
 REXCVAR_DEFINE_BOOL(show_launcher, true, "Launcher",
@@ -81,6 +83,18 @@ void SettleStartupCvars() {
   // The SDK marks a restart-only cvar as pending whenever a config file sets it, but nothing it configures exists
   // yet. Starting from none makes PLAY restart only for what the launcher changes.
   rex::cvar::ClearPendingRestartFlags();
+}
+
+void LogGameSettings() {
+  const int scale = std::max(1, IntCvar(kRenderScaleKey));
+  const int fps = ConfiguredFrameRate();
+  REXLOG_INFO(
+      "Game settings: render resolution {}x ({}x{}), window {}x{}{}, frame rate {}, VSync {}, multisampling {}",
+      scale, kPresentedWidth * scale, kPresentedHeight * scale, IntCvar(kWindowWidthKey), IntCvar(kWindowHeightKey),
+      rex::cvar::GetFlagByName(kFullscreenKey) == "true" ? " fullscreen" : "",
+      fps == kFrameRateUnlimited ? std::string("Unlimited") : std::to_string(fps),
+      rex::cvar::GetFlagByName(kVSyncKey) == "true" ? "Off" : "On",
+      REXCVAR_GET(gw2_msaa_compatibility) ? "4x" : "2x");
 }
 
 }  // namespace gw2

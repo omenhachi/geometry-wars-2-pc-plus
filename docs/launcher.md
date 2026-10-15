@@ -81,7 +81,9 @@ The frame rate counts every `VdSwap` call the game makes. The hook on the `__imp
 
 Frame rate is the game's frame-rate limit and applies on PLAY without a restart. The guest vblank always stays at the SDK's 60 Hz.
 
-- **60** is the original game: no limiter and the game's own time step.
+- **60** is the original game: no limiter and the game's own time step. A frame that misses vblanks, because the
+  computer cannot keep up, advances the game by as many of those steps as the real time it took (up to three, 50 ms),
+  so the picture is less smooth but the game keeps its speed. Frames on time get exactly the original step.
 - **30** adds a limiter (`steady_clock`, a high-resolution timer, then a short spin).
 - **90 and above** also make the game's present callback swap at once instead of at the next vblank. Unlimited does not wait.
 - Every rate other than 60 gives the game's update the real frame interval as its time step. The game reads one time step, a float set once at startup to 1 / refresh rate (1/60); it is replaced each frame with the measured interval (limited to 1 ms to 50 ms), so game speed follows the wall clock.

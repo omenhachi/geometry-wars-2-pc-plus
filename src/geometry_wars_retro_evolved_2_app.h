@@ -230,6 +230,7 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
 
   // The cheat menu exists only once the game starts, so F10 does nothing over the launcher or the installer.
   void StartGame() {
+    gw2::LogGameSettings();
     InstallCheatMenu();
     ReXApp::LaunchModule();
   }

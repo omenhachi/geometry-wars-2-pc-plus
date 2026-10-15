@@ -358,8 +358,8 @@ swapchain format really changes.
   Hard Corps, run as host `memmove` and `memset` when one host pointer covers the range and it is not the GPU register
   window. Overlapping forward copies, the `0xE0000000` boundary and the register window keep the guest code.
 - `src/window_host.cpp`: the game's Direct3D keeps a thread that presents the last frame again when the game has not
-  swapped for 30 ms. Those swaps are not game frames, so the frame counter, the frame limiter and the time step of the
-  rates other than 60 ignore them.
+  swapped for 30 ms. Those swaps are not game frames, so the frame counter, the frame limiter and the game's time step
+  ignore them.
 - `CMakeLists.txt`: Release and RelWithDebInfo link the game and its recompiled code with ThinLTO (lld on Linux).
 
 ## Which patches each platform uses
