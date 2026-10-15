@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds the Linux x86_64 Release and packages GeometryWarsRetroEvolved2-v<version>-x86_64.AppImage into dist/.
+# Builds the Linux x86_64 Release and packages GeometryWarsRetroEvolved2Recompiled-v<version>-x86_64.AppImage into dist/.
 # Local only: nothing is published, tagged or uploaded. Run on Linux or WSL.
 #
 #   tools/package-linux.sh            incremental Release build, then package
@@ -61,8 +61,8 @@ APP_ID="$(sed -nE 's/^[[:space:]]*constexpr char kApplicationId\[\] = "([^"]+)";
 [[ "$APP_ID" =~ ^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)+$ ]] ||
   fail "src/launcher_platform_linux.cpp must declare kApplicationId exactly once, as a dotted name on one line (found: '$APP_ID')"
 [ -f "$ROOT/packaging/linux/$APP_ID.desktop" ] || fail "packaging/linux/$APP_ID.desktop is missing: the desktop file is named after kApplicationId"
-NAME="GeometryWarsRetroEvolved2-v$VERSION-x86_64"
-echo "Geometry Wars: Retro Evolved 2 $VERSION - Linux AppImage (local only)"
+NAME="GeometryWarsRetroEvolved2Recompiled-v$VERSION-x86_64"
+echo "Geometry Wars: Retro Evolved 2 Recompiled $VERSION - Linux AppImage (local only)"
 
 echo "== Host"
 HOST_GLIBC="$(getconf GNU_LIBC_VERSION | cut -d' ' -f2)"

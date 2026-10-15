@@ -20,9 +20,9 @@ is older than GCC 13.
 
 ## Installing
 
-1. Download **GeometryWarsRetroEvolved2-v…-x86_64.AppImage** and put it in a folder you can write to.
+1. Download **GeometryWarsRetroEvolved2Recompiled-v…-x86_64.AppImage** and put it in a folder you can write to.
 2. Make it executable: right-click it > **Properties** > **Permissions** > **Is executable**, or
-   `chmod +x GeometryWarsRetroEvolved2-v*-x86_64.AppImage`.
+   `chmod +x GeometryWarsRetroEvolved2Recompiled-v*-x86_64.AppImage`.
 3. Run it. The launcher opens.
 4. On the **Play** page click **Install from package...** and pick your package. The game files are copied into a
    `game` folder next to the AppImage.
@@ -151,7 +151,7 @@ The script copies the sources to `~/gw2-linux-build` (set `GW2_WORK` to change i
 SDK, appimagetool and AppImage runtime with their SHA-256 checks, prepares the patched ReXGlue runtime and GPU plugin
 the same way `tools/build.sh` does, builds the `linux-amd64-release` preset, checks the libraries again in the build
 folder and the AppDir, checks that the AppDir holds no game files, packages, saves, logs or local paths, and writes
-`GeometryWarsRetroEvolved2-v<version>-x86_64.AppImage` with its `.sha256` in `dist/` (`--out-dir DIR` writes
+`GeometryWarsRetroEvolved2Recompiled-v<version>-x86_64.AppImage` with its `.sha256` in `dist/` (`--out-dir DIR` writes
 them to DIR instead). The version is the
 `project()` VERSION in `CMakeLists.txt`. The script publishes nothing, and the game's `default.xex` only enters the
 temporary build folder as input for code generation, never the AppImage.

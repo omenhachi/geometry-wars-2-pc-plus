@@ -68,7 +68,7 @@ Your settings, profile, scores, achievements, saves and progression, and the sha
 
 **Experimental.** This is a native Linux build (ReXGlue's Linux runtime with Vulkan), not Proton or Wine. Real-hardware testing so far is one report from a Steam Machine ([#1](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled/issues/1)), which found a very dark image and slow motion while the frame rate shows 60. The dark image was fixed in v0.2.3, and the reporter confirmed it. v0.3.0 brings substantial frame-pacing and Vulkan improvements. The slow-motion report may be affected by them, but it has not been confirmed fixed on the reporter's hardware yet.
 
-1. Download **GeometryWarsRetroEvolved2-v…-x86_64.AppImage** from the release and mark it executable (right-click > **Properties** > **Permissions** > **Is executable**, or `chmod +x`).
+1. Download **GeometryWarsRetroEvolved2Recompiled-v…-x86_64.AppImage** from the release and mark it executable (right-click > **Properties** > **Permissions** > **Is executable**, or `chmod +x`).
 2. Run it, then install your package from the **Play** page as above. The game files go in a `game` folder next to the AppImage. The package picker needs `zenity` or `kdialog`.
 3. On a Steam Deck (intended flow, not yet tried on a Deck), do this in **Desktop Mode**, then add the AppImage with **Games > Add a Non-Steam Game to My Library** and play it from **Game Mode**.
 
