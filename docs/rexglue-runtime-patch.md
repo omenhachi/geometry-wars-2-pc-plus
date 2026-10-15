@@ -392,10 +392,9 @@ the same checks again on what they package; they are not needed to get the patch
 also rejects symbolic links, RenderDoc and Vulkan layer files in the AppDir, and a program or library whose dynamic
 section mentions RenderDoc.
 
-The Linux build also needs, besides the packages in [linux.md](linux.md), the SDK's build dependencies:
-`libgtk-3-dev libx11-dev libx11-xcb-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxfixes-dev
-libxrender-dev libxss-dev libvulkan-dev libwayland-dev libwayland-bin wayland-protocols libxkbcommon-dev
-libdecor-0-dev libasound2-dev libpulse-dev libpipewire-0.3-dev libgl1-mesa-dev libudev-dev pkg-config`.
+The Linux build also needs the SDK's build dependencies (GTK 3, the X11, Wayland and Vulkan development packages, ALSA,
+PulseAudio, libdecor and PipeWire headers). `tools/setup-linux-build-env.sh` installs them on Ubuntu 20.04; see
+[linux.md](linux.md).
 
 The Release libraries are compiled with `-ffile-prefix-map`, and the scripts refuse a Release file that embeds the
 build folder or equals the stock one. The binaries are not bit-for-bit reproducible; what is verified is the inputs

@@ -6,7 +6,8 @@
 #   tools/package-linux.sh --clean    clean Release build first
 #
 # Needs clang-20, clang++-20, lld-20, cmake 3.25+, ninja, rsync, wget or curl, unzip or python3, binutils and the
-# GCC 13+ C++ runtime. Release builds are made on Ubuntu 22.04: the AppImage needs the build machine's glibc.
+# GCC 13+ C++ runtime. Release builds are made on Ubuntu 20.04 (tools/setup-linux-build-env.sh prepares one): the
+# AppImage needs the build machine's glibc, and packaging stops if a shipped file needs more than glibc 2.31.
 # Needs generated/default (tools/codegen.ps1) and game/extracted/default.xex: the build re-runs codegen
 # when its inputs look changed, and it never packages either of them.
 # The ReXGlue runtime and GPU plugin are built from source with the project's patches
@@ -18,6 +19,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # On the Linux filesystem: much faster than a Windows drive under /mnt, and case-sensitive.
 WORK="${GW2_WORK:-$HOME/gw2-linux-build}"
 PRESET=linux-amd64-release
+MAX_GLIBC=2.31
 
 SDK_VERSION=0.10.0
 SDK_SHA256=0388edb3f8fb1444f1b0ad5d440cb02d9690ac20a76b04fd6b7dcc19f59328a6
@@ -54,6 +56,16 @@ APP_ID="$(sed -nE 's/^[[:space:]]*constexpr char kApplicationId\[\] = "([^"]+)";
 NAME="GeometryWarsRetroEvolved2-v$VERSION-linux-x86_64"
 echo "Geometry Wars: Retro Evolved 2 $VERSION - Linux AppImage (local only)"
 
+echo "== Host"
+HOST_GLIBC="$(getconf GNU_LIBC_VERSION | cut -d' ' -f2)"
+echo "glibc $HOST_GLIBC"
+if ! grep -q '^VERSION_ID="20.04"' /etc/os-release || [ "$HOST_GLIBC" != "$MAX_GLIBC" ]; then
+  [ "${GW2_ALLOW_UNSUPPORTED_HOST:-0}" = 1 ] ||
+    fail "release builds need Ubuntu 20.04 (glibc $MAX_GLIBC), see docs/linux.md; GW2_ALLOW_UNSUPPORTED_HOST=1 skips this check but not the glibc check on the files"
+  echo "WARNING: unsupported build host" >&2
+fi
+bash "$ROOT/tools/check-glibc-baseline.sh" --self-test
+
 echo "== Tools"
 for tool in clang-20 clang++-20 ld.lld-20 cmake ninja rsync sha256sum strip readelf objdump ldd; do
   command -v "$tool" >/dev/null || fail "$tool not found"
@@ -62,10 +74,6 @@ command -v wget >/dev/null || command -v curl >/dev/null || fail "wget or curl n
 command -v unzip >/dev/null || command -v python3 >/dev/null || fail "unzip or python3 not found"
 clang++-20 --version | sed -n 1p
 cmake --version | sed -n 1p
-HOST_GLIBC="$(getconf GNU_LIBC_VERSION | cut -d' ' -f2)"
-echo "glibc $HOST_GLIBC"
-[ "$(printf '%s\n' 2.35 "$HOST_GLIBC" | sort -V | tail -1)" = 2.35 ] ||
-  echo "WARNING: this AppImage will need glibc $HOST_GLIBC; release builds use Ubuntu 22.04 (glibc 2.35)" >&2
 
 echo "== Inputs"
 [ -f "$ROOT/generated/default/sources.cmake" ] || fail "generated/default is missing (run tools/codegen.ps1 first)"
@@ -87,7 +95,7 @@ rsync -a "$XEX" "$WORK/game/extracted/default.xex"
 
 echo "== ReXGlue SDK $SDK_VERSION (linux-amd64)"
 SDK="$WORK/tools/rexglue/linux-amd64"
-if [ ! -x "$SDK/bin/rexglue" ]; then
+if [ ! -f "$SDK/lib/cmake/rexglue/rexglueConfigVersion.cmake" ]; then
   mkdir -p "$WORK/tools/rexglue"
   ZIP="$WORK/tools/rexglue/rexglue-sdk-$SDK_VERSION-linux-amd64.zip"
   download "https://github.com/rexglue/rexglue-sdk/releases/download/v$SDK_VERSION/rexglue-sdk-$SDK_VERSION-linux-amd64.zip" \
@@ -100,7 +108,9 @@ if [ ! -x "$SDK/bin/rexglue" ]; then
     chmod +x "$SDK/bin/rexglue"
   fi
 fi
-[ "$("$SDK/bin/rexglue" --version | tr -d '[:space:]')" = "$SDK_VERSION" ] || fail "tools/rexglue/linux-amd64 is not ReXGlue $SDK_VERSION"
+# The stock rexglue tool may not run on the baseline, so the version comes from the CMake package.
+grep -qF "set(PACKAGE_VERSION \"$SDK_VERSION\")" "$SDK/lib/cmake/rexglue/rexglueConfigVersion.cmake" ||
+  fail "tools/rexglue/linux-amd64 is not ReXGlue $SDK_VERSION"
 
 echo "== Patched ReXGlue runtime and GPU plugin"
 PATCHED="$ROOT/tools/build-patched-rexruntime.sh"
@@ -108,6 +118,16 @@ if ! bash "$PATCHED" --check "$SDK" --config Release >/dev/null 2>&1; then
   bash "$PATCHED" "$SDK" "$WORK/rexglue-sdk-src" --config Release
 fi
 bash "$PATCHED" --check "$SDK" --config Release
+
+if ! "$SDK/bin/rexglue" --version >/dev/null 2>&1; then
+  echo "== rexglue code generator (the stock one needs a newer glibc than the baseline)"
+  GEN_SRC="$WORK/rexglue-sdk-src"
+  GEN_BUILD="$GEN_SRC/out/build/linux-amd64"
+  cmake -S "$GEN_SRC" -B "$GEN_BUILD" "-DCMAKE_EXE_LINKER_FLAGS=-Wl,-rpath,'\$ORIGIN/../lib'" >/dev/null
+  cmake --build "$GEN_BUILD" --config Release --target rexglue --parallel
+  cp "$GEN_SRC/out/linux-amd64/Release/rexglue" "$SDK/bin/rexglue"
+  [ "$("$SDK/bin/rexglue" --version | tr -d '[:space:]')" = "$SDK_VERSION" ] || fail "the built rexglue is not ReXGlue $SDK_VERSION"
+fi
 
 echo "== Build ($PRESET)"
 BIN="$WORK/out/build/$PRESET"
@@ -221,10 +241,9 @@ missing="$(ldd "$APPDIR/usr/bin/geometry_wars_retro_evolved_2" | grep 'not found
 echo "  clean"
 echo "  RPATH: $(readelf -d "$APPDIR/usr/bin/geometry_wars_retro_evolved_2" | grep -E 'R(UN)?PATH' | sed -E 's/.*\[(.*)\]/\1/')"
 echo "  needed: $(readelf -d "$APPDIR/usr/bin/geometry_wars_retro_evolved_2" | grep NEEDED | sed -E 's/.*\[(.*)\]/\1/' | tr '\n' ' ')"
-for f in bin/geometry_wars_retro_evolved_2 bin/librexruntime.so bin/librexgpu-xenos.so lib/libstdc++.so.6 lib/libgcc_s.so.1; do
-  glibc="$(objdump -T "$APPDIR/usr/$f" | grep -oE 'GLIBC_[0-9.]+' | sort -Vu | tail -1)"
-  echo "  $(basename "$f") needs $glibc"
-done
+
+echo "== glibc $MAX_GLIBC baseline (AppDir)"
+bash "$ROOT/tools/check-glibc-baseline.sh" --max "$MAX_GLIBC" "$APPDIR" || fail "the AppDir does not meet the glibc $MAX_GLIBC baseline"
 
 echo "== AppImage"
 TOOLS="$WORK/tools/appimage"
@@ -241,6 +260,13 @@ OUT="$ROOT/dist/$NAME.AppImage"
 rm -f "$OUT"
 ARCH=x86_64 "$TOOL" --appimage-extract-and-run --no-appstream --runtime-file "$RUNTIME" "$APPDIR" "$OUT" >/dev/null
 chmod 755 "$OUT"
+
+echo "== glibc $MAX_GLIBC baseline (AppImage)"
+CHECK="$(mktemp -d)"
+trap 'rm -rf "$CHECK"' EXIT
+(cd "$CHECK" && "$OUT" --appimage-extract >/dev/null)
+bash "$ROOT/tools/check-glibc-baseline.sh" --max "$MAX_GLIBC" "$OUT" "$CHECK/squashfs-root" ||
+  { rm -f "$OUT"; fail "the AppImage does not meet the glibc $MAX_GLIBC baseline"; }
 (cd "$ROOT/dist" && sha256sum "$NAME.AppImage" > "$NAME.sha256")
 
 echo
