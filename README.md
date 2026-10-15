@@ -19,7 +19,9 @@
 - Native static recompilation for Windows, plus an experimental native Linux / Steam Deck AppImage
 - TRG launcher that installs the game from your own package and remembers its window position, size, maximized and fullscreen state
 - High frame rate support: 30, 60 (the original), 90, 120, 144, 165, 240 or Unlimited, without speeding up the game
-- Render resolution up to 4x (5120×2880), FXAA, 2x MSAA, texture filtering up to 16x, VSync and aspect ratio options
+- Render resolution up to 4x (5120×2880), FXAA, 2x or 4x (Compatibility) multisampling, texture filtering up to 16x, VSync and aspect ratio options
+- Improved frame pacing and performance, with less unnecessary GPU and CPU work, especially at higher render resolutions
+- Automatic discrete-GPU preference on hybrid systems, and a more reliable Exit Game
 - Frame rate in the window title, and an in-game frame rate counter (**F2**)
 - Local profile and progression, local scores, offline leaderboards, and all 12 achievements (**F7** overlay), with no Xbox Live connection
 - Cheats (Invincible, Infinite Shield, Infinite Bombs), set in the launcher or toggled in game with **F10**
@@ -46,7 +48,7 @@ The launcher checks the Title ID and content type when you pick the package, and
 
 ## Installing
 
-1. Download **GeometryWarsRetroEvolved2-v0.2.3-windows-x64.zip** from the [latest release](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled/releases/latest) and extract it anywhere you can write to.
+1. Download **GeometryWarsRetroEvolved2-v0.3.0-windows-x64.zip** from the [latest release](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled/releases/latest) and extract it anywhere you can write to.
 2. Run **geometry_wars_retro_evolved_2.exe**. The launcher opens.
 3. On the **Play** page click **Install from package...** and pick your package. It is one file with a long hexadecimal name and no extension. On an Xbox 360 drive it is in `Content\0000000000000000\584108FF\000D0000\`.
 4. Wait until **Ready to play** appears. The game files are copied into the `game` folder next to the program. The package file itself is not copied there.
@@ -64,7 +66,7 @@ Your settings, profile, scores, achievements, saves and progression, and the sha
 
 ### Linux and Steam Deck
 
-**Experimental.** This is a native Linux build (ReXGlue's Linux runtime with Vulkan), not Proton or Wine. Real-hardware testing so far is one report from a Steam Machine ([#1](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled/issues/1)), which found a very dark image and slow motion while the frame rate shows 60. v0.2.3 fixes the dark image (not yet confirmed on Linux hardware). The slow motion is not fixed yet.
+**Experimental.** This is a native Linux build (ReXGlue's Linux runtime with Vulkan), not Proton or Wine. Real-hardware testing so far is one report from a Steam Machine ([#1](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled/issues/1)), which found a very dark image and slow motion while the frame rate shows 60. The dark image was fixed in v0.2.3, and the reporter confirmed it. v0.3.0 brings substantial frame-pacing and Vulkan improvements. The slow-motion report may be affected by them, but it has not been confirmed fixed on the reporter's hardware yet.
 
 1. Download **GeometryWarsRetroEvolved2-v…-linux-x86_64.AppImage** from the release and mark it executable (right-click > **Properties** > **Permissions** > **Is executable**, or `chmod +x`).
 2. Run it, then install your package from the **Play** page as above. The game files go in a `game` folder next to the AppImage. The package picker needs `zenity` or `kdialog`.

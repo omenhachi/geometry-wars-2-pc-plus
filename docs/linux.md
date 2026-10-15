@@ -78,9 +78,10 @@ failure rules.
 ## Known limits
 
 - On a Steam Machine the game was reported to run in slow motion while the frame counter shows 60
-  ([#1](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled/issues/1)). This is not fixed yet. The same
-  report's very dark image is fixed since v0.2.3 (see [rexglue-gpu-patch.md](rexglue-gpu-patch.md)), but the fix has
-  not been confirmed on Linux hardware yet.
+  ([#1](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled/issues/1)). v0.3.0 improves frame pacing,
+  vblank timing and the GPU and command-thread waits, which may affect this, but it has not been confirmed fixed on the
+  reporter's hardware yet. The same report's very dark image was fixed in v0.2.3 (see
+  [rexglue-gpu-patch.md](rexglue-gpu-patch.md)), and the reporter confirmed it.
 - Otherwise untested on real hardware: audio, controllers, performance and the frame rates above 60 are unconfirmed on
   Linux. They were validated on Windows only.
 - The portable `user_data` folder and the move from the XDG folder are covered by unit tests with temporary folders
