@@ -187,10 +187,30 @@ GuestFrameStats GetGuestFrameStats() {
 
 }  // namespace gw2
 
+namespace {
+
+thread_local bool t_repeat_present = false;
+
+}  // namespace
+
+// Called only by the D3D thread that presents the last frame again when the game has not swapped for 30 ms, right
+// before that swap. Such a swap is not a game frame.
+REX_EXTERN(__imp__sub_820A25D8);
+REX_HOOK_RAW(sub_820A25D8) {
+  t_repeat_present = true;
+  __imp__sub_820A25D8(ctx, base);
+}
+
 // Named like the SDK's export, so REX_EXTERN would call this hook again: the original is called by its entry point.
 REX_HOOK_RAW(__imp__VdSwap) {
-  gw2::PaceGuestFrame();
+  const bool repeat = std::exchange(t_repeat_present, false);
+  if (!repeat) {
+    gw2::PaceGuestFrame();
+  }
   rex::ppc::HostToGuestFunction<rex::kernel::xboxkrnl::VdSwap_entry>(ctx, base);
+  if (repeat) {
+    return;
+  }
   gw2::SyncGameDelta(base, gw2::LimiterClock::now());
   gw2::CountGuestFrame();
 }

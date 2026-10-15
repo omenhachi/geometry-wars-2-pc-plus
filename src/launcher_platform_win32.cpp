@@ -19,6 +19,12 @@
 
 #include "launcher_placement.h"
 
+// The NVIDIA Optimus and AMD switchable graphics drivers run programs exporting these on the discrete GPU.
+extern "C" {
+__declspec(dllexport) DWORD NvOptimusEnablement = 1;
+__declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
+}
+
 namespace gw2 {
 namespace {
 

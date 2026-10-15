@@ -49,6 +49,8 @@ set(GW2_SOURCES
     src/cheat_hooks.cpp
     src/cheats.cpp
     src/bloom_fix.cpp
+    src/crt_native.cpp
+    src/gpu_fence_wait.cpp
     src/live_stats.cpp
     src/local_stats.cpp
     src/game_files.cpp
@@ -81,7 +83,7 @@ endif()
 rexglue_setup_target(geometry_wars_retro_evolved_2 GPU_PLUGINS xenos)
 target_link_libraries(geometry_wars_retro_evolved_2 PRIVATE trg::launcher)
 if(WIN32)
-    target_link_libraries(geometry_wars_retro_evolved_2 PRIVATE bcrypt shcore)
+    target_link_libraries(geometry_wars_retro_evolved_2 PRIVATE bcrypt shcore synchronization)
 else()
     # The SDK stages the runtime beside the program only on Windows and macOS; the RPATH is $ORIGIN.
     add_custom_command(TARGET geometry_wars_retro_evolved_2 POST_BUILD
@@ -119,6 +121,30 @@ add_custom_target(gw2_rexglue_staging ALL
     VERBATIM
 )
 add_dependencies(gw2_rexglue_staging geometry_wars_retro_evolved_2)
+
+# ThinLTO in Release and RelWithDebInfo; the runtime and GPU plugin are prebuilt. Debug compiles at -O0, which marks
+# every function optnone, so LTO would optimize nothing there.
+function(gw2_enable_thinlto target)
+    set(_lto "$<CONFIG:Release,RelWithDebInfo>")
+    if(WIN32 AND CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "GNU")
+        # lld-link runs the LTO backend at -O2 unless told otherwise; Release compiles at -O3.
+        set(_link -flto=thin "$<$<CONFIG:Release>:-Wl,/opt:lldlto=3>"
+            "-Wl,/lldltocache:${CMAKE_BINARY_DIR}/lto-cache")
+    elseif(UNIX AND NOT APPLE AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        set(_link -flto=thin -fuse-ld=lld "-Wl,--thinlto-cache-dir=${CMAKE_BINARY_DIR}/lto-cache")
+    else()
+        return()
+    endif()
+    target_compile_options(${target} PRIVATE "$<$<AND:${_lto},$<COMPILE_LANGUAGE:CXX>>:-flto=thin>")
+    get_target_property(_type ${target} TYPE)
+    if(NOT _type STREQUAL "OBJECT_LIBRARY")
+        target_link_options(${target} PRIVATE "$<${_lto}:${_link}>")
+    endif()
+endfunction()
+gw2_enable_thinlto(geometry_wars_retro_evolved_2)
+if(TARGET geometry_wars_retro_evolved_2_recomp)
+    gw2_enable_thinlto(geometry_wars_retro_evolved_2_recomp)
+endif()
 
 target_compile_definitions(geometry_wars_retro_evolved_2 PRIVATE
     GW2_PORT_VERSION="${PROJECT_VERSION}"
@@ -170,6 +196,7 @@ set_target_properties(gw2_trg_test_support PROPERTIES CXX_STANDARD 17)
 target_compile_definitions(gw2_trg_test_support PRIVATE _CRT_SECURE_NO_WARNINGS)
 gw2_add_test(launcher_settings_tests src/launcher_settings.cpp src/launcher_options.cpp)
 target_link_libraries(launcher_settings_tests PRIVATE gw2_trg_test_support)
+target_compile_definitions(launcher_settings_tests PRIVATE GW2_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src")
 if(WIN32)
     target_link_libraries(launcher_tests PRIVATE bcrypt)
     target_link_libraries(gw2_trg_test_support PUBLIC shell32 ole32 comdlg32 winmm user32)
@@ -186,7 +213,14 @@ target_include_directories(gw2_restart_state_tests PRIVATE src)
 target_compile_options(gw2_restart_state_tests PRIVATE -Wall -Wextra)
 target_compile_definitions(gw2_restart_state_tests PRIVATE GW2_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(gw2_restart_state_tests PRIVATE rex::runtime gw2_trg_test_support)
-set(_runtime_tests gw2_physical_heap_stress gw2_restart_state_tests)
+add_executable(gw2_title_thread_shutdown_tests EXCLUDE_FROM_ALL tests/title_thread_shutdown_tests.cpp)
+target_link_libraries(gw2_title_thread_shutdown_tests PRIVATE rex::runtime)
+add_executable(gw2_shutdown_order_tests EXCLUDE_FROM_ALL tests/shutdown_order_tests.cpp)
+target_link_libraries(gw2_shutdown_order_tests PRIVATE rex::runtime)
+target_compile_options(gw2_title_thread_shutdown_tests PRIVATE -Wall -Wextra)
+target_compile_options(gw2_shutdown_order_tests PRIVATE -Wall -Wextra)
+set(_runtime_tests gw2_physical_heap_stress gw2_restart_state_tests gw2_title_thread_shutdown_tests
+    gw2_shutdown_order_tests)
 # The fake librenderdoc.so goes into renderdoc/, out of reach of the runtime's $ORIGIN RUNPATH.
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     add_library(gw2_fake_renderdoc SHARED EXCLUDE_FROM_ALL tests/fake_renderdoc.cpp)
@@ -196,7 +230,10 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_link_libraries(gw2_renderdoc_detect_tests PRIVATE rex::runtime rex::renderdoc ${CMAKE_DL_LIBS})
     target_compile_options(gw2_renderdoc_detect_tests PRIVATE -Wall -Wextra)
     add_dependencies(gw2_renderdoc_detect_tests gw2_fake_renderdoc)
-    list(APPEND _runtime_tests gw2_renderdoc_detect_tests)
+    add_executable(gw2_presenter_pacing_tests EXCLUDE_FROM_ALL tests/presenter_pacing_tests.cpp)
+    target_link_libraries(gw2_presenter_pacing_tests PRIVATE rex::runtime rex::renderdoc)
+    target_compile_options(gw2_presenter_pacing_tests PRIVATE -Wall -Wextra)
+    list(APPEND _runtime_tests gw2_renderdoc_detect_tests gw2_presenter_pacing_tests)
 endif()
 foreach(_runtime_test ${_runtime_tests})
     add_custom_command(TARGET ${_runtime_test} POST_BUILD
