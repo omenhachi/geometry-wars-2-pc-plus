@@ -116,6 +116,8 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
                           [this] { return !launcher_open_; });
     gw2::ApplyWindowIcon();
     settings_->CaptureLateRegistered();
+    gw2::ApplyMultisampling(cvars_);
+    REXLOG_INFO("Multisampling: {}", REXCVAR_GET(gw2_msaa_compatibility) ? "4x MSAA (Compatibility)" : "2x MSAA");
     const bool game_ready = gw2::CheckGameFiles(defaults.game_data_root).state == gw2::GameFileState::kValid;
     const bool show = gw2::LauncherWanted(game_ready, gw2::ShowLauncherSetting(*settings_), gw2::ShiftHeld(),
                                           gw2::TakeSkipLauncher());
@@ -182,6 +184,11 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
   }
 
   void OnShutdown() override {
+    // ReXApp destroys the window before the runtime; the input drivers must detach while it still exists. The
+    // runtime's own Shutdown call later finds nothing left to release.
+    if (auto* input = runtime() ? runtime()->input_system() : nullptr) {
+      input->Shutdown();
+    }
     gw2::DetachCheatMenu();
     gw2::DetachWindowHost();
     CloseAchievements();
