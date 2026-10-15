@@ -1,5 +1,36 @@
 # The ReXGlue patches, applied in this order: file, the platforms whose builds apply it (windows, linux) and the
-# ReXGlue targets it changes (rexruntime, rexgpu-xenos). A patch to a public header changes both targets.
-0001-physical-release-order.patch        windows,linux   rexruntime
-0002-spirv-texture-exp-adjust.patch      linux           rexgpu-xenos
-0003-renderdoc-detect-loaded-only.patch  linux           rexruntime,rexgpu-xenos
+# ReXGlue targets it changes (rexruntime, rexgpu-xenos). A patch to a header changes every target that compiles it.
+0001-physical-release-order.patch                        windows,linux   rexruntime
+0002-spirv-texture-exp-adjust.patch                      linux           rexgpu-xenos
+0003-renderdoc-detect-loaded-only.patch                  linux           rexruntime,rexgpu-xenos
+0004-gpu-register-write-bulk-path.patch                  windows,linux   rexgpu-xenos
+0005-gpu-waits-and-submissions.patch                     windows,linux   rexgpu-xenos
+0006-gpu-draw-path.patch                                 windows,linux   rexgpu-xenos
+0007-render-target-transfer-performance.patch            windows,linux   rexgpu-xenos
+0008-cpu-timers-and-waits.patch                          windows,linux   rexruntime,rexgpu-xenos
+0009-render-target-stencil-regions.patch                 windows,linux   rexgpu-xenos
+0010-edram-dump-dirty-tiles.patch                        windows,linux   rexgpu-xenos
+0011-guest-fence-wake.patch                              windows,linux   rexgpu-xenos
+0012-d3d12-submissions-and-occlusion.windows.patch       windows         rexgpu-xenos
+0013-d3d12-render-target-transfers.windows.patch         windows         rexgpu-xenos
+0014-d3d12-stencil-regions.windows.patch                 windows         rexgpu-xenos
+0015-d3d12-edram-dump-dirty-tiles.windows.patch          windows         rexgpu-xenos
+0016-windows-high-resolution-sleep.windows.patch         windows         rexruntime
+0017-vulkan-submissions-and-occlusion.linux.patch        linux           rexgpu-xenos
+0018-vulkan-render-target-transfers.linux.patch          linux           rexgpu-xenos
+0019-vulkan-edram-dump-dirty-tiles.linux.patch           linux           rexgpu-xenos
+0020-linux-command-thread-wait.linux.patch               linux           rexgpu-xenos
+0021-posix-wait-multiple-contention.linux.patch          linux           rexruntime
+0022-resolve-copy-into-textures.patch                    windows,linux   rexgpu-xenos
+0023-d3d12-resolve-copy-into-textures.windows.patch      windows         rexgpu-xenos
+0024-vulkan-resolve-copy-into-textures.linux.patch       linux           rexruntime,rexgpu-xenos
+0025-wait-reg-mem-vblank-wake.patch                      windows,linux   rexgpu-xenos
+0026-vulkan-device-preference.patch                      linux           rexruntime
+0027-d3d12-adapter-preference.windows.patch              windows         rexruntime
+0028-msaa-2x-host-log.patch                              windows,linux   rexgpu-xenos
+0029-ui-repaint-with-guest-frames.patch                  windows,linux   rexruntime,rexgpu-xenos
+0030-resolve-deferred-writeback.patch                    windows,linux   rexgpu-xenos
+0031-d3d12-resolve-deferred-writeback.windows.patch      windows         rexgpu-xenos
+0032-vulkan-resolve-deferred-writeback.linux.patch       linux           rexgpu-xenos
+0033-stop-title-threads.patch                            windows,linux   rexruntime,rexgpu-xenos
+0035-cache-vulkan-swapchain-paint-pipeline.linux.patch   linux           rexruntime

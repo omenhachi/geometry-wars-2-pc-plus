@@ -8,12 +8,14 @@
 #   tools/build-patched-rexruntime.sh --check SDK_DIR [--config CONFIG] [--staged DIR]   verify only
 #   tools/build-patched-rexruntime.sh --stress SDK_DIR BUILD_DIR   run the allocator stress test (see below)
 #   tools/build-patched-rexruntime.sh --loader-test SDK_DIR BUILD_DIR   run the RenderDoc detection test (see below)
+#   tools/build-patched-rexruntime.sh --pacing-test SDK_DIR BUILD_DIR   run the presenter pacing test (see below)
 #
 # CONFIG is Debug, RelWithDebInfo or Release (default Release). WORK_DIR holds the fetched source and its build
 # (default: out/rexglue-sdk-src in this repository). Needs git, clang-20, clang++-20, cmake 3.25+, ninja, binutils and
-# the packages listed in docs/rexglue-runtime-patch.md. --stress and --loader-test run gw2_physical_heap_stress and
-# gw2_renderdoc_detect_tests from an already configured Release project build in BUILD_DIR, beside the installed
-# runtime; --loader-test also runs its test against the stock runtime, which must fail.
+# the packages listed in docs/rexglue-runtime-patch.md. --stress, --loader-test and --pacing-test run
+# gw2_physical_heap_stress, gw2_renderdoc_detect_tests and gw2_presenter_pacing_tests from an already configured Release
+# project build in BUILD_DIR, beside the installed runtime; --loader-test and --pacing-test also run their test against
+# the stock runtime, which must fail. --pacing-test needs xvfb-run and a Vulkan driver that presents to it.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -176,6 +178,10 @@ strong_exports() {  # FILE
   nm -D --defined-only "$1" | awk '$2 !~ /^[VvWw]$/ {print $3}' | LC_ALL=C sort
 }
 
+require_release_build() {  # BUILD_DIR TEST: the test must load the Release runtime that is staged beside it
+  readelf -d "$1/$2" | grep -qF '[librexruntime.so]' || fail "$1 is not a Release project build"
+}
+
 MODE=build
 SDK=""
 SRC=""
@@ -183,7 +189,7 @@ STAGED=""
 CONFIGS=()
 while [ $# -gt 0 ]; do
   case "$1" in
-    --check | --stress | --loader-test) MODE="${1#--}" ;;
+    --check | --stress | --loader-test | --pacing-test) MODE="${1#--}" ;;
     --config) CONFIGS+=("${2:?--config needs a configuration}"); shift ;;
     --staged) STAGED="${2:?--staged needs a folder}"; shift ;;
     -*) fail "unknown option $1" ;;
@@ -211,6 +217,7 @@ if [ "$MODE" = stress ]; then
   [ -n "$SRC" ] || fail "usage: $0 --stress SDK_DIR BUILD_DIR"
   check_stamp "$SDK" Release || fail "$SDK does not hold the patched ReXGlue libraries"
   cmake --build "$SRC" --target gw2_physical_heap_stress
+  require_release_build "$SRC" gw2_physical_heap_stress
   # Run beside the installed runtime, not the copy the build left in BUILD_DIR, which may be stale.
   stage="$SRC/physical_heap_stress"
   mkdir -p "$stage"
@@ -231,6 +238,7 @@ if [ "$MODE" = loader-test ]; then
   [ -n "$SRC" ] || fail "usage: $0 --loader-test SDK_DIR BUILD_DIR"
   check_stamp "$SDK" Release || fail "$SDK does not hold the patched ReXGlue libraries"
   cmake --build "$SRC" --target gw2_renderdoc_detect_tests
+  require_release_build "$SRC" gw2_renderdoc_detect_tests
   stage="$SRC/renderdoc_detect"
   stage_loader_test "$stage" "$SDK/lib/librexruntime.so"
   echo "== Patched runtime (must pass)"
@@ -248,6 +256,35 @@ if [ "$MODE" = loader-test ]; then
   echo "$output"
   grep -qxE 'FAIL: (absent|not loaded): CreateIfConnected returns nullptr' <<< "$output" ||
     fail "the stock runtime failed the test, but not by loading RenderDoc itself"
+  exit 0
+fi
+
+run_pacing_test() {  # STAGE_DIR RUNTIME: on a private X server, never the desktop's display
+  rm -rf "$1"
+  mkdir -p "$1"
+  cp "$SRC/gw2_presenter_pacing_tests" "$1/"
+  cp "$2" "$1/librexruntime.so"
+  (cd "$1" && env -u WAYLAND_DISPLAY -u DISPLAY SDL_VIDEO_DRIVER=x11 xvfb-run -a ./gw2_presenter_pacing_tests)
+}
+
+if [ "$MODE" = pacing-test ]; then
+  [ -n "$SRC" ] || fail "usage: $0 --pacing-test SDK_DIR BUILD_DIR"
+  command -v xvfb-run >/dev/null || fail "xvfb-run not found"
+  check_stamp "$SDK" Release || fail "$SDK does not hold the patched ReXGlue libraries"
+  cmake --build "$SRC" --target gw2_presenter_pacing_tests
+  require_release_build "$SRC" gw2_presenter_pacing_tests
+  echo "== Patched runtime (must pass)"
+  run_pacing_test "$SRC/presenter_pacing" "$SDK/lib/librexruntime.so"
+  stock_file "$SDK" rexruntime Release "$SRC/librexruntime.stock.so" ||
+    fail "no stock librexruntime.so for the control run: keep rexglue-sdk-$SDK_VERSION-linux-amd64.zip beside $SDK"
+  echo "== Stock runtime (must fail)"
+  if output="$(run_pacing_test "$SRC/presenter_pacing_stock" "$SRC/librexruntime.stock.so" 2>&1)"; then
+    echo "$output"
+    fail "the test passed against the stock runtime, so it does not detect the repeated presents"
+  fi
+  echo "$output"
+  grep -qx 'FAIL: guest frames were presented again for the UI' <<< "$output" ||
+    fail "the stock runtime failed the test, but not by presenting guest frames again"
   exit 0
 fi
 

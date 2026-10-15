@@ -5,7 +5,7 @@
 #   tools/package-linux.sh            incremental Release build, then package
 #   tools/package-linux.sh --clean    clean Release build first
 #
-# Needs clang-20, clang++-20, cmake 3.25+, ninja, rsync, wget or curl, unzip or python3, binutils and the
+# Needs clang-20, clang++-20, lld-20, cmake 3.25+, ninja, rsync, wget or curl, unzip or python3, binutils and the
 # GCC 13+ C++ runtime. Release builds are made on Ubuntu 22.04: the AppImage needs the build machine's glibc.
 # Needs generated/default (tools/codegen.ps1) and game/extracted/default.xex: the build re-runs codegen
 # when its inputs look changed, and it never packages either of them.
@@ -55,7 +55,7 @@ NAME="GeometryWarsRetroEvolved2-v$VERSION-linux-x86_64"
 echo "Geometry Wars: Retro Evolved 2 $VERSION - Linux AppImage (local only)"
 
 echo "== Tools"
-for tool in clang-20 clang++-20 cmake ninja rsync sha256sum strip readelf objdump ldd; do
+for tool in clang-20 clang++-20 ld.lld-20 cmake ninja rsync sha256sum strip readelf objdump ldd; do
   command -v "$tool" >/dev/null || fail "$tool not found"
 done
 command -v wget >/dev/null || command -v curl >/dev/null || fail "wget or curl not found"

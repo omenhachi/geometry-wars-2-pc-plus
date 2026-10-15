@@ -24,6 +24,7 @@ esac
 PRESET="linux-amd64-${1:-release}"
 [ "$(uname -s)" = Linux ] || fail "builds on Linux only"
 [ -d "$SDK/lib/cmake/rexglue" ] || fail "missing $SDK (run tools/codegen.sh first)"
+[ -f "$ROOT/generated/default/sources.cmake" ] || fail "generated/default is missing (run tools/codegen.sh first)"
 
 if ! bash "$PATCHED" --check "$SDK" --config "$CONFIG"; then
   echo "== Preparing the ReXGlue runtime and GPU plugin for this branch ($CONFIG)"
