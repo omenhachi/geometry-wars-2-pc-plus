@@ -5,6 +5,7 @@
 - `OnConfigurePaths` redirects `log_file` (via `rex::cvar::SetFlagByName`) when the executable folder is not the port folder - the AppImage case, whose mount is read-only. `gw2::NextLogFile(folder, name)` picks the next free `<name>_NNN.log`, creating the folder; tries `<port folder>/logs`, then `<user_data>/logs`. An explicit `log_file` cvar wins.
 - Startup lines worth keeping in a new project: `User data: ...` (one per start), `Player settings: <file>`, `Multisampling: ...`, `Profile read: ...` (max 8), `Local Live services ready, stats file loaded|not created yet|was corrupt`, `Window reduced from WxH to WxH to fit the display`, `Restarted in a new window; hard-exiting this process.`
 - Console: `rex::FlushLogging()` before any hard exit.
+- No Vulkan on Linux: the log has `Graphics presentation setup failed: <status>` and then `Graphics unavailable; opening the launcher without graphics`; the process exits with status 1 after the software launcher closes.
 - Users are asked to attach the newest file from `logs` to issues (`packaging/README.txt`).
 
 ## SDK-side diagnostics added by patches

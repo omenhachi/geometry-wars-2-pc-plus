@@ -150,7 +150,7 @@ void ApplyWindowIcon() {}
 
 void SetApplicationId() {}
 
-void ReportGraphicsFailure() {}
+void RunLauncherWithoutGraphics(const GraphicsFallbackInfo&) {}
 
 namespace {
 

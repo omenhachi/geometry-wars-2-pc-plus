@@ -19,6 +19,7 @@
 #include "cheat_menu.h"
 #include "frame_counter.h"
 #include "game_files.h"
+#include "graphics_fallback.h"
 #include "launcher.h"
 #include "launcher_cvars.h"
 #include "launcher_platform.h"
@@ -66,7 +67,9 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
     if (rex::ReXApp::SetupPresentation()) {
       return true;
     }
-    gw2::ReportGraphicsFailure();
+    REXLOG_WARN("Graphics unavailable; opening the launcher without graphics");
+    gw2::RunLauncherWithoutGraphics(
+        gw2::DescribeGameFilesWithoutGraphics(game_data_root(), gw2::CheckGameFiles(game_data_root()).state));
     return false;
   }
 

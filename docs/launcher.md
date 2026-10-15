@@ -126,6 +126,8 @@ Rows: Game files (Open game folder, when it exists), Saves and settings (Open da
 
 The launcher is drawn in the game's own window and remembers where that window is: the restored rectangle in screen pixels and whether it is maximized (`gw2_launcher_x`, `gw2_launcher_y`, `gw2_launcher_width`, `gw2_launcher_height`, `gw2_launcher_maximized` in the same player file). It is saved about half a second after a move, resize or maximize, and when the launcher closes, with no need to press Save. Maximizing keeps the restored rectangle, minimizing saves nothing, and Reset all settings leaves it alone. A saved window that is not visible on any display (monitor removed, resolution changed) is ignored and the normal placement is used. These keys are separate from the game's `window_width` and `window_height`, and the game starts in the window size it was created with, not the launcher's placement. Nothing is saved while the window is fullscreen.
 
+On Linux, when Vulkan cannot start, the ImGui launcher cannot be drawn. A small CPU-drawn window stands in for it: the game files status, the game folder, the graphics status, **PLAY** (which explains that a Vulkan-compatible driver is required) and **QUIT**. See [linux.md](linux.md).
+
 Windows hooks the window's first show to place it before anything is visible. Linux has no such hook: it places the window through SDL once the launcher exists, and under Wayland it cannot restore the position. See [linux.md](linux.md).
 
 ## Window and display scaling

@@ -48,6 +48,7 @@ one AppImage that doubles as the Steam Deck build (intended, not confirmed on ha
 - Device selection: patch `0026` prefers a discrete GPU among equally capable devices unless `DRI_PRIME`, `MESA_VK_DEVICE_SELECT`, `VK_LOADER_DEVICE_SELECT` or `__NV_PRIME_RENDER_OFFLOAD` already chose; `vulkan_device` cvar still picks by index.
 - Lavapipe (`VK_ICD_FILENAMES=.../lvp_icd.x86_64.json`) is used to run the presenter pacing test on Xvfb without a GPU.
 - The Vulkan backend rendering far too dark was `0002`, see [06](06-graphics-vulkan.md).
+- No usable Vulkan driver: ReXGlue only logs the failed presentation setup and `OnInitialize` returns false (exit status 1). `GeometryWarsRetroEvolved2App::SetupPresentation` runs `gw2::RunLauncherWithoutGraphics` first (`src/launcher_platform_linux.cpp`): an SDL window with a software surface, text from ImGui's built-in font in a private atlas, a game-files and graphics status, PLAY and QUIT. PLAY shows the failure text inside the same window. It does not use `SDL_ShowSimpleMessageBox`, which runs `zenity` first when it is installed and can stall before any window appears. The window title is the Recompiled name, the icon is the AppImage's own. Windows has an empty implementation.
 
 ## RenderDoc handling (`852b042`, patch `0003`)
 - Problem: ReXGlue called `RenderDocAPI::CreateIfConnected` at startup with `DynamicLibrary::Load` (normal `dlopen`), which loaded `librenderdoc.so` whenever the loader could find it. Detecting RenderDoc turned RenderDoc on wherever it is installed in a standard library folder.

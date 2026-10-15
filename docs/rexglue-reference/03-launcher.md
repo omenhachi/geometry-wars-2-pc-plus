@@ -87,6 +87,12 @@ TRG handles keyboard and mouse. The controller is fed through `gw2::LauncherGame
 XInput on Windows (dynamic `xinput1_4/1_3/9_1_0`), SDL gamepad on Linux, into ImGui gamepad keys with a left-stick
 dead zone and a once-per-second scan for a controller. See [08](08-input-gamepad-mouse.md).
 
+## Launcher without graphics (Linux)
+The ImGui launcher lives in the ReXGlue window, which needs Vulkan. When `ReXApp::SetupPresentation` fails, the app opens a
+CPU-drawn SDL window instead (`gw2::RunLauncherWithoutGraphics`, `src/launcher_platform_linux.cpp`; the game-files wording is
+`gw2::DescribeGameFilesWithoutGraphics`, `src/graphics_fallback.h`, covered by `tests/launcher_tests.cpp`). Its first screen
+uses neutral wording ("Setup required", "Vulkan setup required") and the failure text appears only after PLAY. Windows has no such code.
+
 ## Linux file chooser behavior
 TRG's `platform.cpp` runs `zenity --file-selection` and falls back to `kdialog`; folders and URLs open through
 `xdg-open`. `PackagePickerAvailable()` (`OnPath("zenity") || OnPath("kdialog")`) lets the Play page say "No file picker

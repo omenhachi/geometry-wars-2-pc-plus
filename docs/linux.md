@@ -74,6 +74,12 @@ failure rules.
   app_id and the X11 window class). The `.desktop` file in `packaging/linux` has the same name and sets it as
   `StartupWMClass`, and `tools/package-linux.sh` stops if they differ.
 - **Monitor numbering** follows SDL's display order.
+- **Without Vulkan.** The launcher is drawn by the graphics system, so when Vulkan cannot start (no driver, or no GPU)
+  the program opens a small launcher window drawn by SDL on the CPU instead, with no `zenity`, GTK or Vulkan. It shows
+  the game files and the game folder, the graphics status, and **PLAY** and **QUIT**. **PLAY** explains that a
+  Vulkan-compatible driver is required and points at the logs folder, and **QUIT** or closing the window ends the
+  program, which then exits with a nonzero status. Nothing from the game runs in this window. With a working driver
+  the normal launcher opens and this window is never created.
 
 ## Known limits
 

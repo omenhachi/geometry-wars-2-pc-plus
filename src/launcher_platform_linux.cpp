@@ -2,8 +2,10 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <cstdio>
 #include <fstream>
 #include <string>
+#include <string_view>
 #include <system_error>
 
 #include <spawn.h>
@@ -119,7 +121,292 @@ bool OnPath(const char* program) {
   return false;
 }
 
+SDL_Surface* LoadApplicationIcon() {
+  const std::filesystem::path icon_file = rex::filesystem::GetExecutableFolder() / ".." / "share" / "icons" /
+                                          "hicolor" / "256x256" / "apps" / "geometry_wars_retro_evolved_2.png";
+  return SDL_LoadPNG(Utf8(icon_file).c_str());
+}
+
+constexpr char kSoftwareWindowTitle[] = "Geometry Wars: Retro Evolved 2 Recompiled";
+
+struct Color {
+  int r, g, b;
+};
+
+constexpr int kWidth = 640;
+constexpr int kHeight = 400;
+constexpr int kMargin = 24;
+constexpr int kHeaderHeight = 96;
+constexpr int kIconSize = 72;
+constexpr int kLargeScale = 2;
+constexpr int kRowStep = 34;
+constexpr int kLabelWidth = 120;
+constexpr int kLineStep = 22;
+constexpr Color kBackground{0x12, 0x14, 0x22};
+constexpr Color kHeader{0x1c, 0x14, 0x38};
+constexpr Color kAccent{0x94, 0x3c, 0xff};
+constexpr Color kAccentHover{0xb0, 0x6e, 0xff};
+constexpr Color kButton{0x2c, 0x2e, 0x44};
+constexpr Color kButtonHover{0x40, 0x42, 0x5e};
+constexpr Color kText{0xf0, 0xf0, 0xf0};
+constexpr Color kDimText{0x9a, 0x9a, 0xb0};
+constexpr Color kReadyText{0x5c, 0xc9, 0x6b};
+constexpr Color kWarningText{0xf2, 0xb1, 0x3a};
+
+constexpr SDL_Rect kPlayButton{kMargin, kHeight - 76, 200, 48};
+constexpr SDL_Rect kQuitButton{kMargin + 216, kHeight - 76, 140, 48};
+
+constexpr const char* kGraphicsFailureLines[] = {
+    "A Vulkan-compatible graphics driver is required,",
+    "such as Mesa (AMD and Intel) or the NVIDIA driver.",
+    "Install or update it and start the game again.",
+    "The logs folder next to the AppImage has the details.",
+};
+
+enum class Button { kNone, kPlay, kQuit };
+
+// Draws with ImGui's built-in font from a private atlas, so it needs neither a GPU nor an ImGui context.
+class SoftwareText {
+ public:
+  SoftwareText() {
+    ImFont* font = atlas_.AddFontDefault();
+    baked_ = font->GetFontBaked(font->LegacySize);
+    // Loading a glyph rewrites the atlas pixels, so every glyph is loaded before they are read.
+    for (ImWchar c = kFirstGlyph; c <= kLastGlyph; ++c) {
+      baked_->FindGlyph(c);
+    }
+    atlas_.GetTexDataAsAlpha8(&pixels_, &width_, &height_);
+  }
+
+  int Width(std::string_view text, int scale) const {
+    float width = 0.0f;
+    for (const char c : text) {
+      width += baked_->FindGlyph(Printable(c))->AdvanceX;
+    }
+    return int(width) * scale;
+  }
+
+  int Height(int scale) const { return int(baked_->Size) * scale; }
+
+  void Draw(SDL_Surface* surface, std::string_view text, int x, int y, int scale, Color color) const {
+    float pen_x = float(x);
+    for (const char c : text) {
+      const ImFontGlyph* glyph = baked_->FindGlyph(Printable(c));
+      DrawGlyph(surface, *glyph, int(pen_x), y, scale, color);
+      pen_x += glyph->AdvanceX * float(scale);
+    }
+  }
+
+ private:
+  static constexpr ImWchar kFirstGlyph = 0x20;
+  static constexpr ImWchar kLastGlyph = 0x7e;
+
+  static ImWchar Printable(char c) {
+    const auto code = static_cast<unsigned char>(c);
+    return code >= kFirstGlyph && code <= kLastGlyph ? ImWchar(code) : ImWchar('?');
+  }
+
+  void DrawGlyph(SDL_Surface* surface, const ImFontGlyph& glyph, int x, int y, int scale, Color color) const {
+    if (!glyph.Visible) {
+      return;
+    }
+    const int source_x = int(glyph.U0 * float(width_) + 0.5f);
+    const int source_y = int(glyph.V0 * float(height_) + 0.5f);
+    const int width = int(glyph.X1 - glyph.X0 + 0.5f);
+    const int height = int(glyph.Y1 - glyph.Y0 + 0.5f);
+    const int left = x + int(glyph.X0 * float(scale) + 0.5f);
+    const int top = y + int(glyph.Y0 * float(scale) + 0.5f);
+    for (int row = 0; row < height; ++row) {
+      for (int column = 0; column < width; ++column) {
+        const int alpha = pixels_[(source_y + row) * width_ + source_x + column];
+        if (alpha == 0) {
+          continue;
+        }
+        for (int dy = 0; dy < scale; ++dy) {
+          for (int dx = 0; dx < scale; ++dx) {
+            Blend(surface, left + column * scale + dx, top + row * scale + dy, color, alpha);
+          }
+        }
+      }
+    }
+  }
+
+  static void Blend(SDL_Surface* surface, int x, int y, Color color, int alpha) {
+    Uint8 r, g, b, a;
+    if (x < 0 || y < 0 || x >= surface->w || y >= surface->h ||
+        !SDL_ReadSurfacePixel(surface, x, y, &r, &g, &b, &a)) {
+      return;
+    }
+    SDL_WriteSurfacePixel(surface, x, y, Uint8(r + (color.r - r) * alpha / 255),
+                          Uint8(g + (color.g - g) * alpha / 255), Uint8(b + (color.b - b) * alpha / 255), 0xff);
+  }
+
+  ImFontAtlas atlas_;
+  ImFontBaked* baked_ = nullptr;
+  unsigned char* pixels_ = nullptr;
+  int width_ = 0;
+  int height_ = 0;
+};
+
+void FillRect(SDL_Surface* surface, const SDL_Rect& rect, Color color) {
+  SDL_FillSurfaceRect(surface, &rect, SDL_MapSurfaceRGB(surface, Uint8(color.r), Uint8(color.g), Uint8(color.b)));
+}
+
+Button ButtonAt(float x, float y) {
+  const SDL_Point point{int(x), int(y)};
+  if (SDL_PointInRect(&point, &kPlayButton)) {
+    return Button::kPlay;
+  }
+  return SDL_PointInRect(&point, &kQuitButton) ? Button::kQuit : Button::kNone;
+}
+
+std::string FitToWidth(const SoftwareText& text, std::string value, int max_width) {
+  if (text.Width(value, 1) <= max_width) {
+    return value;
+  }
+  while (value.size() > 1 && text.Width("..." + value, 1) > max_width) {
+    value.erase(0, 1);
+  }
+  return "..." + value;
+}
+
+void DrawButton(SDL_Surface* surface, const SoftwareText& text, const SDL_Rect& rect, const char* label,
+                bool primary, bool hovered) {
+  FillRect(surface, rect, primary ? (hovered ? kAccentHover : kAccent) : (hovered ? kButtonHover : kButton));
+  const int width = text.Width(label, kLargeScale);
+  text.Draw(surface, label, rect.x + (rect.w - width) / 2, rect.y + (rect.h - text.Height(kLargeScale)) / 2,
+            kLargeScale, kText);
+}
+
+void DrawStatusRow(SDL_Surface* surface, const SoftwareText& text, int y, const char* label, const std::string& value,
+                   Color value_color) {
+  text.Draw(surface, label, kMargin, y, 1, kDimText);
+  text.Draw(surface, value, kMargin + kLabelWidth, y, 1, value_color);
+}
+
+void DrawLauncher(SDL_Surface* surface, const SoftwareText& text, SDL_Surface* icon, const GraphicsFallbackInfo& info,
+                  Button hovered) {
+  FillRect(surface, {0, 0, surface->w, surface->h}, kBackground);
+  FillRect(surface, {0, 0, surface->w, kHeaderHeight}, kHeader);
+  FillRect(surface, {0, kHeaderHeight, surface->w, 3}, kAccent);
+  int title_x = kMargin;
+  if (icon) {
+    SDL_Rect target{kMargin, (kHeaderHeight - kIconSize) / 2, kIconSize, kIconSize};
+    SDL_BlitSurfaceScaled(icon, nullptr, surface, &target, SDL_SCALEMODE_LINEAR);
+    title_x += kIconSize + kMargin;
+  }
+  text.Draw(surface, "GEOMETRY WARS: RETRO EVOLVED 2", title_x, 24, kLargeScale, kText);
+  text.Draw(surface, "RECOMPILED", title_x, 32 + text.Height(kLargeScale), kLargeScale, kAccentHover);
+
+  const int max_value_width = surface->w - 2 * kMargin - kLabelWidth;
+  int row_y = kHeaderHeight + 32;
+  DrawStatusRow(surface, text, row_y, "Game files", info.game_files_status,
+                info.game_files_ready ? kReadyText : kWarningText);
+  row_y += kRowStep;
+  DrawStatusRow(surface, text, row_y, "Folder", FitToWidth(text, info.game_dir, max_value_width), kDimText);
+  row_y += kRowStep;
+  DrawStatusRow(surface, text, row_y, "Graphics", "Vulkan setup required", kWarningText);
+  text.Draw(surface, "Press PLAY for details about the graphics setup.", kMargin, row_y + kRowStep, 1, kDimText);
+
+  DrawButton(surface, text, kPlayButton, "PLAY", true, hovered == Button::kPlay);
+  DrawButton(surface, text, kQuitButton, "QUIT", false, hovered == Button::kQuit);
+}
+
+void DrawGraphicsFailure(SDL_Surface* surface, const SoftwareText& text) {
+  FillRect(surface, {0, 0, surface->w, surface->h}, kBackground);
+  FillRect(surface, {0, 0, surface->w, 3}, kAccent);
+  int y = kMargin;
+  text.Draw(surface, "The graphics system could not start.", kMargin, y, kLargeScale, kWarningText);
+  y += text.Height(kLargeScale) + kLineStep;
+  for (const char* line : kGraphicsFailureLines) {
+    text.Draw(surface, line, kMargin, y, 1, kText);
+    y += kLineStep;
+  }
+  text.Draw(surface, "Press a key or click to go back.", kMargin, kHeight - kMargin - text.Height(1), 1, kDimText);
+}
+
 }  // namespace
+
+void RunLauncherWithoutGraphics(const GraphicsFallbackInfo& info) {
+  SDL_Window* window = SDL_CreateWindow(kSoftwareWindowTitle, kWidth, kHeight, 0);
+  if (!window || !SDL_GetWindowSurface(window)) {
+    REXLOG_ERROR("Could not open the launcher window without graphics: {}", SDL_GetError());
+    std::fprintf(stderr, "Could not open the launcher window without graphics: %s\n", SDL_GetError());
+    SDL_DestroyWindow(window);
+    return;
+  }
+  const SoftwareText text;
+  SDL_Surface* icon = LoadApplicationIcon();
+  if (icon) {
+    SDL_SetWindowIcon(window, icon);
+  }
+  Button hovered = Button::kNone;
+  bool showing_failure = false;
+  const auto redraw = [&] {
+    SDL_Surface* surface = SDL_GetWindowSurface(window);
+    if (!surface) {
+      return;
+    }
+    if (showing_failure) {
+      DrawGraphicsFailure(surface, text);
+    } else {
+      DrawLauncher(surface, text, icon, info, hovered);
+    }
+    SDL_UpdateWindowSurface(window);
+  };
+  redraw();
+  for (bool open = true; open;) {
+    SDL_Event event;
+    if (!SDL_WaitEvent(&event)) {
+      break;
+    }
+    Button pressed = Button::kNone;
+    switch (event.type) {
+      case SDL_EVENT_QUIT:
+      case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
+        open = false;
+        break;
+      case SDL_EVENT_KEY_DOWN:
+        if (showing_failure) {
+          showing_failure = false;
+          redraw();
+        } else if (event.key.key == SDLK_ESCAPE) {
+          open = false;
+        } else if (event.key.key == SDLK_RETURN || event.key.key == SDLK_KP_ENTER) {
+          pressed = Button::kPlay;
+        }
+        break;
+      case SDL_EVENT_MOUSE_BUTTON_DOWN:
+        if (showing_failure) {
+          showing_failure = false;
+          redraw();
+        } else {
+          pressed = ButtonAt(event.button.x, event.button.y);
+        }
+        break;
+      case SDL_EVENT_MOUSE_MOTION:
+        if (const Button over = showing_failure ? Button::kNone : ButtonAt(event.motion.x, event.motion.y);
+            over != hovered) {
+          hovered = over;
+          redraw();
+        }
+        break;
+      case SDL_EVENT_WINDOW_EXPOSED:
+        redraw();
+        break;
+      default:
+        break;
+    }
+    if (pressed == Button::kQuit) {
+      open = false;
+    } else if (pressed == Button::kPlay) {
+      showing_failure = true;
+      redraw();
+    }
+  }
+  SDL_DestroySurface(icon);
+  SDL_DestroyWindow(window);
+}
 
 std::vector<Rect> WorkAreas() {
   std::vector<Rect> areas;
@@ -172,24 +459,12 @@ void SetApplicationId() {
   SDL_SetAppMetadataProperty(SDL_PROP_APP_METADATA_IDENTIFIER_STRING, kApplicationId);
 }
 
-// SDL's X11 message box hangs on empty lines in the text.
-void ReportGraphicsFailure() {
-  SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Geometry Wars: Retro Evolved 2",
-                           "Geometry Wars: Retro Evolved 2 could not start the graphics system.\n"
-                           "A working Vulkan-compatible graphics driver is required.\n"
-                           "Check your graphics driver and try again.\n"
-                           "The logs folder next to the AppImage has the details.",
-                           nullptr);
-}
-
 void ApplyWindowIcon() {
   SDL_Window* window = LauncherWindow();
   if (!window) {
     return;
   }
-  const std::filesystem::path icon_file = rex::filesystem::GetExecutableFolder() / ".." / "share" / "icons" /
-                                          "hicolor" / "256x256" / "apps" / "geometry_wars_retro_evolved_2.png";
-  if (SDL_Surface* icon = SDL_LoadPNG(Utf8(icon_file).c_str())) {
+  if (SDL_Surface* icon = LoadApplicationIcon()) {
     SDL_SetWindowIcon(window, icon);
     SDL_DestroySurface(icon);
   }

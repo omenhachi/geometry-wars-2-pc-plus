@@ -101,9 +101,15 @@ void ApplyWindowIcon();
 // be set before the window is created. A no-op on Windows.
 void SetApplicationId();
 
-// Tells the player, in a window that needs no GPU, that graphics could not start; the SDK only logs it. A no-op on
-// Windows.
-void ReportGraphicsFailure();
+struct GraphicsFallbackInfo {
+  std::string game_dir;
+  std::string game_files_status;
+  bool game_files_ready = false;
+};
+
+// Linux: the launcher's window when graphics cannot start, drawn on an SDL surface with no GPU. Play reports the
+// graphics failure. Returns when the player quits. A no-op on Windows.
+void RunLauncherWithoutGraphics(const GraphicsFallbackInfo& info);
 
 // Applies the plan to the next top-level window of this thread, before it is first shown. The window's size
 // before the change is kept for TakePreShowResult. Windows only: elsewhere the launcher places the window once it

@@ -23,6 +23,7 @@
 #endif
 
 #include "game_files.h"
+#include "graphics_fallback.h"
 #include "launcher_achievements.h"
 #include "launcher_platform.h"
 #include "stfs.h"
@@ -435,6 +436,23 @@ void TestWindowFit() {
   CHECK(FitWindowSize(1280, 720, MonitorInfo{}) == std::make_pair(1280, 720));
 }
 
+void TestGraphicsFallback() {
+  Section("graphics fallback");
+  const fs::path dir = fs::path(kRoot) / "game";
+  const GraphicsFallbackInfo ready = DescribeGameFilesWithoutGraphics(dir, GameFileState::kValid);
+  CHECK(ready.game_files_ready && ready.game_files_status == "Ready" && ready.game_dir == Utf8(dir));
+  const GameFileState states[] = {GameFileState::kMissing, GameFileState::kDifferentVersion, GameFileState::kReadError};
+  for (const GameFileState state : states) {
+    const GraphicsFallbackInfo info = DescribeGameFilesWithoutGraphics(dir, state);
+    CHECK(!info.game_files_ready && !info.game_files_status.empty());
+    // The first screen of the fallback launcher must not read as an error message.
+    for (const char* word : {"error", "fail", "could not", "cannot", "unable", "not found", "not installed", "fatal"}) {
+      CHECK(info.game_files_status.find(word) == std::string::npos);
+    }
+  }
+  CHECK(DescribeGameFilesWithoutGraphics(dir, GameFileState::kMissing).game_files_status == "Setup required");
+}
+
 void TestAchievementModel() {
   Section("achievement model");
   std::vector<AchievementEntry> none;
@@ -498,6 +516,7 @@ int main() {
   TestStfsParsing();
   TestPackageInstall();
   TestWindowFit();
+  TestGraphicsFallback();
   TestAchievementModel();
   fs::remove_all(kRoot, ec);
   std::printf("%d checks, %d failures\n", g_checks, g_failures);
