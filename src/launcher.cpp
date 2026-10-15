@@ -499,8 +499,8 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
              kRenderScaleKey, "1", ToTrgOptions(RenderScaleChoices()));
     ui.Choice("Anti-aliasing", "Post-process anti-aliasing applied to the final picture.", kAntiAliasingKey, "none",
               ToTrgOptions(AntiAliasingChoices()));
-    ui.Toggle("Multisampling", "Native 2x MSAA wherever the Xbox 360 game requests MSAA.", kMultisamplingKey, true,
-              "Off", "2x MSAA");
+    ui.Toggle("Multisampling", "Use 2x MSAA for best performance. Try 4x only if you see graphics problems with 2x.",
+              kMultisamplingKey, false, "2x MSAA", "4x MSAA (Compatibility)");
     ui.Choice("Texture filtering",
               "Forces anisotropic filtering for eligible textures. Higher values keep textures sharper at oblique "
               "angles, but increase texture sampling cost.",

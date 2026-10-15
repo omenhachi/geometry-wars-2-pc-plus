@@ -95,7 +95,7 @@ Window size, monitor and VSync take effect when you press **PLAY**. If one diffe
 ### Graphics
 - **Render resolution**: Original (1280×720), 2x (2560×1440, recommended for 1440p), 3x (3840×2160) or 4x (5120×2880)
 - **Anti-aliasing**: Off, FXAA or FXAA Extreme
-- **Multisampling**: 2x MSAA on or off
+- **Multisampling**: 2x MSAA (default), or 4x MSAA (Compatibility) if 2x shows graphics problems on your GPU or driver
 - **Texture filtering**: Game, Off, 2x, 4x, 8x or 16x
 - **Bloom**: Original (the game's own glow), Reduced (lower glow) or Off (no glow). The bright geometry and colors are kept
 

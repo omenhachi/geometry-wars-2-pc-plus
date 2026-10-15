@@ -21,6 +21,7 @@
 #include "launcher_play.h"
 #include "launcher_platform.h"
 #include "launcher_settings.h"
+#include "multisampling.h"
 
 namespace fs = std::filesystem;
 using namespace gw2;
@@ -44,6 +45,12 @@ void Section(const char* name) {
 }
 
 const fs::path kRoot = fs::temp_directory_path() / "gw2_settings_tests";
+
+#ifdef GW2_SRC_DIR
+const fs::path kSrcDir = GW2_SRC_DIR;
+#else
+const fs::path kSrcDir = fs::path(__FILE__).parent_path().parent_path() / "src";
+#endif
 
 fs::path FreshDir(const std::string& name) {
   const fs::path dir = kRoot / name;
@@ -84,6 +91,7 @@ class FakeCvars final : public CvarAccess {
       return false;
     }
     values[std::string(name)] = std::string(value);
+    restart_pending = restart_pending || restart_only.count(std::string(name)) != 0;
     return true;
   }
 
@@ -99,6 +107,7 @@ class FakeCvars final : public CvarAccess {
   std::map<std::string, std::string> values;
   std::map<std::string, std::string> defaults;
   std::set<std::string> refused;
+  std::set<std::string> restart_only;
   bool restart_pending = false;
   int assigns = 0;
 };
@@ -113,7 +122,8 @@ void RegisterGameDefaults(FakeCvars& cvars) {
   cvars.Register(kAspectKey, "true");
   cvars.Register(kRenderScaleKey, "1");
   cvars.Register(kAntiAliasingKey, "none");
-  cvars.Register(kMultisamplingKey, "true");
+  cvars.Register(kMultisamplingKey, "false");
+  cvars.Register(kNative2xMsaaKey, "true");
   cvars.Register(kTextureFilteringKey, "3");
   cvars.Register(kBloomKey, "original");
   cvars.Register(kKeyboardKey, "true");
@@ -219,7 +229,7 @@ void TestApplyAndRestartNeeds() {
   CHECK(cvars.values[kWindowWidthKey] == "1280");
   CHECK(cvars.assigns == 1);
 
-  settings.Set(kMultisamplingKey, "false");
+  settings.Set(kMultisamplingKey, "true");
   cvars.refused.insert(kMultisamplingKey);
   CHECK(settings.Apply());
 
@@ -595,6 +605,109 @@ void TestBloomSetting() {
   CHECK(ReadText(file).find("gw2_bloom = \"original\"") != std::string::npos);
 }
 
+void TestMultisamplingSetting() {
+  Section("multisampling");
+  CHECK(std::string_view(kMultisamplingKey) == "gw2_msaa_compatibility");
+  int managed = 0;
+  for (const ManagedSetting& setting : ManagedSettings()) {
+    if (setting.key == kMultisamplingKey) {
+      ++managed;
+      CHECK(setting.kind == ValueKind::kBool);
+    }
+    CHECK(setting.key != kNative2xMsaaKey);
+  }
+  CHECK(managed == 1);
+  CHECK(!IsWindowSetting(kMultisamplingKey));
+
+  // Guest 2x render targets are host 2x only with the 2x choice on a GPU that has it; 1x and 4x never change.
+  for (const bool supported : {false, true}) {
+    for (const bool compatibility : {false, true}) {
+      CHECK(HostMsaaSamples(1, Native2xMsaaFor(compatibility), supported) == 1);
+      CHECK(HostMsaaSamples(4, Native2xMsaaFor(compatibility), supported) == 4);
+    }
+  }
+  CHECK(HostMsaaSamples(2, Native2xMsaaFor(false), true) == 2);
+  CHECK(HostMsaaSamples(2, Native2xMsaaFor(true), true) == 4);
+  CHECK(HostMsaaSamples(2, Native2xMsaaFor(false), false) == 4);
+
+  // Player files from launchers with Off and 2x MSAA have only native_2x_msaa: both start at 2x.
+  for (const char* old_value : {"true", "false"}) {
+    FakeCvars cvars;
+    RegisterGameDefaults(cvars);
+    cvars.values[kNative2xMsaaKey] = old_value;
+    ApplyMultisampling(cvars);
+    CHECK(cvars.values[kNative2xMsaaKey] == "true");
+  }
+
+  const fs::path dir = FreshDir("multisampling");
+  const fs::path file = LauncherSettingsPath(dir);
+  WriteText(file, "native_2x_msaa = false\n");
+  FakeCvars cvars;
+  RegisterGameDefaults(cvars);
+  cvars.restart_only.insert(kMultisamplingKey);
+  cvars.values[kNative2xMsaaKey] = "false";
+  ApplyMultisampling(cvars);
+  GameSettings settings(cvars, file, dir / "missing.toml");
+  settings.Capture();
+  settings.MarkWindowCreated();
+  CHECK(settings.Get(kMultisamplingKey) == "false");
+  CHECK(!settings.Apply());
+  CHECK(cvars.values[kNative2xMsaaKey] == "true");
+
+  settings.Set(kMultisamplingKey, "true");
+  CHECK(!settings.WindowChanged());
+  CHECK(settings.Save());
+  CHECK(settings.Apply());
+  CHECK(cvars.values[kNative2xMsaaKey] == "false");
+  CHECK(ReadText(file).find("gw2_msaa_compatibility = true") != std::string::npos);
+
+  // The next start loads the file over the defaults; the choice decides, not the old native_2x_msaa line.
+  const auto start = [&] {
+    FakeCvars next;
+    RegisterGameDefaults(next);
+    for (const auto& [key, value] : ReadSettingsValues(file)) {
+      next.values[key] = value;
+    }
+    ApplyMultisampling(next);
+    const std::string first = next.values[kNative2xMsaaKey];
+    ApplyMultisampling(next);
+    CHECK(next.values[kNative2xMsaaKey] == first);
+    return first;
+  };
+  CHECK(start() == "false");
+
+  settings.ResetToDefaults();
+  CHECK(settings.Get(kMultisamplingKey) == "false");
+  CHECK(settings.Save());
+  CHECK(ReadText(file).find("gw2_msaa_compatibility = false") != std::string::npos);
+  CHECK(start() == "true");
+
+  // Anything but a true value is 2x, and without the GPU plugin's cvar nothing is assigned.
+  FakeCvars odd;
+  RegisterGameDefaults(odd);
+  odd.values[kMultisamplingKey] = "maybe";
+  odd.values[kNative2xMsaaKey] = "false";
+  ApplyMultisampling(odd);
+  CHECK(odd.values[kNative2xMsaaKey] == "true");
+  FakeCvars no_gpu;
+  RegisterGameDefaults(no_gpu);
+  no_gpu.registered.erase(kNative2xMsaaKey);
+  ApplyMultisampling(no_gpu);
+  CHECK(no_gpu.assigns == 0);
+
+  const std::string launcher = ReadText(kSrcDir / "launcher.cpp");
+  CHECK(launcher.find("kMultisamplingKey, false, \"2x MSAA\", \"4x MSAA (Compatibility)\"") != std::string::npos);
+  CHECK(launcher.find("\"Off\", \"2x MSAA\"") == std::string::npos);
+  const std::string cvar_source = ReadText(kSrcDir / "launcher_cvars.cpp");
+  const std::size_t cvar = cvar_source.find("REXCVAR_DEFINE_BOOL(gw2_msaa_compatibility, false,");
+  CHECK(cvar != std::string::npos);
+  CHECK(cvar_source.find(".lifecycle(rex::cvar::Lifecycle::kRequiresRestart);", cvar) <
+        cvar_source.find("REXCVAR_DEFINE", cvar + 1));
+  const std::string app = ReadText(kSrcDir / "geometry_wars_retro_evolved_2_app.h");
+  CHECK(app.find("gw2::ApplyMultisampling(cvars_);") > app.find("std::optional<rex::PathConfig> OnFinalizePaths("));
+  CHECK(app.find("gw2::ApplyMultisampling(cvars_);") < app.find("void LaunchModule()"));
+}
+
 void TestLauncherPlacementSettings() {
   Section("launcher placement");
   for (const char* key : {kLauncherXKey, kLauncherYKey, kLauncherWidthKey, kLauncherHeightKey, kLauncherMaximizedKey,
@@ -882,6 +995,7 @@ int main() {
   TestFrameCounterSetting();
   TestFrameLimitSetting();
   TestBloomSetting();
+  TestMultisamplingSetting();
   TestLauncherPlacementSettings();
   TestCheatSettings();
   TestUnregisteredCheatIsRejected();

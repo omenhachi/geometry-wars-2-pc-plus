@@ -13,6 +13,7 @@
 
 #include "cheats.h"
 #include "launcher_platform.h"
+#include "multisampling.h"
 #include "trg/settings.h"
 
 namespace gw2 {
@@ -144,6 +145,16 @@ Values ReadSettingsValues(const std::filesystem::path& toml_file) {
   return values;
 }
 
+void ApplyMultisampling(CvarAccess& cvars) {
+  if (!cvars.IsRegistered(kMultisamplingKey) || !cvars.IsRegistered(kNative2xMsaaKey)) {
+    return;
+  }
+  const std::string native = Native2xMsaaFor(IsTrue(cvars.Value(kMultisamplingKey))) ? "true" : "false";
+  if (cvars.Value(kNative2xMsaaKey) != native) {
+    cvars.Assign(kNative2xMsaaKey, native);
+  }
+}
+
 GameSettings::GameSettings(CvarAccess& cvars, std::filesystem::path player_file,
                            const std::filesystem::path& shipped_config)
     : cvars_(cvars), player_file_(std::move(player_file)), shipped_(ReadSettingsValues(shipped_config)) {
@@ -234,6 +245,7 @@ bool GameSettings::Apply() {
       restart = true;
     }
   }
+  ApplyMultisampling(cvars_);
   return restart || cvars_.RestartPending();
 }
 

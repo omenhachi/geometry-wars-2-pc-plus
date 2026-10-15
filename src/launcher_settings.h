@@ -25,7 +25,8 @@ inline constexpr char kVSyncKey[] = "vulkan_allow_present_mode_immediate";
 inline constexpr char kAspectKey[] = "present_letterbox";
 inline constexpr char kRenderScaleKey[] = "resolution_scale";
 inline constexpr char kAntiAliasingKey[] = "swap_post_effect";
-inline constexpr char kMultisamplingKey[] = "native_2x_msaa";
+inline constexpr char kMultisamplingKey[] = "gw2_msaa_compatibility";
+inline constexpr char kNative2xMsaaKey[] = "native_2x_msaa";
 inline constexpr char kTextureFilteringKey[] = "anisotropic_override";
 inline constexpr char kBloomKey[] = "gw2_bloom";
 inline constexpr char kKeyboardKey[] = "mnk_mode";
@@ -75,6 +76,10 @@ class CvarAccess {
   // Whether a value assigned since startup only takes effect after a restart.
   virtual bool RestartPending() const = 0;
 };
+
+// Sets the Xenos native_2x_msaa from the Multisampling choice, also replacing a native_2x_msaa = false that older
+// launchers saved for "Off". The render target caches read it once, when the runtime is set up.
+void ApplyMultisampling(CvarAccess& cvars);
 
 // Pending launcher edits over the saved player values, over the shipped defaults. Nothing reaches the running
 // game until Apply(), and nothing is written until Save().

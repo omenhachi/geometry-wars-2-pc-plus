@@ -117,9 +117,9 @@ tools/package-linux.sh            # incremental Release build, then package
 tools/package-linux.sh --clean    # clean Release build first
 ```
 
-It needs `clang-20`, `clang++-20`, CMake 3.25+, Ninja, rsync, wget or curl, unzip or python3, binutils, the
-GCC 13 or newer C++ runtime and headers, and the X11/Wayland client libraries (`libx11-6`, `libx11-xcb1`,
-`libxcb1`, `libwayland-client0`), which the SDK's `rexglue` code generator loads.
+It needs `clang-20`, `clang++-20`, `lld-20` (Release and RelWithDebInfo link with ThinLTO), CMake 3.25+, Ninja,
+rsync, wget or curl, unzip or python3, binutils, the GCC 13 or newer C++ runtime and headers, and the X11/Wayland client
+libraries (`libx11-6`, `libx11-xcb1`, `libxcb1`, `libwayland-client0`), which the SDK's `rexglue` code generator loads.
 
 The AppImage needs the glibc of the machine that built it, so releases are built on Ubuntu 22.04 (glibc 2.35, the
 same baseline as the ReXGlue Linux libraries). The script warns when the build machine's glibc is newer. On

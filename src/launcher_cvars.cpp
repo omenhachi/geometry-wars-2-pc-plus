@@ -19,6 +19,11 @@ REXCVAR_DEFINE_BOOL(gw2_show_fps, gw2::kShowFpsDefault, "Geometry Wars",
                     "Show the frame rate in the window title");
 REXCVAR_DEFINE_BOOL(gw2_show_frame_counter, gw2::kShowFrameCounterDefault, "Geometry Wars",
                     "Show the frame counter in the corner (F2 toggles it)");
+// The launcher usually opens after the render target caches have read native_2x_msaa, so a change takes a new process.
+REXCVAR_DEFINE_BOOL(gw2_msaa_compatibility, false, "Geometry Wars",
+                    "Draw the game's 2x MSAA render targets with 4x MSAA, for GPUs or drivers whose native 2x MSAA "
+                    "misrenders (sets native_2x_msaa)")
+    .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);
 REXCVAR_DEFINE_INT32(gw2_launcher_x, 0, "Launcher", "Launcher window position, left edge (set by the launcher)");
 REXCVAR_DEFINE_INT32(gw2_launcher_y, 0, "Launcher", "Launcher window position, top edge (set by the launcher)");
 REXCVAR_DEFINE_INT32(gw2_launcher_width, 0, "Launcher", "Launcher window width; 0 uses the default (set by the launcher)");
