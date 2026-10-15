@@ -28,7 +28,7 @@ Contents (exactly): `geometry_wars_retro_evolved_2.exe`, `rexruntime.dll`, `rexg
 - Anything outside the expected file list rejected, and every expected file must exist.
 
 ## Linux AppImage
-Name `GeometryWarsRetroEvolved2-v<VERSION>-linux-x86_64.AppImage` + `.sha256`. Run on Linux/WSL from a clone with the
+Name `GeometryWarsRetroEvolved2-v<VERSION>-x86_64.AppImage` + `.sha256` (in `dist/`, or `--out-dir DIR`). Run on Linux/WSL from a clone with the
 submodule and generated sources (`tools/codegen.ps1` outputs `generated/default`) and your own `default.xex`.
 
 Pipeline (`tools/package-linux.sh`, optional `--clean`):

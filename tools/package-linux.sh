@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# Builds the Linux x86_64 Release and packages dist/GeometryWarsRetroEvolved2-v<version>-linux-x86_64.AppImage.
+# Builds the Linux x86_64 Release and packages GeometryWarsRetroEvolved2-v<version>-x86_64.AppImage into dist/.
 # Local only: nothing is published, tagged or uploaded. Run on Linux or WSL.
 #
 #   tools/package-linux.sh            incremental Release build, then package
 #   tools/package-linux.sh --clean    clean Release build first
+#   tools/package-linux.sh --out-dir DIR    write the AppImage and its .sha256 to DIR instead of dist/
 #
 # Needs clang-20, clang++-20, lld-20, cmake 3.25+, ninja, rsync, wget or curl, unzip or python3, binutils and the
 # GCC 13+ C++ runtime. Release builds are made on Ubuntu 20.04 (tools/setup-linux-build-env.sh prepares one): the
@@ -30,14 +31,21 @@ RUNTIME_VERSION=20251108
 RUNTIME_SHA256=2fca8b443c92510f1483a883f60061ad09b46b978b2631c807cd873a47ec260d
 
 CLEAN=0
-for arg in "$@"; do
-  case "$arg" in
+OUT_DIR="$ROOT/dist"
+while [ $# -gt 0 ]; do
+  case "$1" in
     --clean) CLEAN=1 ;;
-    *) echo "Unknown option: $arg" >&2; exit 2 ;;
+    --out-dir)
+      [ $# -ge 2 ] && [ -n "$2" ] || { echo "--out-dir needs a folder" >&2; exit 2; }
+      OUT_DIR="$2"; shift ;;
+    *) echo "Unknown option: $1" >&2; exit 2 ;;
   esac
+  shift
 done
 
 fail() { echo "ERROR: $*" >&2; exit 1; }
+
+mkdir -p "$OUT_DIR" && OUT_DIR="$(cd "$OUT_DIR" && pwd)" || fail "cannot create the output folder"
 
 download() {  # url file sha256
   if [ ! -f "$2" ] || ! echo "$3  $2" | sha256sum -c --status -; then
@@ -53,7 +61,7 @@ APP_ID="$(sed -nE 's/^[[:space:]]*constexpr char kApplicationId\[\] = "([^"]+)";
 [[ "$APP_ID" =~ ^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)+$ ]] ||
   fail "src/launcher_platform_linux.cpp must declare kApplicationId exactly once, as a dotted name on one line (found: '$APP_ID')"
 [ -f "$ROOT/packaging/linux/$APP_ID.desktop" ] || fail "packaging/linux/$APP_ID.desktop is missing: the desktop file is named after kApplicationId"
-NAME="GeometryWarsRetroEvolved2-v$VERSION-linux-x86_64"
+NAME="GeometryWarsRetroEvolved2-v$VERSION-x86_64"
 echo "Geometry Wars: Retro Evolved 2 $VERSION - Linux AppImage (local only)"
 
 echo "== Host"
@@ -255,8 +263,7 @@ download "https://github.com/AppImage/appimagetool/releases/download/$APPIMAGETO
 download "https://github.com/AppImage/type2-runtime/releases/download/$RUNTIME_VERSION/runtime-x86_64" \
   "$RUNTIME" "$RUNTIME_SHA256"
 chmod +x "$TOOL"
-mkdir -p "$ROOT/dist"
-OUT="$ROOT/dist/$NAME.AppImage"
+OUT="$OUT_DIR/$NAME.AppImage"
 rm -f "$OUT"
 ARCH=x86_64 "$TOOL" --appimage-extract-and-run --no-appstream --runtime-file "$RUNTIME" "$APPDIR" "$OUT" >/dev/null
 chmod 755 "$OUT"
@@ -267,13 +274,13 @@ trap 'rm -rf "$CHECK"' EXIT
 (cd "$CHECK" && "$OUT" --appimage-extract >/dev/null)
 bash "$ROOT/tools/check-glibc-baseline.sh" --max "$MAX_GLIBC" "$OUT" "$CHECK/squashfs-root" ||
   { rm -f "$OUT"; fail "the AppImage does not meet the glibc $MAX_GLIBC baseline"; }
-(cd "$ROOT/dist" && sha256sum "$NAME.AppImage" > "$NAME.sha256")
+(cd "$OUT_DIR" && sha256sum "$NAME.AppImage" > "$NAME.sha256")
 
 echo
 echo "===================================================="
 echo " APPIMAGE READY (nothing was published)"
 echo "===================================================="
 echo "  AppImage: $OUT ($(du -h "$OUT" | cut -f1))"
-echo "  SHA-256:  $(cut -d' ' -f1 "$ROOT/dist/$NAME.sha256")"
+echo "  SHA-256:  $(cut -d' ' -f1 "$OUT_DIR/$NAME.sha256")"
 echo "  Contents:"
 echo "$EXPECTED" | sed 's/^/    /'
