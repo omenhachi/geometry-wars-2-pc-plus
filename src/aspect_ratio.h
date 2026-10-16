@@ -83,6 +83,10 @@ constexpr double CanvasAspect(AspectRatio aspect) {
   return double(CanvasWidth(aspect)) / double(kCanvasHeight);
 }
 
+constexpr WindowSize RenderSize(AspectRatio aspect, int scale) {
+  return {CanvasWidth(aspect) * scale, kCanvasHeight * scale};
+}
+
 // The guest video mode, which sets the display aspect the presenter keeps. It is 3/4 of the canvas so that the picture is
 // not stretched, and neither side equals a default of the SDK's video mode (1280x720), because it ignores those.
 constexpr WindowSize VideoModeSize(AspectRatio aspect) {

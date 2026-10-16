@@ -39,6 +39,7 @@ constexpr ManagedSetting kManagedSettings[] = {
     {kKeyboardKey, ValueKind::kBool},
     {kFrameRateKey, ValueKind::kInt},
     {kShowFpsKey, ValueKind::kBool},
+    {kShowResolutionKey, ValueKind::kBool},
     {kShowFrameCounterKey, ValueKind::kBool},
     {cheats::kInvincibleKey, ValueKind::kBool},
     {cheats::kInfiniteShieldKey, ValueKind::kBool},

@@ -106,6 +106,7 @@ Window size, monitor, VSync, Aspect Ratio and graphics card take effect when you
 ### Gameplay
 - **Frame rate**: 30, 60, 90, 120, 144, 165, 240 or Unlimited. 60 is the original game and the default. The game's speed stays the same at every rate; a slower graphics card or heavier graphics settings lower the frame rate without changing the speed.
 - **Frame rate in title**: shows the frame rate in the window title, for example `Geometry Wars: Retro Evolved 2 | FPS: 60.00`
+- **Render resolution in title**: shows the render resolution in the window title, for example `Geometry Wars: Retro Evolved 2 | 2560x1440` at 2x on 16:9. It is off by default; with both title options on, the resolution comes before the frame rate.
 - **Frame counter**: shows the frame rate in the corner of the window. Press **F2** while playing to show or hide it.
 
 ### Cheats

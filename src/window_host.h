@@ -7,6 +7,8 @@
 #include <optional>
 #include <string>
 
+#include "aspect_ratio.h"
+
 namespace rex::ui {
 class ImGuiDrawer;
 class Window;
@@ -55,14 +57,19 @@ class FrameRateSampler {
   uint64_t frames_total_ = 0;
 };
 
-// The plain title, or the title followed by the frame rate.
-inline std::string WindowTitle(bool show_fps, double fps) {
-  if (!show_fps) {
-    return kWindowTitle;
+// The game title, then the render resolution and the frame rate when shown. No frame rate before the first sample.
+inline std::string WindowTitle(bool show_resolution, WindowSize render, bool show_fps, std::optional<double> fps) {
+  std::string title = kWindowTitle;
+  if (show_resolution) {
+    title += " | " + std::to_string(render.width) + "x" + std::to_string(render.height);
   }
-  char digits[32];
-  const std::to_chars_result result = std::to_chars(digits, digits + sizeof(digits), fps, std::chars_format::fixed, 2);
-  return std::string(kWindowTitle) + " | FPS: " + std::string(digits, result.ptr);
+  if (show_fps && fps) {
+    char digits[32];
+    const std::to_chars_result result =
+        std::to_chars(digits, digits + sizeof(digits), *fps, std::chars_format::fixed, 2);
+    title += " | FPS: " + std::string(digits, result.ptr);
+  }
+  return title;
 }
 
 inline constexpr std::chrono::milliseconds kCursorHideDelay{5000};

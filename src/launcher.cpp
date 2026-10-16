@@ -49,6 +49,7 @@ constexpr char kMonitorHelp[] = "The display the game opens on. A new window: th
 constexpr char kVSyncHelp[] = "On prevents tearing. Off allows it, for the lowest latency and G-Sync/FreeSync.";
 constexpr char kShowFpsHelp[] =
     "Shows the game's frame rate in the window title: Geometry Wars: Retro Evolved 2 | FPS: 60.00";
+constexpr char kShowResolutionHelp[] = "Shows the game's render resolution in the window title";
 constexpr char kFrameRateHelp[] =
     "Controls the game's frame-rate limit. 60 matches the original game.";
 constexpr char kFrameCounterHelp[] = "Shows the game's frame rate in the corner. F2 toggles it while playing.";
@@ -546,6 +547,8 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
   void PageGameplay(trg::Ui& ui) {
     ui.Choice("Frame rate", kFrameRateHelp, kFrameRateKey, "60", ToTrgOptions(FrameRateChoices()), 4);
     ui.Toggle("Frame rate in title", kShowFpsHelp, kShowFpsKey, kShowFpsDefault, "Off", "On");
+    ui.Toggle("Render resolution in title", kShowResolutionHelp, kShowResolutionKey, kShowResolutionDefault,
+              "Off", "On");
     ui.Toggle("Frame counter", kFrameCounterHelp, kShowFrameCounterKey, kShowFrameCounterDefault, "Hidden", "Shown");
   }
 

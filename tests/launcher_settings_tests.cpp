@@ -141,6 +141,7 @@ void RegisterGameDefaults(FakeCvars& cvars) {
   cvars.Register(kLauncherMaximizedKey, "false");
   cvars.Register(kLauncherFullscreenKey, "false");
   cvars.Register(kShowFpsKey, kShowFpsDefault ? "true" : "false");
+  cvars.Register(kShowResolutionKey, kShowResolutionDefault ? "true" : "false");
   cvars.Register(kShowFrameCounterKey, kShowFrameCounterDefault ? "true" : "false");
   for (const cheats::CheatInfo& cheat : cheats::kCheats) {
     cvars.Register(cheat.key, cheats::kCheatDefault ? "true" : "false");
@@ -479,6 +480,38 @@ void TestFrameRateSetting() {
   CHECK(settings.Save());
   CHECK(ReadText(file).find("gw2_show_fps = true") != std::string::npos);
   CHECK(!settings.WindowChanged());
+}
+
+void TestRenderResolutionSetting() {
+  Section("render resolution in title");
+  CHECK(!kShowResolutionDefault);
+  CHECK(std::string_view(kShowResolutionKey) == "gw2_show_render_resolution");
+  bool managed = false;
+  for (const ManagedSetting& setting : ManagedSettings()) {
+    managed = managed || setting.key == kShowResolutionKey;
+  }
+  CHECK(managed);
+
+  const fs::path dir = FreshDir("render_resolution");
+  const fs::path file = LauncherSettingsPath(dir);
+  FakeCvars cvars;
+  RegisterGameDefaults(cvars);
+  GameSettings settings(cvars, file, dir / "missing.toml");
+  settings.Capture();
+  settings.MarkWindowCreated();
+  CHECK(settings.Get(kShowResolutionKey) == "false");
+
+  settings.Set(kShowResolutionKey, "true");
+  CHECK(!settings.WindowChanged());
+  CHECK(!settings.Apply());
+  CHECK(cvars.values[kShowResolutionKey] == "true");
+  CHECK(settings.Save());
+  CHECK(ReadText(file).find("gw2_show_render_resolution = true") != std::string::npos);
+
+  settings.ResetToDefaults();
+  CHECK(settings.Get(kShowResolutionKey) == "false");
+  CHECK(settings.Save());
+  CHECK(ReadText(file).find("gw2_show_render_resolution = false") != std::string::npos);
 }
 
 void TestFrameCounterSetting() {
@@ -1256,6 +1289,7 @@ int main() {
   TestPagesAndKeyList();
   TestSettingsFileValues();
   TestFrameRateSetting();
+  TestRenderResolutionSetting();
   TestFrameCounterSetting();
   TestFrameLimitSetting();
   TestBloomSetting();

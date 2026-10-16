@@ -24,6 +24,8 @@ REXCVAR_DEFINE_INT32(gw2_frame_rate, gw2::kFrameRateDefault, "Geometry Wars",
                      "Frame-rate limit: 30, 60, 90, 120, 144, 165, 240 or 0 for Unlimited");
 REXCVAR_DEFINE_BOOL(gw2_show_fps, gw2::kShowFpsDefault, "Geometry Wars",
                     "Show the frame rate in the window title");
+REXCVAR_DEFINE_BOOL(gw2_show_render_resolution, gw2::kShowResolutionDefault, "Geometry Wars",
+                    "Show the render resolution in the window title");
 REXCVAR_DEFINE_BOOL(gw2_show_frame_counter, gw2::kShowFrameCounterDefault, "Geometry Wars",
                     "Show the frame counter in the corner (F2 toggles it)");
 // The launcher usually opens after the render target caches have read native_2x_msaa, so a change takes a new process.

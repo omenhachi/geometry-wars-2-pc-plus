@@ -98,6 +98,7 @@ Each value is the one ReXGlue's registry describes. A setting ReXGlue marks as r
 | --- | --- | --- |
 | Frame rate | 30, 60, 90, 120, 144, 165, 240, Unlimited (default 60) | `gw2_frame_rate` |
 | Frame rate in title | Off, On (default On) | `gw2_show_fps` |
+| Render resolution in title | Off, On (default Off) | `gw2_show_render_resolution` |
 | Frame counter | Hidden, Shown (default Hidden) | `gw2_show_frame_counter` |
 
 With On, the window title is `Geometry Wars: Retro Evolved 2 | FPS: 60.00`, refreshed about once a second. With Off, and until the first sample, it is `Geometry Wars: Retro Evolved 2`.

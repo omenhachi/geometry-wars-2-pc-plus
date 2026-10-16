@@ -87,6 +87,18 @@ void TestCanvas() {
   CHECK(CanvasWidth(AspectRatio::k16x9) == 1280 && kCanvasHeight == 720);
 }
 
+void TestRenderSize() {
+  std::printf("render resolution size\n");
+  const WindowSize original = RenderSize(AspectRatio::k21x9, 1);
+  CHECK(original.width == 1680 && original.height == 720);
+  const WindowSize doubled = RenderSize(AspectRatio::k21x9, 2);
+  CHECK(doubled.width == 3360 && doubled.height == 1440);
+  const WindowSize quadrupled = RenderSize(AspectRatio::k21x9, 4);
+  CHECK(quadrupled.width == 6720 && quadrupled.height == 2880);
+  const WindowSize originalFormatDoubled = RenderSize(AspectRatio::k16x9, 2);
+  CHECK(originalFormatDoubled.width == 2560 && originalFormatDoubled.height == 1440);
+}
+
 void TestWindowSizes() {
   std::printf("window sizes\n");
   for (const AspectRatioInfo& info : kAspectRatios) {
@@ -310,6 +322,7 @@ void TestHookSources() {
 int main() {
   TestTable();
   TestCanvas();
+  TestRenderSize();
   TestWindowSizes();
   TestWindowSizeRepair();
   TestInternalRenderPerAspect();

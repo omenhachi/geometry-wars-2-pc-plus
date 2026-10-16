@@ -77,7 +77,8 @@ std::string MonitorLabel(int monitor, const std::vector<MonitorInfo>& monitors) 
 
 std::string RenderScaleLabel(int scale, AspectRatio aspect) {
   std::string label = scale == 1 ? "Original" : std::to_string(scale) + "x";
-  label += kDash + Dimensions(CanvasWidth(aspect) * scale, kCanvasHeight * scale);
+  const WindowSize size = RenderSize(aspect, scale);
+  label += kDash + Dimensions(size.width, size.height);
   if (scale == 2 && aspect == AspectRatio::k16x9) {
     label += kDash + std::string("Recommended for 1440p");
   }
