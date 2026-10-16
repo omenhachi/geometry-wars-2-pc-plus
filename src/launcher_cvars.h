@@ -14,6 +14,8 @@ REXCVAR_DECLARE(int32_t, gw2_frame_rate);
 REXCVAR_DECLARE(bool, gw2_show_fps);
 REXCVAR_DECLARE(bool, gw2_show_frame_counter);
 REXCVAR_DECLARE(bool, gw2_msaa_compatibility);
+REXCVAR_DECLARE(std::string, gw2_graphics_adapter);
+REXCVAR_DECLARE(std::string, gw2_aspect_ratio);
 REXCVAR_DECLARE(int32_t, gw2_launcher_x);
 REXCVAR_DECLARE(int32_t, gw2_launcher_y);
 REXCVAR_DECLARE(int32_t, gw2_launcher_width);
@@ -48,6 +50,14 @@ void FitWindowToDisplay();
 // Called once the startup configuration is loaded and before the window exists: fits the window and starts the
 // restart tracking from nothing.
 void SettleStartupCvars();
+
+// Windows: sets d3d12_adapter from the Graphics card choice. Call once the player settings are loaded and before
+// the graphics device is created; Automatic, or a card that is no longer present, leaves the SDK's preference alone.
+void ApplyGraphicsAdapter();
+
+// Sets the guest video mode and the presenter from the Aspect Ratio choice. Call once the player settings are loaded
+// and before SettleStartupCvars, which drops the restart marks of these restart-only cvars.
+void ApplyAspectRatio();
 
 // Logs the graphics and frame-rate settings the game starts with.
 void LogGameSettings();

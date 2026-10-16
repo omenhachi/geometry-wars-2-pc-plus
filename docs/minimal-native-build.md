@@ -76,7 +76,7 @@ Codegen uses `geometry_wars_retro_evolved_2_manifest.toml`:
 | `fullscreen` | `false` | development window |
 | `monitor` | `1` | primary display |
 | `window_width` / `window_height` | `853` / `480` | logical size; Windows display scaling applies |
-| `video_mode_width` / `video_mode_height` | `1280` / `720` | pins the guest video mode |
+| `video_mode_width` / `video_mode_height` | not set | the game sets them from the launcher's Aspect Ratio at start |
 
 ## Analysis tools
 

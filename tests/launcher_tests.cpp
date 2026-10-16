@@ -429,11 +429,16 @@ void TestWindowFit() {
   Section("window fit");
   const MonitorInfo fhd{1920, 1080, 1920, 1040, 1.0f, true};
   CHECK(FitWindowSize(1280, 720, fhd) == std::make_pair(1280, 720));
+  CHECK(FitWindowSize(1600, 900, fhd) == std::make_pair(1600, 900));
+  // A reduced window keeps its shape: both sides shrink by the same factor.
   const MonitorInfo fhd150{1920, 1080, 1920, 1040, 1.5f, true};
-  CHECK(FitWindowSize(1280, 720, fhd150) == std::make_pair(1152, 624));
+  CHECK(FitWindowSize(1280, 720, fhd150) == std::make_pair(1109, 624));
   const MonitorInfo fhd225{1920, 1080, 1920, 1040, 2.25f, true};
-  CHECK(FitWindowSize(1280, 720, fhd225) == std::make_pair(768, 416));
+  CHECK(FitWindowSize(1280, 720, fhd225) == std::make_pair(739, 416));
+  CHECK(FitWindowSize(3840, 1080, fhd) == std::make_pair(1728, 486));
+  CHECK(FitWindowSize(2520, 1080, fhd) == std::make_pair(1728, 740));
   CHECK(FitWindowSize(1280, 720, MonitorInfo{}) == std::make_pair(1280, 720));
+  CHECK(FitWindowSize(0, 720, fhd) == std::make_pair(0, 720));
 }
 
 void TestGraphicsFallback() {

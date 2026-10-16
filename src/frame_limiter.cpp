@@ -4,11 +4,9 @@
 #include <cstdint>
 #include <optional>
 
-#include <rex/cvar.h>
 #include <rex/hook.h>
 
 #include "guest_memory.h"
-#include "launcher_cvars.h"
 
 namespace gw2 {
 namespace {
@@ -29,11 +27,6 @@ struct GameDeltaState {
 GameDeltaState g_delta;
 
 }  // namespace
-
-int ConfiguredFrameRate() {
-  const int fps = REXCVAR_GET(gw2_frame_rate);
-  return IsFrameRateChoice(fps) ? fps : kFrameRateDefault;
-}
 
 void PaceGuestFrame() {
   if (const auto deadline = g_limiter.Next(ProjectLimiterRate(ConfiguredFrameRate()), LimiterClock::now())) {

@@ -81,6 +81,8 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
       REXLOG_INFO("{}", message.text);
     }
     gw2::LoadPlayerSettings(gw2::LauncherSettingsPath(user_data_root()));
+    gw2::ApplyGraphicsAdapter();
+    gw2::ApplyAspectRatio();
   }
 
   // The requested window is recorded before the display fit caps it, so a size the player saved is not reported as
@@ -129,6 +131,10 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
     settings_->CaptureLateRegistered();
     gw2::ApplyMultisampling(cvars_);
     REXLOG_INFO("Multisampling: {}", REXCVAR_GET(gw2_msaa_compatibility) ? "4x MSAA (Compatibility)" : "2x MSAA");
+    // Before the runtime builds the render target cache, which reads the path once; the launcher may open after it.
+    if (gw2::ApplyInternalRenderPath(cvars_)) {
+      REXLOG_INFO("Internal render resolution: using D3D12 host render targets");
+    }
     const bool game_ready = gw2::CheckGameFiles(defaults.game_data_root).state == gw2::GameFileState::kValid;
     const bool show = gw2::LauncherWanted(game_ready, gw2::ShowLauncherSetting(*settings_), gw2::ShiftHeld(),
                                           gw2::TakeSkipLauncher());

@@ -7,6 +7,7 @@
 
 #include <rex/cvar.h>
 
+#include "aspect_ratio.h"
 #include "launcher_cvars.h"
 #include "launcher_platform.h"
 #include "launcher_settings.h"
@@ -68,8 +69,9 @@ int main() {
   capped.Capture();
   capped.MarkWindowCreated();
   SettleStartupCvars();
+  // 1280x720 shrunk by the width limit keeps its 16:9 shape: 1229x691.
   CHECK(cvars.Value(kWindowWidthKey) == "1229");
-  CHECK(cvars.Value(kWindowHeightKey) == "720");
+  CHECK(cvars.Value(kWindowHeightKey) == "691");
   CHECK(!cvars.RestartPending());
   CHECK(!capped.WindowChanged());
   CHECK(!capped.Apply());
@@ -82,6 +84,34 @@ int main() {
   CHECK(rex::cvar::SetFlagByName("present_dither", "true"));
   CHECK(cvars.RestartPending());
   CHECK(capped.Apply());
+
+  Section("the aspect ratio set at startup leaves no restart pending");
+  for (const AspectRatioInfo& info : kAspectRatios) {
+    rex::cvar::LoadConfig(shipped);
+    CHECK(rex::cvar::SetFlagByName("gw2_aspect_ratio", info.key));
+    ApplyAspectRatio();
+    const WindowSize mode = VideoModeSize(info.aspect);
+    CHECK(cvars.Value("video_mode_width") == std::to_string(mode.width));
+    CHECK(cvars.Value("video_mode_height") == std::to_string(mode.height));
+    CHECK(cvars.Value("present_letterbox") == "true");
+    CHECK(cvars.RestartPending());
+    g_display = {3840, 2160, 3840, 2100, 1.0f, true};
+    GameSettings started(cvars, player, shipped);
+    started.Capture();
+    started.MarkWindowCreated();
+    SettleStartupCvars();
+    CHECK(!cvars.RestartPending());
+    CHECK(!started.WindowChanged());
+    CHECK(!started.Apply());
+    CHECK(started.Get(kAspectKey) == info.key);
+
+    // Choosing another format in the launcher starts a new process, which applies it; this one is not touched.
+    started.Set(kAspectKey, info.aspect == AspectRatio::k21x9 ? "16:9" : "21:9");
+    CHECK(started.WindowChanged());
+    CHECK(!started.Apply());
+    CHECK(cvars.Value(kAspectKey) == info.key);
+    CHECK(cvars.Value("video_mode_width") == std::to_string(mode.width));
+  }
 
   std::printf("%d checks, %d failures\n", g_checks, g_failures);
   return g_failures == 0 ? 0 : 1;

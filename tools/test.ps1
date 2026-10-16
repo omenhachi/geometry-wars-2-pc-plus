@@ -4,7 +4,9 @@
   services), tests\achievements_overlay_rules_tests.cpp (the achievements overlay's controller and window-size
   rules), tests\launcher_tests.cpp (game-file validation, package reading and safe install, launcher settings,
   the window fit and the achievement summary), tests\launcher_settings_tests.cpp (the settings model, the PLAY gate,
-  the Display, Graphics and Gameplay options), tests\window_host_tests.cpp (the window title, the frame-rate
+  the Display, Graphics and Gameplay options), tests\graphics_adapter_tests.cpp (the Graphics card values and
+  the adapter order), tests\aspect_ratio_tests.cpp (the Aspect Ratio table, canvas, window sizes and the retired
+  Letterbox setting), tests\window_host_tests.cpp (the window title, the frame-rate
   format and the sampler), tests\cheats_tests.cpp (the cheat settings, the in-game menu model and the host
   hotkeys) and tests\user_data_tests.cpp (the portable user_data root and the move of the system
   folder into it), with Visual Studio's clang++, then checks that the release folder check refuses user data and
@@ -28,6 +30,8 @@ $FrameLimiterExe = Join-Path $OutDir 'frame_limiter_tests.exe'
 $PlacementExe = Join-Path $OutDir 'launcher_placement_tests.exe'
 $UserDataExe = Join-Path $OutDir 'user_data_tests.exe'
 $CheatsExe = Join-Path $OutDir 'cheats_tests.exe'
+$AdapterExe = Join-Path $OutDir 'graphics_adapter_tests.exe'
+$AspectExe = Join-Path $OutDir 'aspect_ratio_tests.exe'
 
 $TrgDir = Join-Path $Root 'third_party\trg-launcher'
 if (-not (Test-Path (Join-Path $TrgDir 'src\settings.cpp'))) {
@@ -93,6 +97,13 @@ try {
     & $ClangXX -std=c++23 -O1 -Wall -Wextra -I (Join-Path $Root 'src') `
         (Join-Path $Root 'tests\cheats_tests.cpp') -o $CheatsExe
     if ($LASTEXITCODE) { throw "Test build failed ($LASTEXITCODE)" }
+    & $ClangXX -std=c++23 -O1 -Wall -Wextra -I (Join-Path $Root 'src') `
+        (Join-Path $Root 'tests\graphics_adapter_tests.cpp') (Join-Path $Root 'src\graphics_adapters.cpp') `
+        -ldxgi -ld3d12 -o $AdapterExe
+    if ($LASTEXITCODE) { throw "Test build failed ($LASTEXITCODE)" }
+    & $ClangXX -std=c++23 -O1 -Wall -Wextra -I (Join-Path $Root 'src') `
+        (Join-Path $Root 'tests\aspect_ratio_tests.cpp') -o $AspectExe
+    if ($LASTEXITCODE) { throw "Test build failed ($LASTEXITCODE)" }
 } finally {
     foreach ($name in @([Environment]::GetEnvironmentVariables().Keys)) {
         if (-not $SavedEnv.Contains($name)) { Remove-Item "Env:$name" }
@@ -120,6 +131,10 @@ if ($LASTEXITCODE) { throw "Launcher settings tests failed ($LASTEXITCODE)" }
 if ($LASTEXITCODE) { throw "User data tests failed ($LASTEXITCODE)" }
 & $CheatsExe
 if ($LASTEXITCODE) { throw "Cheats tests failed ($LASTEXITCODE)" }
+& $AdapterExe
+if ($LASTEXITCODE) { throw "Graphics card tests failed ($LASTEXITCODE)" }
+& $AspectExe
+if ($LASTEXITCODE) { throw "Aspect ratio tests failed ($LASTEXITCODE)" }
 
 # The release check accepts a fresh extraction and refuses user data, migration leftovers, saves, logs and game files.
 $ReleaseCheck = Join-Path $PSScriptRoot 'package-release.ps1'

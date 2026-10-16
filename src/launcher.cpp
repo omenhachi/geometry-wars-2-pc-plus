@@ -157,13 +157,17 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
         settings_(settings),
         game_(game),
         callbacks_(std::move(callbacks)),
-        monitors_(ListMonitors()) {
+        monitors_(ListMonitors()),
+        graphics_adapters_(ListGraphicsAdapters()) {
     files_ = CheckAndLogGameFiles(paths_.game_dir);
     if (game_.achievements) {
       entries_ = LoadAchievementEntries(*game_.achievements);
     }
     if (game_.runtime && game_.immediate_drawer) {
       icons_ = std::make_unique<rex::ui::AchievementIconCache>(game_.immediate_drawer, game_.runtime);
+    }
+    if (SelectedAspectRatio() != AspectRatio::k16x9) {
+      SelectWindowSizeForAspect();
     }
     launcher_ = std::make_unique<trg::Launcher>(MakeConfig());
     RestorePlacement();
@@ -440,10 +444,26 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
     WindowSizeCombo();
     ui.Row("Monitor", kMonitorHelp);
     MonitorCombo();
+    if (ui.Combo("Aspect Ratio", "Sets the game's target rendering format and the Window size choices.", kAspectKey,
+                 "16:9", ToTrgOptions(AspectRatioChoices()))) {
+      SelectWindowSizeForAspect();
+    }
     ui.Choice("VSync", kVSyncHelp, kVSyncKey, "true", {{"true", "Off"}, {"false", "On"}}, 2);
-    ui.Choice("Aspect ratio", "Letterbox keeps the game's picture shape on other window shapes. Stretch fills the window.",
-              kAspectKey, "true", {{"true", "Letterbox 16:9"}, {"false", "Stretch"}}, 2);
     ui.EndRows();
+  }
+
+  AspectRatio SelectedAspectRatio() const { return ParseAspectRatio(settings_.Get(kAspectKey, "16:9")); }
+
+  void SelectWindowSizeForAspect() {
+    const WindowSize current{settings_.GetInt(kWindowWidthKey, 0), settings_.GetInt(kWindowHeightKey, 0)};
+    const MonitorInfo& display = SelectedMonitor();
+    const WindowSize chosen = WindowSizeForAspect(SelectedAspectRatio(), current, [&display](WindowSize size) {
+      return WindowSizeFits(size, display);
+    });
+    if (chosen.width != current.width || chosen.height != current.height) {
+      settings_.SetInt(kWindowWidthKey, chosen.width);
+      settings_.SetInt(kWindowHeightKey, chosen.height);
+    }
   }
 
   const MonitorInfo& SelectedMonitor() const {
@@ -466,10 +486,11 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
       }
       return WindowSizeLabel(WindowSize{w, h}, scale);
     };
+    const AspectRatio aspect = SelectedAspectRatio();
     if (ImGui::BeginCombo("##window_size", label(width, height).c_str())) {
-      for (const WindowSize size : kWindowSizes) {
+      for (const AspectWindowSize& size : kWindowSizes) {
         const bool current = size.width == width && size.height == height;
-        if (!current && !WindowSizeFits(size, display)) {
+        if (size.aspect != aspect || (!current && !WindowSizeFits({size.width, size.height}, display))) {
           continue;
         }
         if (ImGui::Selectable(label(size.width, size.height).c_str(), current) && !current) {
@@ -494,9 +515,21 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
   }
 
   void PageGraphics(trg::Ui& ui) {
+    if (!graphics_adapters_.empty()) {
+      ui.Combo("Graphics card",
+               "The GPU that renders the game. Automatic prefers the high-performance GPU. A change restarts the game "
+               "once when you press Play.",
+               kGraphicsAdapterKey, kGraphicsAdapterAuto,
+               ToTrgOptions(GraphicsAdapterChoices(graphics_adapters_,
+                                                   settings_.Get(kGraphicsAdapterKey, kGraphicsAdapterAuto))));
+    }
     ui.Combo("Render resolution",
              "Draw resolution scale for both axes. Higher is sharper and costs more GPU time. Window size is separate.",
-             kRenderScaleKey, "1", ToTrgOptions(RenderScaleChoices()));
+             kRenderScaleKey, "1", ToTrgOptions(RenderScaleChoices(SelectedAspectRatio())));
+    ui.Combo("Internal render resolution",
+             "Draws the game at a share of the render resolution, then scales it up. Lower values reduce GPU work "
+             "but are less sharp.",
+             kInternalRenderScaleKey, "100", ToTrgOptions(InternalRenderScaleChoices()));
     ui.Choice("Anti-aliasing", "Post-process anti-aliasing applied to the final picture.", kAntiAliasingKey, "none",
               ToTrgOptions(AntiAliasingChoices()));
     ui.Toggle("Multisampling", "Use 2x MSAA for best performance. Try 4x only if you see graphics problems with 2x.",
@@ -687,6 +720,7 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
   std::vector<AchievementEntry> entries_;
   std::unique_ptr<rex::ui::AchievementIconCache> icons_;
   std::vector<MonitorInfo> monitors_;
+  std::vector<GraphicsAdapter> graphics_adapters_;
   std::unique_ptr<trg::Launcher> launcher_;
   LauncherGamepad gamepad_;
   PlayGate play_;

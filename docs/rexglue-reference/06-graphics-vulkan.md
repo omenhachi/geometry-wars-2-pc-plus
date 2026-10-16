@@ -37,10 +37,10 @@ See [05](05-platform-linux.md).
 ## Visual options (not correctness)
 | Option | Mechanism | Class |
 | --- | --- | --- |
-| Render resolution 1x-4x | cvar `resolution_scale`; labels assume the pinned 1280x720 guest mode (derived, not measured at run time) | `GENERIC_REXGLUE` |
+| Render resolution 1x-4x | cvar `resolution_scale`; labels use the game's 720-line canvas and the width of the Aspect Ratio (1280x720 at 16:9, measured in the log as `Guest back buffer`) | `GENERIC_REXGLUE` |
 | Anti-aliasing | `swap_post_effect` none/fxaa/fxaa_extreme | `GENERIC_REXGLUE` |
 | Texture filtering | `anisotropic_override` | `GENERIC_REXGLUE` |
-| Aspect | `present_letterbox` | `GENERIC_REXGLUE` |
+| Aspect Ratio | `gw2_aspect_ratio`: guest video mode, device back buffer and cameras, `src/aspect_render.cpp` | `GEOMETRY_WARS_SPECIFIC` mechanism, `GAME_ADAPTATION` pattern |
 | Bloom | `gw2_bloom` original/reduced/off, see below | `GEOMETRY_WARS_SPECIFIC` mechanism, `GAME_ADAPTATION` pattern |
 
 ### Bloom control (`074b563`, `src/bloom_fix.cpp`, `src/bloom_rules.h`)

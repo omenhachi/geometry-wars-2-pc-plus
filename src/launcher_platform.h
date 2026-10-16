@@ -74,13 +74,20 @@ bool PackagePickerAvailable();
 // The window's logical size, shrunk so it stays within this share of the display's work area.
 inline constexpr double kWindowDisplayShare = 0.9;
 
+// Both sides shrink by the same factor, so the window keeps its shape.
 inline std::pair<int, int> FitWindowSize(int width, int height, const MonitorInfo& display) {
-  if (display.work_width <= 0 || display.work_height <= 0 || display.scale <= 0.0f) {
+  if (width <= 0 || height <= 0 || display.work_width <= 0 || display.work_height <= 0 || display.scale <= 0.0f) {
     return {width, height};
   }
-  const int max_width = int(display.work_width * kWindowDisplayShare / display.scale);
-  const int max_height = int(display.work_height * kWindowDisplayShare / display.scale);
-  return {std::min(width, max_width), std::min(height, max_height)};
+  const double max_width = display.work_width * kWindowDisplayShare / display.scale;
+  const double max_height = display.work_height * kWindowDisplayShare / display.scale;
+  if (width <= max_width && height <= max_height) {
+    return {width, height};
+  }
+  if (double(width) * max_height > double(height) * max_width) {
+    return {int(max_width), int(double(height) * max_width / width)};
+  }
+  return {int(double(width) * max_height / height), int(max_height)};
 }
 
 

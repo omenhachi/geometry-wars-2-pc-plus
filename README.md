@@ -19,7 +19,7 @@
 - Native static recompilation for Windows, plus an experimental native Linux / Steam Deck AppImage
 - TRG launcher that installs the game from your own package and remembers its window position, size, maximized and fullscreen state
 - High frame rate support: 30, 60 (the original), 90, 120, 144, 165, 240 or Unlimited, without speeding up the game
-- Render resolution up to 4x (5120×2880), FXAA, 2x or 4x (Compatibility) multisampling, texture filtering up to 16x, VSync and aspect ratio options
+- Render resolution up to 4x (5120×2880), internal render resolution (100%, 75% or 50%), graphics card choice on Windows, FXAA, 2x or 4x (Compatibility) multisampling, texture filtering up to 16x, VSync and native aspect ratios (16:9, 16:10, 21:9, 32:9, 4:3, 5:4)
 - Improved frame pacing and performance, with less unnecessary GPU and CPU work, especially at higher render resolutions
 - Automatic discrete-GPU preference on hybrid systems, and a more reliable Exit Game
 - Frame rate in the window title, and an in-game frame rate counter (**F2**)
@@ -90,12 +90,14 @@ The launcher opens before the game. Your choices are saved to `settings.toml` in
 - **Display mode**: Windowed or Borderless Fullscreen. Press **F11** while playing to switch between them. In fullscreen the mouse cursor hides after about 5 seconds without movement and returns as soon as the mouse moves. The launcher always shows it.
 - **Window size** and **Monitor**
 - **VSync** on or off
-- **Aspect ratio**: Letterbox 16:9 keeps the game's picture on any window shape; Stretch fills the window
+- **Aspect Ratio**: 16:9 Original, 16:10, 21:9 Ultrawide, 32:9 Super Ultrawide, 4:3 or 5:4. The game renders in that shape (720 lines, the width follows the format) instead of stretching, and Window size lists the sizes of the chosen format. Render resolution and Internal render resolution scale from it. A window of another shape shows black bars
 
-Window size, monitor and VSync take effect when you press **PLAY**. If one differs from the launcher's window, the game restarts once in a new window.
+Window size, monitor, VSync, Aspect Ratio and graphics card take effect when you press **PLAY**. If one differs from the launcher's window, the game restarts once in a new window.
 
 ### Graphics
-- **Render resolution**: Original (1280×720), 2x (2560×1440, recommended for 1440p), 3x (3840×2160) or 4x (5120×2880)
+- **Graphics card** (Windows): Automatic (recommended) or a specific GPU
+- **Render resolution**: Original (1280×720), 2x (2560×1440, recommended for 1440p), 3x (3840×2160) or 4x (5120×2880) at 16:9; the other Aspect Ratios change the width
+- **Internal render resolution**: 100% Native, 75% Performance or 50% Low-end. The GPU draws the game at that share of the Render resolution and scales it up, which lowers the GPU work at some cost in sharpness
 - **Anti-aliasing**: Off, FXAA or FXAA Extreme
 - **Multisampling**: 2x MSAA (default), or 4x MSAA (Compatibility) if 2x shows graphics problems on your GPU or driver
 - **Texture filtering**: Game, Off, 2x, 4x, 8x or 16x
