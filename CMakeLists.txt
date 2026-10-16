@@ -1,7 +1,8 @@
 # SDK boilerplate lives in generated/rexglue.cmake.
 
 cmake_minimum_required(VERSION 3.25)
-project(geometry_wars_retro_evolved_2 VERSION 0.3.1 LANGUAGES C CXX)
+project(geometry_wars_retro_evolved_2 VERSION 0.3.2 LANGUAGES C CXX)
+set(GW2_VERSION_SUFFIX "-rc1")
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -149,7 +150,7 @@ if(TARGET geometry_wars_retro_evolved_2_recomp)
 endif()
 
 target_compile_definitions(geometry_wars_retro_evolved_2 PRIVATE
-    GW2_PORT_VERSION="${PROJECT_VERSION}"
+    GW2_PORT_VERSION="${PROJECT_VERSION}${GW2_VERSION_SUFFIX}"
     GW2_TRG_LAUNCHER_VERSION="${GW2_TRG_VERSION}")
 
 # The runtime reads its cvars from <exe dir>/geometry_wars_retro_evolved_2.toml.

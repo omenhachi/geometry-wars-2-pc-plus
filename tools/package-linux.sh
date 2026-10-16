@@ -57,6 +57,7 @@ download() {  # url file sha256
 
 VERSION="$(sed -nE 's/^[[:space:]]*project\([[:space:]]*geometry_wars_retro_evolved_2[[:space:]]+VERSION[[:space:]]+([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' "$ROOT/CMakeLists.txt")"
 [ -n "$VERSION" ] || fail "project VERSION not found in CMakeLists.txt"
+VERSION="$VERSION$(sed -nE 's/^[[:space:]]*set\(GW2_VERSION_SUFFIX[[:space:]]+"([^"]*)"\).*/\1/p' "$ROOT/CMakeLists.txt")"
 APP_ID="$(sed -nE 's/^[[:space:]]*constexpr char kApplicationId\[\] = "([^"]+)";.*/\1/p' "$ROOT/src/launcher_platform_linux.cpp")"
 [[ "$APP_ID" =~ ^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)+$ ]] ||
   fail "src/launcher_platform_linux.cpp must declare kApplicationId exactly once, as a dotted name on one line (found: '$APP_ID')"
