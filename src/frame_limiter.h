@@ -48,7 +48,7 @@ inline float GameFrameDelta(double interval_seconds) {
   return float(std::clamp(interval_seconds, kGameDeltaMin, kGameDeltaMax));
 }
 
-// Only 60 keeps the game's own time step, as whole steps of it (GameStepCounter).
+// Only 60 keeps the game's own time step while frames are on time (GameDeltaClock).
 inline bool KeepsOriginalGameDelta(int fps) {
   return fps == kFrameRateDefault;
 }
@@ -56,20 +56,29 @@ inline bool KeepsOriginalGameDelta(int fps) {
 // Three steps of 1/60 are the 50 ms limit of GameFrameDelta.
 inline constexpr int kMaxGameSteps = 3;
 
-// How many of its own time steps the game advances for a frame that took `interval_steps` of them: one for a frame on
-// time, more for a frame that missed vblanks. The rounding remainder carries over, so the steps follow real time; time
-// past the cap is dropped.
-class GameStepCounter {
+// The time step for a frame that took `interval` seconds, given the game's own `step`: a whole number of steps when the
+// frame is close to one (the game's own speed), otherwise the real interval. The difference carries over, so the steps
+// add up to real time; a frame past the cap loses the excess, and a frame shorter than 1 ms is padded up to it.
+class GameDeltaClock {
  public:
-  int Take(double interval_steps) {
-    owed_ += interval_steps;
-    const int steps = int(std::clamp(std::floor(owed_ + 0.5), 1.0, double(kMaxGameSteps)));
-    owed_ -= steps;
-    owed_ = owed_ > 0.5 ? 0.0 : std::max(owed_, -0.5);
-    return steps;
+  // Also the most, in steps, that the game's time can lead or lag real time (frames of 1 ms or more, no time dropped).
+  static constexpr double kSnapTolerance = 0.2;
+
+  double Take(double interval, double step) {
+    const double target = interval + owed_;
+    const double steps = target / step;
+    const double nearest = std::clamp(std::round(steps), 1.0, double(kMaxGameSteps));
+    const double cap = kMaxGameSteps * step;
+    double delta = std::fabs(steps - nearest) <= kSnapTolerance ? nearest * step : target;
+    delta = std::clamp(delta, kGameDeltaMin, cap);
+    owed_ = target > cap ? 0.0 : std::clamp(target - delta, -0.5 * step, 0.5 * step);
+    return delta;
   }
 
   void Reset() { owed_ = 0.0; }
+
+  // Real time not yet in the steps given so far; negative when they are ahead of it.
+  double owed() const { return owed_; }
 
  private:
   double owed_ = 0.0;
@@ -120,8 +129,8 @@ int ConfiguredFrameRate();
 // Called by the swap hook before the game's swap: waits for the next frame time.
 void PaceGuestFrame();
 
-// Sets the game's per-update time step for the next update: whole steps of its own at 60, the real frame interval at
-// the other rates.
+// Sets the game's per-update time step for the next update: its own step while frames are on time at 60, otherwise the
+// real frame interval.
 void SyncGameDelta(uint8_t* base, LimiterClock::time_point now);
 
 }  // namespace gw2

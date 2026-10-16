@@ -1,6 +1,7 @@
 // Frame limiter tests: the period of each rate, the schedule with a synthetic clock, resynchronisation, the
-// high-frame-rate rules, the game steps at 60, and that the wait reaches its deadline.
+// high-frame-rate rules, the game time step at 60, and that the wait reaches its deadline.
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -107,44 +108,256 @@ void TestGameDelta() {
   CHECK(std::fabs(game - 1.0) < 0.0001);
 }
 
-// Whether each of `frames` frames of `interval` steps, `jitter` late and early in turn, gets `expected` steps.
-bool EveryFrameGets(GameStepCounter& counter, int expected, int frames, double interval, double jitter) {
-  bool all = true;
-  for (int i = 0; i < frames; ++i) {
-    all &= counter.Take(interval + (i % 2 ? -jitter : jitter)) == expected;
+constexpr double kStep = 1.0 / 60.0;
+// How far the game's time may be from real time while no time is dropped.
+constexpr double kLead = GameDeltaClock::kSnapTolerance * kStep;
+constexpr double kEps = 1e-9;
+
+struct Run {
+  double real = 0.0;
+  double sim = 0.0;
+  double drift = 0.0;
+  double deviation = 0.0;
+  double smallest = 1e9;
+  double largest = 0.0;
+};
+
+template <class Next>
+void Feed(GameDeltaClock& clock, Run& run, double seconds, Next next) {
+  const double end = run.real + seconds;
+  while (run.real < end) {
+    const double interval = next();
+    const double delta = clock.Take(interval, kStep);
+    run.real += interval;
+    run.sim += delta;
+    run.drift = std::max(run.drift, std::fabs(run.sim - run.real));
+    run.deviation = std::max(run.deviation, std::fabs(delta - interval));
+    run.smallest = std::min(run.smallest, delta);
+    run.largest = std::max(run.largest, delta);
   }
-  return all;
 }
 
-void TestGameSteps() {
-  Section("game steps at 60");
-  GameStepCounter counter;
-  CHECK(EveryFrameGets(counter, 1, 600, 1.0, 0.4));
-  CHECK(EveryFrameGets(counter, 2, 600, 2.0, 0.4));
-  CHECK(EveryFrameGets(counter, 3, 60, 3.0, 0.4));
-  CHECK(EveryFrameGets(counter, 1, 60, 1.0, 0.4));
-  CHECK(counter.Take(4.0) == kMaxGameSteps);
-  CHECK(counter.Take(30.0) == kMaxGameSteps);
-  CHECK(EveryFrameGets(counter, 1, 60, 1.0, 0.4));
+template <class Next>
+Run Simulate(GameDeltaClock& clock, double seconds, Next next) {
+  Run run;
+  Feed(clock, run, seconds, next);
+  return run;
+}
 
-  Section("game steps follow real time");
-  GameStepCounter uneven;
-  int steps = 0;
-  for (int i = 0; i < 600; ++i) {
-    steps += uneven.Take(1.2);
+bool KeepsTime(const Run& run) {
+  return run.drift <= kLead + kEps;
+}
+
+bool EveryDeltaIs(const Run& run, double delta) {
+  return run.smallest == delta && run.largest == delta;
+}
+
+// Frame intervals of a clock that ticks every `period`, each tick up to `jitter` early or late.
+class AnchoredTicks {
+ public:
+  AnchoredTicks(double period, double jitter) : period_(period), jitter_(jitter) {}
+
+  double operator()() {
+    state_ = state_ * 1664525u + 1013904223u;
+    const double offset = (double(state_ >> 8) / double(1u << 24) * 2.0 - 1.0) * jitter_;
+    const double interval = period_ + offset - previous_offset_;
+    previous_offset_ = offset;
+    return interval;
   }
-  CHECK(steps == 720);
-  GameStepCounter fast;
-  CHECK(fast.Take(0.1) == 1);
-  CHECK(fast.Take(0.1) == 1);
-  CHECK(fast.Take(1.0) == 1);
-  CHECK(fast.Take(2.0) == 2);
 
-  Section("game steps reset");
-  GameStepCounter reset;
-  CHECK(reset.Take(1.4) == 1);
+ private:
+  double period_;
+  double jitter_;
+  double previous_offset_ = 0.0;
+  uint32_t state_ = 12345;
+};
+
+class Cycle {
+ public:
+  explicit Cycle(std::vector<double> intervals) : intervals_(std::move(intervals)) {}
+
+  double operator()() { return intervals_[next_++ % intervals_.size()]; }
+
+ private:
+  std::vector<double> intervals_;
+  std::size_t next_ = 0;
+};
+
+void TestGameDeltaSteady() {
+  Section("game delta at steady rates");
+  for (const double fps : {60.0, 50.0, 45.0, 40.0, 35.0, 30.0, 20.0}) {
+    GameDeltaClock clock;
+    const Run run = Simulate(clock, 10.0, [&] { return 1.0 / fps; });
+    CHECK(KeepsTime(run));
+    CHECK(run.deviation <= 2 * kLead + kEps);
+  }
+  GameDeltaClock sixty;
+  CHECK(EveryDeltaIs(Simulate(sixty, 10.0, [] { return kStep; }), kStep));
+  GameDeltaClock thirty;
+  CHECK(EveryDeltaIs(Simulate(thirty, 10.0, [] { return 2 * kStep; }), 2 * kStep));
+  GameDeltaClock twenty;
+  CHECK(EveryDeltaIs(Simulate(twenty, 10.0, [] { return 3 * kStep; }), 3 * kStep));
+  for (const double fps : {45.0, 40.0, 35.0}) {
+    GameDeltaClock clock;
+    const Run run = Simulate(clock, 10.0, [&] { return 1.0 / fps; });
+    CHECK(run.deviation < kEps);
+    CHECK(Near(run.smallest * 1000, 1000.0 / fps));
+  }
+}
+
+void TestGameDeltaJitter() {
+  Section("game delta with jitter");
+  for (const double period : {kStep, 2 * kStep}) {
+    GameDeltaClock clock;
+    AnchoredTicks ticks(period, 0.5 * kLead);
+    CHECK(EveryDeltaIs(Simulate(clock, 10.0, ticks), period));
+  }
+  for (const double period : {kStep, 2 * kStep}) {
+    GameDeltaClock clock;
+    AnchoredTicks ticks(period, 0.004);
+    const Run run = Simulate(clock, 20.0, ticks);
+    CHECK(KeepsTime(run));
+    CHECK(run.smallest < period);
+  }
+  GameDeltaClock slipping;
+  const Run slip = Simulate(slipping, 10.0, [] { return kStep * 1.003; });
+  CHECK(KeepsTime(slip));
+  CHECK(slip.smallest == kStep);
+}
+
+void TestGameDeltaTransitions() {
+  Section("game delta across rate changes");
+  GameDeltaClock clock;
+  Run run;
+  for (const double fps : {30.0, 40.0, 45.0, 35.0, 30.0}) {
+    Feed(clock, run, 4.0, [&] { return 1.0 / fps; });
+    CHECK(std::fabs(run.sim - run.real) <= kLead + kEps);
+  }
+  CHECK(KeepsTime(run));
+
+  GameDeltaClock sudden;
+  Run steps;
+  Feed(sudden, steps, 2.0, [] { return kStep; });
+  Feed(sudden, steps, 2.0, [] { return 2 * kStep; });
+  Feed(sudden, steps, 2.0, [] { return kStep; });
+  CHECK(KeepsTime(steps));
+  CHECK(steps.smallest == kStep);
+  CHECK(steps.largest == 2 * kStep);
+}
+
+void TestGameDeltaBursts() {
+  Section("game delta with bursts");
+  GameDeltaClock after_stall;
+  CHECK(Near(after_stall.Take(0.044, kStep) * 1000, 44.0));
+  CHECK(Near(after_stall.Take(0.002, kStep) * 1000, 2.0));
+  CHECK(Near(after_stall.Take(0.002, kStep) * 1000, 2.0));
+
+  const std::vector<std::vector<double>> patterns = {
+      {0.044, 0.002, 0.002}, {0.008, 0.036}, {1.0 / 30, 0.002, 0.002, kStep}, {0.032, 0.003, 0.003, 0.003, 0.032}};
+  for (const auto& pattern : patterns) {
+    GameDeltaClock clock;
+    CHECK(KeepsTime(Simulate(clock, 10.0, Cycle(pattern))));
+  }
+
+  Section("game delta after a stall");
+  GameDeltaClock stalled;
+  CHECK(Near(stalled.Take(0.120, kStep) * 1000, 50.0));
+  CHECK(stalled.owed() == 0.0);
+  Run burst;
+  Feed(stalled, burst, 0.010, [] { return 0.002; });
+  CHECK(burst.deviation < kEps);
+  CHECK(Near(stalled.Take(kStep, kStep) * 1000, 16.667));
+
+  Section("game delta below the minimum step");
+  GameDeltaClock tiny;
+  double sim = 0.0;
+  for (int i = 0; i < 1000; ++i) {
+    sim += tiny.Take(0.0001, kStep);
+  }
+  CHECK(sim <= 1000 * kGameDeltaMin + kEps);
+  CHECK(tiny.owed() >= -0.5 * kStep);
+  GameDeltaClock invalid;
+  CHECK(invalid.Take(0.0, kStep) == kGameDeltaMin);
+  CHECK(invalid.Take(-1.0, kStep) == kGameDeltaMin);
+  CHECK(std::fabs(invalid.owed()) <= 0.5 * kStep);
+}
+
+void TestGameDeltaCap() {
+  Section("game delta cap");
+  GameDeltaClock near_cap;
+  CHECK(Near(near_cap.Take(0.049, kStep) * 1000, 50.0));
+  CHECK(Near(near_cap.owed() * 1000, -1.0));
+  GameDeltaClock over_cap;
+  CHECK(Near(over_cap.Take(0.0501, kStep) * 1000, 50.0));
+  CHECK(over_cap.owed() == 0.0);
+  GameDeltaClock long_stall;
+  CHECK(Near(long_stall.Take(30.0, kStep) * 1000, 50.0));
+  CHECK(long_stall.owed() == 0.0);
+  CHECK(long_stall.Take(kStep, kStep) == kStep);
+
+  GameDeltaClock periodic;
+  int frame = 0;
+  int stalls = 0;
+  const Run run = Simulate(periodic, 10.0, [&] {
+    const bool stall = frame++ % 20 == 19;
+    stalls += stall;
+    return stall ? 0.07 : kStep;
+  });
+  CHECK(run.largest <= 3 * kStep + kEps);
+  CHECK(std::fabs((run.real - run.sim) - stalls * 0.02) <= kLead + kEps);
+}
+
+void TestGameDeltaSnapBoundaries() {
+  Section("game delta snap boundaries");
+  struct Case {
+    double steps;
+    int snapped;
+  };
+  const Case cases[] = {{0.81, 1}, {0.79, 0}, {1.19, 1}, {1.21, 0}, {1.81, 2}, {1.79, 0},
+                        {2.19, 2}, {2.21, 0}, {2.81, 3}, {2.79, 0}, {3.00, 3}};
+  for (const Case& c : cases) {
+    GameDeltaClock clock;
+    const double delta = clock.Take(c.steps * kStep, kStep);
+    if (c.snapped) {
+      CHECK(delta == c.snapped * kStep);
+      CHECK(Near(clock.owed() / kStep, c.steps - c.snapped));
+    } else {
+      CHECK(Near(delta, c.steps * kStep));
+      CHECK(clock.owed() == 0.0);
+    }
+  }
+
+  Section("game delta conserves time at every interval");
+  bool conserved = true;
+  for (const double lead : {-0.19, 0.0, 0.19}) {
+    GameDeltaClock prepared;
+    prepared.Take((1.0 + lead) * kStep, kStep);
+    for (double steps = 0.5; steps < 3.3; steps += 0.01) {
+      GameDeltaClock clock = prepared;
+      const double target = steps * kStep + clock.owed();
+      const double delta = clock.Take(steps * kStep, kStep);
+      conserved &= delta >= kGameDeltaMin && delta <= 3 * kStep + kEps;
+      if (target <= 3 * kStep) {
+        conserved &= std::fabs(delta + clock.owed() - target) < kEps;
+        conserved &= std::fabs(clock.owed()) <= kLead + kEps;
+      } else {
+        conserved &= clock.owed() == 0.0;
+      }
+    }
+  }
+  CHECK(conserved);
+
+  Section("game delta carry");
+  GameDeltaClock carried;
+  CHECK(carried.Take(1.15 * kStep, kStep) == kStep);
+  CHECK(Near(carried.owed() / kStep, 0.15));
+  CHECK(carried.Take(1.15 * kStep, kStep) > 1.25 * kStep);
+  CHECK(carried.owed() == 0.0);
+  GameDeltaClock reset;
+  reset.Take(1.15 * kStep, kStep);
   reset.Reset();
-  CHECK(reset.Take(1.2) == 1);
+  CHECK(reset.owed() == 0.0);
+  CHECK(reset.Take(1.15 * kStep, kStep) == kStep);
 }
 
 void TestSchedule() {
@@ -212,7 +425,12 @@ int main() {
   TestChoices();
   TestPacingPolicy();
   TestGameDelta();
-  TestGameSteps();
+  TestGameDeltaSteady();
+  TestGameDeltaJitter();
+  TestGameDeltaTransitions();
+  TestGameDeltaBursts();
+  TestGameDeltaCap();
+  TestGameDeltaSnapBoundaries();
   TestSchedule();
   TestResync();
   TestTransitions();
