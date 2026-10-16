@@ -70,7 +70,7 @@ current change (see [19](19-cross-project-porting-guide.md#validation-policy)); 
 - [ ] RenderDoc `0003`, `$ORIGIN` RUNPATH check, glibc floor
 - [ ] AppRun with libstdc++ policy, desktop file named after the app id
 - [ ] Picker policy: `zenity`/`kdialog`, and think about a fallback
-- [ ] Gate: run on a clean Ubuntu 22.04 container/VM and on a real machine with Vulkan
+- [ ] Gate: run on a clean Ubuntu 20.04 container/VM and on a real machine with Vulkan
 
 ## PHASE 10 - Packaging
 - [ ] Port both packagers with release-folder / AppDir scans ([14](14-packaging-release.md))

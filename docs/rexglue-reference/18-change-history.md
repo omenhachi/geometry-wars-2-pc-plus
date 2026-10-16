@@ -30,7 +30,13 @@ omitted. Dates are commit dates (2026). Merge commits: `1291e6b` (launcher windo
 | | `273dc0c` | improve frame pacing and native performance paths | game hooks, CMake | Fence wait hook, CRT native copy, repeated-present exclusion, ThinLTO, presenter pacing test | [07](07-display-window-frame-pacing.md), [12](12-performance.md) |
 | | `d2ebd7e` | harden shutdown and title thread teardown | app, tests | Input `Shutdown()` before window destruction; shutdown tests. (Its diff also adds the `ApplyMultisampling` call in `OnFinalizePaths` that `588e1fd` relies on) | [13](13-crash-hardening-threading-memory.md) |
 | | `588e1fd` | correct multisampling options and migration | launcher settings | `gw2_msaa_compatibility`, `ApplyMultisampling`, migration of the old "Off" value | [06](06-graphics-vulkan.md), [10](10-user-data-settings-migration.md) |
-| | `0dde10c` | prepare v0.3.0 release | release | Reference HEAD | [14](14-packaging-release.md) |
+| | `0dde10c` | prepare v0.3.0 release | release | v0.3.0 | [14](14-packaging-release.md) |
+| Linux compatibility (10-15) | `e0f0eef` | improve AppImage compatibility with older glibc systems | packaging | Ubuntu 20.04 build baseline, glibc 2.31 gate (`check-glibc-baseline.sh`), `setup-linux-build-env.sh` | [05](05-platform-linux.md), [14](14-packaging-release.md) |
+| | `db1eb48` | rename Linux AppImage artifact | packaging | `GeometryWarsRetroEvolved2Recompiled-v<version>-x86_64.AppImage`, `--out-dir` | [14](14-packaging-release.md) |
+| | `f4f8480` | show an error window when graphics initialization fails | launcher | Superseded by `24d05f2` | [05](05-platform-linux.md) |
+| | `24612e3` | normalize AppImage application naming | packaging | Visible desktop name "Geometry Wars: Retro Evolved 2 Recompiled"; identifiers unchanged | [05](05-platform-linux.md) |
+| | `cccdc91` | keep game speed at 60 FPS setting when frames miss vblanks | frame limiter | `GameStepCounter`: whole 1/60 steps, at most 3, for late frames at 60 | [07](07-display-window-frame-pacing.md) |
+| | `24d05f2` | open a launcher window on Linux when Vulkan is unavailable | launcher | SDL software fallback launcher, no zenity or GTK; Reference HEAD | [05](05-platform-linux.md) |
 
 ## Superseded approaches worth remembering
 - Windows-only `frame_limiter.cpp` wait (`ab4631e`) -> portable `frame_wait.cpp` (`9e6f05b`).

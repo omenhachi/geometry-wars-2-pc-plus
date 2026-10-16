@@ -32,7 +32,7 @@ Name `GeometryWarsRetroEvolved2Recompiled-v<VERSION>-x86_64.AppImage` + `.sha256
 submodule and generated sources (`tools/codegen.ps1` outputs `generated/default`) and your own `default.xex`.
 
 Pipeline (`tools/package-linux.sh`, optional `--clean`):
-1. Tools check: `clang-20 clang++-20 ld.lld-20 cmake ninja rsync sha256sum strip readelf objdump ldd`, `wget|curl`, `unzip|python3`; warns when the host glibc is newer than 2.35.
+1. Tools check: `clang-20 clang++-20 ld.lld-20 cmake ninja rsync sha256sum strip readelf objdump ldd`, `wget|curl`, `unzip|python3`; requires an Ubuntu 20.04 host (glibc 2.31) and runs `tools/check-glibc-baseline.sh` on the AppDir and the extracted AppImage.
 2. Inputs: `generated/default/sources.cmake`, the TRG submodule, `game/extracted/default.xex` hash.
 3. Sources are rsynced into `$GW2_WORK` (default `~/gw2-linux-build`, on the Linux filesystem for speed and case sensitivity); only needed folders are copied; the XEX goes only into the temp work folder as codegen input, never the AppDir.
 4. Pinned downloads with SHA-256 checks (`download()` re-downloads on mismatch): ReXGlue SDK zip, appimagetool 1.9.1, AppImage type2 runtime 20251108.
@@ -45,7 +45,7 @@ Pipeline (`tools/package-linux.sh`, optional `--clean`):
 - Forbidden names and types as on Windows plus: `*.json`, anything containing `renderdoc` or `vklayer`, symbolic links, Windows binaries (`MZ`), Xbox package magic, local paths (`$ROOT`, `$WORK`, `$HOME` and developer-folder regexes) inside any file.
 - Exact file list (`EXPECTED`) compared with `find`: an unexpected file fails the build.
 - Desktop file `StartupWMClass` must equal the application id; the id string must be inside the binary (so `SetApplicationId` and the desktop file cannot drift apart).
-- No dynamic section mentions RenderDoc; program RPATH is `$ORIGIN`; `ldd` shows no unresolved libraries; the highest `GLIBC_*` of each shipped binary is printed.
+- No dynamic section mentions RenderDoc; program RPATH is `$ORIGIN`; `ldd` shows no unresolved libraries; no ELF file needs a `GLIBC_*` symbol above 2.31 and no glibc runtime library is present (`tools/check-glibc-baseline.sh`).
 
 ## Icons and metadata
 `packaging/icons/app-icon.svg` is the master; `tools/make-app-icon.py` renders PNGs and ICO with Edge/Chrome (committed, so builds need no converter) and refuses to run if the SVG does not use the launcher accent `kAccent` (`#943CFF`) - tying UI color and icon together. Windows: `.rc` ICON; Linux: hicolor theme + desktop file. `.recomp.json` is the recomp.fyi catalogue entry (status, targets, tags); `README` badges and `.github/release-notes-vX.Y.Z.md` (one per version, with checksum table filled after packaging, e.g. commit `b37702e` for v0.2.2). Licenses: `packaging/licenses/` (project GPL-2.0, ReXGlue license, third-party lists for Windows and Linux).
@@ -54,7 +54,7 @@ Pipeline (`tools/package-linux.sh`, optional `--clean`):
 Game files, packages, saves, logs, shader caches, symbols, Vulkan layers, RenderDoc, `zenity`/`kdialog`/`xdg-open`, any Windows binary in the AppImage.
 
 ## Dependencies to document for users
-Windows: VC++ 2015-2022 x64 redistributable, DirectX 12 GPU, Windows 10/11. Linux: x86_64, glibc 2.35+, Vulkan driver, X11 or Wayland, `zenity` or `kdialog` for the picker, `xdg-open` for the About buttons.
+Windows: VC++ 2015-2022 x64 redistributable, DirectX 12 GPU, Windows 10/11. Linux: x86_64, glibc 2.31+, Vulkan driver, X11 or Wayland, `zenity` or `kdialog` for the picker, `xdg-open` for the About buttons.
 
 ## Validation commands
 ```
@@ -68,4 +68,4 @@ readelf -d usr/bin/<exe> | grep -E 'R(UN)?PATH|NEEDED'; ldd usr/bin/<exe>
 
 ## Porting notes
 Copy both packagers and rename identifiers; keep the forbidden-name lists; set the new `kApplicationId`; keep the
-Release flow on Ubuntu 22.04 for glibc 2.35. Unverified on real systems at writing: the AppImage on a real Steam Deck.
+Release flow on Ubuntu 20.04 for glibc 2.31. Unverified on real systems at writing: the AppImage on a real Steam Deck.

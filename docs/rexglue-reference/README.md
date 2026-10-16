@@ -10,9 +10,9 @@ and `.github/release-notes-*.md`.
 | Generated from | Geometry Wars: Retro Evolved 2 Recompiled (title `584108FF`), `saulob/geometry-wars-retro-evolved-2-recompiled` |
 | ReXGlue version | v0.10.0, tag `v0.10.0`, commit `f5337cdc947ff6d4c4196737e2c807a48f2a1fc2` (pinned in `patches/rexglue-sdk/baseline.env`) |
 | Branch when written | `docs/rexglue-reference` (created at the commit below, no code changes) |
-| Reference HEAD | `0dde10c` chore: prepare v0.3.0 release (project VERSION 0.3.0) |
+| Reference HEAD | `24d05f2` Open a launcher window on Linux when Vulkan is unavailable (project VERSION 0.3.0; v0.3.1 is prepared on top) |
 | Last updated | 2026-10-15 |
-| History covered | all 38 commits, `38a1d61` (2026-10-10) to `0dde10c` (2026-10-15) |
+| History covered | all 45 commits, `38a1d61` (2026-10-10) to `24d05f2` (2026-10-15) |
 
 Branches that exist locally but are not in the HEAD above (for example `feature/controller-rumble`, which holds one
 commit of temporary rumble diagnostics, `3e9d942`) are not documented as implemented features.

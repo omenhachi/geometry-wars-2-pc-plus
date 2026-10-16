@@ -41,8 +41,8 @@ one AppImage that doubles as the Steam Deck build (intended, not confirmed on ha
 
 ## C++ runtime and glibc strategy
 - ReXGlue needs `GLIBCXX_3.4.32` (GCC 13). `packaging/linux/AppRun` looks up the system `libstdc++.so.6` (`ldconfig -p`, then standard paths) and only if it lacks `GLIBCXX_3.4.32` prepends `$HERE/usr/lib` to `LD_LIBRARY_PATH`. Rationale in the script: a newer system copy must win because graphics drivers may need it.
-- Release builds run on Ubuntu 22.04 (glibc 2.35) so the AppImage's glibc floor is 2.35; `package-linux.sh` warns when the host glibc is newer. The packager prints the highest `GLIBC_*` symbol each shipped binary needs.
-- Toolchain on 22.04: clang-20/lld-20 from apt.llvm.org, GCC 13 runtime from `ubuntu-toolchain-r/test`, CMake 3.25+ from Kitware.
+- Release builds run on Ubuntu 20.04 (glibc 2.31) so the AppImage's glibc floor is 2.31; `package-linux.sh` refuses other hosts and `tools/check-glibc-baseline.sh` fails on any ELF file needing a newer `GLIBC_*` symbol or carrying a glibc runtime library.
+- Toolchain on 20.04 (`tools/setup-linux-build-env.sh`): clang-20/lld-20 from apt.llvm.org, GCC 13 runtime from `ubuntu-toolchain-r/test`, CMake 3.31.8 from Kitware, libdecor and PipeWire headers built from pinned commits.
 
 ## Vulkan loader and driver behavior
 - Device selection: patch `0026` prefers a discrete GPU among equally capable devices unless `DRI_PRIME`, `MESA_VK_DEVICE_SELECT`, `VK_LOADER_DEVICE_SELECT` or `__NV_PRIME_RENDER_OFFLOAD` already chose; `vulkan_device` cvar still picks by index.
@@ -67,7 +67,7 @@ See [14](14-packaging-release.md). Desktop file `packaging/linux/io.github.saulo
 Documented flow: add the AppImage as a non-Steam game; launcher accepts D-pad, left stick, A/B and Start (Start presses Play per `docs/linux.md`). `UNCERTAIN`: never run on a Deck at the time of writing.
 
 ## Known limits (`CONFIRMED` from docs)
-Issue #1 reported slow motion while the counter showed 60 on a Steam Machine; v0.3.0 improves pacing but the fix is unconfirmed by the reporter. The same report's too-dark image was fixed by `0002` and confirmed.
+Issue #1 reported slow motion while the counter showed 60 on a Steam Machine; v0.3.1 keeps the game speed at the 60 FPS setting when frames miss vblanks (`GameStepCounter`), but the ~30 FPS rendering itself is unresolved and the fix is unconfirmed by the reporter. The same report's too-dark image was fixed by `0002` and confirmed.
 
 ## Verify
 `tools/package-linux.sh` (its checks), `tools/build-patched-rexruntime.sh --loader-test|--pacing-test|--stress`, `ldd` for unresolved libraries, `readelf -d` for RPATH/RUNPATH.

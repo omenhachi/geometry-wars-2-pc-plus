@@ -5,7 +5,7 @@ Source paths are in [20](20-source-map.md). Class tags as in the [README](README
 
 ## Prerequisites assumed
 Same pinned ReXGlue (v0.10.0, commit `f5337cdc`) or you re-validate every patch with `git apply --check`. Windows
-(clang-cl via Visual Studio) and Linux (clang-20, Ubuntu 22.04) toolchains as in [02](02-build-system.md).
+(clang-cl via Visual Studio) and Linux (clang-20, Ubuntu 20.04) toolchains as in [02](02-build-system.md).
 
 ## MUST HAVE
 
