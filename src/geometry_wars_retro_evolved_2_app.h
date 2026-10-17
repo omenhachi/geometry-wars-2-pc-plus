@@ -19,6 +19,7 @@
 #include "cheat_menu.h"
 #include "frame_counter.h"
 #include "game_files.h"
+#include "graphics_fallback.h"
 #include "launcher.h"
 #include "launcher_cvars.h"
 #include "launcher_platform.h"
@@ -61,6 +62,16 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
         }
       }
     }
+  }
+
+  bool SetupPresentation() override {
+    if (rex::ReXApp::SetupPresentation()) {
+      return true;
+    }
+    REXLOG_WARN("Graphics unavailable; opening the launcher without graphics");
+    gw2::RunLauncherWithoutGraphics(
+        gw2::DescribeGameFilesWithoutGraphics(game_data_root(), gw2::CheckGameFiles(game_data_root()).state));
+    return false;
   }
 
   void OnPostInitLogging() override {
@@ -224,6 +235,7 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
 
   // The cheat menu exists only once the game starts, so F10 does nothing over the launcher or the installer.
   void StartGame() {
+    gw2::LogGameSettings();
     InstallCheatMenu();
     ReXApp::LaunchModule();
   }

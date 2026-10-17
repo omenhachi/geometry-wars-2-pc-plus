@@ -81,7 +81,9 @@ The frame rate counts every `VdSwap` call the game makes. The hook on the `__imp
 
 Frame rate is the game's frame-rate limit and applies on PLAY without a restart. The guest vblank always stays at the SDK's 60 Hz.
 
-- **60** is the original game: no limiter and the game's own time step.
+- **60** is the original game: no limiter and the game's own time step. A frame that misses vblanks, because the
+  computer cannot keep up, advances the game by as many of those steps as the real time it took (up to three, 50 ms),
+  so the picture is less smooth but the game keeps its speed. Frames on time get exactly the original step.
 - **30** adds a limiter (`steady_clock`, a high-resolution timer, then a short spin).
 - **90 and above** also make the game's present callback swap at once instead of at the next vblank. Unlimited does not wait.
 - Every rate other than 60 gives the game's update the real frame interval as its time step. The game reads one time step, a float set once at startup to 1 / refresh rate (1/60); it is replaced each frame with the measured interval (limited to 1 ms to 50 ms), so game speed follows the wall clock.
@@ -124,6 +126,8 @@ Rows: Game files (Open game folder, when it exists), Saves and settings (Open da
 ## Launcher window
 
 The launcher is drawn in the game's own window and remembers where that window is: the restored rectangle in screen pixels and whether it is maximized (`gw2_launcher_x`, `gw2_launcher_y`, `gw2_launcher_width`, `gw2_launcher_height`, `gw2_launcher_maximized` in the same player file). It is saved about half a second after a move, resize or maximize, and when the launcher closes, with no need to press Save. Maximizing keeps the restored rectangle, minimizing saves nothing, and Reset all settings leaves it alone. A saved window that is not visible on any display (monitor removed, resolution changed) is ignored and the normal placement is used. These keys are separate from the game's `window_width` and `window_height`, and the game starts in the window size it was created with, not the launcher's placement. Nothing is saved while the window is fullscreen.
+
+On Linux, when Vulkan cannot start, the ImGui launcher cannot be drawn. A small CPU-drawn window stands in for it: the game files status, the game folder, the graphics status, **PLAY** (which explains that a Vulkan-compatible driver is required) and **QUIT**. See [linux.md](linux.md).
 
 Windows hooks the window's first show to place it before anything is visible. Linux has no such hook: it places the window through SDL once the launcher exists, and under Wayland it cannot restore the position. See [linux.md](linux.md).
 

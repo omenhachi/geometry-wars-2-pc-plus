@@ -150,6 +150,8 @@ void ApplyWindowIcon() {}
 
 void SetApplicationId() {}
 
+void RunLauncherWithoutGraphics(const GraphicsFallbackInfo&) {}
+
 namespace {
 
 PreShowPlan g_plan;

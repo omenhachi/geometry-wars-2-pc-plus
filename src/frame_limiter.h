@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <optional>
 
@@ -47,10 +48,32 @@ inline float GameFrameDelta(double interval_seconds) {
   return float(std::clamp(interval_seconds, kGameDeltaMin, kGameDeltaMax));
 }
 
-// Only 60 keeps the game's own time step.
+// Only 60 keeps the game's own time step, as whole steps of it (GameStepCounter).
 inline bool KeepsOriginalGameDelta(int fps) {
   return fps == kFrameRateDefault;
 }
+
+// Three steps of 1/60 are the 50 ms limit of GameFrameDelta.
+inline constexpr int kMaxGameSteps = 3;
+
+// How many of its own time steps the game advances for a frame that took `interval_steps` of them: one for a frame on
+// time, more for a frame that missed vblanks. The rounding remainder carries over, so the steps follow real time; time
+// past the cap is dropped.
+class GameStepCounter {
+ public:
+  int Take(double interval_steps) {
+    owed_ += interval_steps;
+    const int steps = int(std::clamp(std::floor(owed_ + 0.5), 1.0, double(kMaxGameSteps)));
+    owed_ -= steps;
+    owed_ = owed_ > 0.5 ? 0.0 : std::max(owed_, -0.5);
+    return steps;
+  }
+
+  void Reset() { owed_ = 0.0; }
+
+ private:
+  double owed_ = 0.0;
+};
 
 inline LimiterClock::duration FramePeriod(int fps) {
   if (fps <= 0) {
@@ -97,7 +120,8 @@ int ConfiguredFrameRate();
 // Called by the swap hook before the game's swap: waits for the next frame time.
 void PaceGuestFrame();
 
-// Sets the game's per-update time step for the next update. Rates other than 60 get the real frame interval.
+// Sets the game's per-update time step for the next update: whole steps of its own at 60, the real frame interval at
+// the other rates.
 void SyncGameDelta(uint8_t* base, LimiterClock::time_point now);
 
 }  // namespace gw2

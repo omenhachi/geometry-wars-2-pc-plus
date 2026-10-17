@@ -22,6 +22,7 @@ FrameLimiter g_limiter;
 struct GameDeltaState {
   std::optional<uint32_t> original_bits;
   std::optional<LimiterClock::time_point> previous_frame;
+  GameStepCounter steps;
   bool modified = false;
 };
 
@@ -53,12 +54,21 @@ void SyncGameDelta(uint8_t* base, LimiterClock::time_point now) {
   const auto previous = state.previous_frame;
   state.previous_frame = now;
   if (KeepsOriginalGameDelta(fps)) {
-    if (state.modified) {
+    const float original = std::bit_cast<float>(*state.original_bits);
+    int steps = 1;
+    if (previous && original > 0.0f) {
+      steps = state.steps.Take(std::chrono::duration<double>(now - *previous).count() / original);
+    }
+    if (steps > 1) {
+      StoreBE32(base, kGameDeltaAddress, std::bit_cast<uint32_t>(original * float(steps)));
+      state.modified = true;
+    } else if (state.modified) {
       StoreBE32(base, kGameDeltaAddress, *state.original_bits);
       state.modified = false;
     }
     return;
   }
+  state.steps.Reset();
   if (!previous) {
     return;
   }

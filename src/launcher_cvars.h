@@ -50,4 +50,7 @@ void FitWindowToDisplay();
 // restart tracking from nothing.
 void SettleStartupCvars();
 
+// Logs the graphics and frame-rate settings the game starts with.
+void LogGameSettings();
+
 }  // namespace gw2

@@ -8,7 +8,7 @@ plugin's Vulkan backend, and the same TRG launcher. It ships as one AppImage, wh
 
 ## Requirements
 
-- 64-bit x86 Linux (x86_64) with glibc 2.35 or newer, such as Ubuntu 22.04 or later (`ldd --version` shows it)
+- 64-bit x86 Linux (x86_64) with glibc 2.31 or newer, such as Ubuntu 20.04 or later (`ldd --version` shows it)
 - A Vulkan driver (Mesa RADV on a Steam Deck and most AMD and Intel PCs)
 - An X11 or Wayland desktop (the runtime loads `libX11`, `libX11-xcb`, `libxcb` and `libwayland-client`)
 - `zenity` or `kdialog` for the package picker, and `xdg-open` for the About page's folder buttons. They are not
@@ -20,9 +20,9 @@ is older than GCC 13.
 
 ## Installing
 
-1. Download **GeometryWarsRetroEvolved2-v…-linux-x86_64.AppImage** and put it in a folder you can write to.
+1. Download **GeometryWarsRetroEvolved2Recompiled-v…-x86_64.AppImage** and put it in a folder you can write to.
 2. Make it executable: right-click it > **Properties** > **Permissions** > **Is executable**, or
-   `chmod +x GeometryWarsRetroEvolved2-v*-linux-x86_64.AppImage`.
+   `chmod +x GeometryWarsRetroEvolved2Recompiled-v*-x86_64.AppImage`.
 3. Run it. The launcher opens.
 4. On the **Play** page click **Install from package...** and pick your package. The game files are copied into a
    `game` folder next to the AppImage.
@@ -74,13 +74,20 @@ failure rules.
   app_id and the X11 window class). The `.desktop` file in `packaging/linux` has the same name and sets it as
   `StartupWMClass`, and `tools/package-linux.sh` stops if they differ.
 - **Monitor numbering** follows SDL's display order.
+- **Without Vulkan.** The launcher is drawn by the graphics system, so when Vulkan cannot start (no driver, or no GPU)
+  the program opens a small launcher window drawn by SDL on the CPU instead, with no `zenity`, GTK or Vulkan. It shows
+  the game files and the game folder, the graphics status, and **PLAY** and **QUIT**. **PLAY** explains that a
+  Vulkan-compatible driver is required and points at the logs folder, and **QUIT** or closing the window ends the
+  program, which then exits with a nonzero status. Nothing from the game runs in this window. With a working driver
+  the normal launcher opens and this window is never created.
 
 ## Known limits
 
-- On a Steam Machine the game was reported to run in slow motion while the frame counter shows 60
-  ([#1](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled/issues/1)). v0.3.0 improves frame pacing,
-  vblank timing and the GPU and command-thread waits, which may affect this, but it has not been confirmed fixed on the
-  reporter's hardware yet. The same report's very dark image was fixed in v0.2.3 (see
+- On a Steam Machine the game was reported to render around 30 FPS and to run slowly with it
+  ([#1](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled/issues/1)). v0.3.1 keeps the game's speed
+  at the 60 FPS setting when frames miss vblanks (see [launcher.md](launcher.md)), so a slow frame rate no longer slows
+  the game itself. Why that system renders around 30 FPS is still under investigation, and the timing fix has not been
+  confirmed on the reporter's hardware yet. The same report's very dark image was fixed in v0.2.3 (see
   [rexglue-gpu-patch.md](rexglue-gpu-patch.md)), and the reporter confirmed it.
 - Otherwise untested on real hardware: audio, controllers, performance and the frame rates above 60 are unconfirmed on
   Linux. They were validated on Windows only.
@@ -119,20 +126,40 @@ tools/package-linux.sh --clean    # clean Release build first
 ```
 
 It needs `clang-20`, `clang++-20`, `lld-20` (Release and RelWithDebInfo link with ThinLTO), CMake 3.25+, Ninja,
-rsync, wget or curl, unzip or python3, binutils, the GCC 13 or newer C++ runtime and headers, and the X11/Wayland client
-libraries (`libx11-6`, `libx11-xcb1`, `libxcb1`, `libwayland-client0`), which the SDK's `rexglue` code generator loads.
+rsync, wget or curl, unzip or python3, binutils and the GCC 13 or newer C++ runtime and headers.
 
-The AppImage needs the glibc of the machine that built it, so releases are built on Ubuntu 22.04 (glibc 2.35, the
-same baseline as the ReXGlue Linux libraries). The script warns when the build machine's glibc is newer. On
-Ubuntu 22.04, clang 20 comes from [apt.llvm.org](https://apt.llvm.org) and the GCC 13 runtime from the
-`ubuntu-toolchain-r/test` PPA, as `libstdc++-13-dev`. CMake 3.25+ comes from Kitware's release, because 22.04
-ships 3.22.
+The AppImage needs the glibc of the machine that built it, so releases are built on Ubuntu 20.04 (glibc 2.31) and the
+script refuses other hosts (`GW2_ALLOW_UNSUPPORTED_HOST=1` overrides that for experiments; the check below still
+applies). `tools/setup-linux-build-env.sh` prepares a clean Ubuntu 20.04 machine for it, as root: clang 20 from
+[apt.llvm.org](https://apt.llvm.org), the GCC 13 runtime from the `ubuntu-toolchain-r/test` PPA, CMake 3.31.8 and the
+SDK's build dependencies. libdecor 0.2.2 and PipeWire 0.3.48 are not packaged for 20.04, so it builds them from their
+pinned commits into `/usr/local`; SDL loads both at run time and needs only their headers, so the AppImage does not
+carry them. To make the environment in WSL:
+
+```sh
+wsl --import GeometryFocalBuild <folder> ubuntu-base-20.04.5-base-amd64.tar.gz
+wsl -d GeometryFocalBuild -u root -- bash tools/setup-linux-build-env.sh
+wsl -d GeometryFocalBuild -u root -- bash tools/package-linux.sh
+```
+
+The base image is `ubuntu-base-20.04.5-base-amd64.tar.gz` from cdimage.ubuntu.com (SHA-256
+`60e216b60947653dc8989be3821380268315b99b2959c29882781541bfe5a426`); a Docker `ubuntu:20.04` container works the same
+way. The SDK's stock `rexglue` code generator needs glibc 2.35, so `tools/package-linux.sh` builds it from the pinned
+SDK source on this baseline when the stock one cannot run.
+
+`tools/check-glibc-baseline.sh` is the compatibility gate. It finds every ELF file by its magic bytes, wherever it is
+and whatever it is called, and fails if one needs a glibc symbol version above 2.31 (compared numerically) or if a
+glibc runtime library (`libc.so.6`, `ld-linux-x86-64.so.2`, `libm.so.6`, `libpthread.so.0`, ...) is among the files.
+The packager runs it on the AppDir and again on the extracted final AppImage and the AppImage's own runtime. glibc is
+never bundled. The bundled `libstdc++.so.6` and `libgcc_s.so.1` (GCC 13 for 20.04) are used by `AppRun` only when the
+system's C++ runtime is older than GCC 13.
 
 The script copies the sources to `~/gw2-linux-build` (set `GW2_WORK` to change it), downloads the pinned ReXGlue
 SDK and appimagetool with their SHA-256 checks, prepares the patched ReXGlue runtime and GPU plugin
 the same way `tools/build.sh` does, builds the AppImage runtime (below), builds the `linux-amd64-release` preset, checks the libraries again in the build
 folder and the AppDir, checks that the AppDir holds no game files, packages, saves, logs or local paths, and writes
-`dist/GeometryWarsRetroEvolved2-v<version>-linux-x86_64.AppImage` with its `.sha256`. The version is the
+`GeometryWarsRetroEvolved2Recompiled-v<version>-x86_64.AppImage` with its `.sha256` in `dist/` (`--out-dir DIR` writes
+them to DIR instead). The version is the
 `project()` VERSION in `CMakeLists.txt`. The script publishes nothing, and the game's `default.xex` only enters the
 temporary build folder as input for code generation, never the AppImage.
 

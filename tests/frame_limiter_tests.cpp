@@ -1,5 +1,5 @@
-// Frame limiter tests: the period of each rate, the schedule with a synthetic clock, resynchronisation and the
-// high-frame-rate rules, and that the wait reaches its deadline.
+// Frame limiter tests: the period of each rate, the schedule with a synthetic clock, resynchronisation, the
+// high-frame-rate rules, the game steps at 60, and that the wait reaches its deadline.
 
 #include <chrono>
 #include <cmath>
@@ -107,6 +107,46 @@ void TestGameDelta() {
   CHECK(std::fabs(game - 1.0) < 0.0001);
 }
 
+// Whether each of `frames` frames of `interval` steps, `jitter` late and early in turn, gets `expected` steps.
+bool EveryFrameGets(GameStepCounter& counter, int expected, int frames, double interval, double jitter) {
+  bool all = true;
+  for (int i = 0; i < frames; ++i) {
+    all &= counter.Take(interval + (i % 2 ? -jitter : jitter)) == expected;
+  }
+  return all;
+}
+
+void TestGameSteps() {
+  Section("game steps at 60");
+  GameStepCounter counter;
+  CHECK(EveryFrameGets(counter, 1, 600, 1.0, 0.4));
+  CHECK(EveryFrameGets(counter, 2, 600, 2.0, 0.4));
+  CHECK(EveryFrameGets(counter, 3, 60, 3.0, 0.4));
+  CHECK(EveryFrameGets(counter, 1, 60, 1.0, 0.4));
+  CHECK(counter.Take(4.0) == kMaxGameSteps);
+  CHECK(counter.Take(30.0) == kMaxGameSteps);
+  CHECK(EveryFrameGets(counter, 1, 60, 1.0, 0.4));
+
+  Section("game steps follow real time");
+  GameStepCounter uneven;
+  int steps = 0;
+  for (int i = 0; i < 600; ++i) {
+    steps += uneven.Take(1.2);
+  }
+  CHECK(steps == 720);
+  GameStepCounter fast;
+  CHECK(fast.Take(0.1) == 1);
+  CHECK(fast.Take(0.1) == 1);
+  CHECK(fast.Take(1.0) == 1);
+  CHECK(fast.Take(2.0) == 2);
+
+  Section("game steps reset");
+  GameStepCounter reset;
+  CHECK(reset.Take(1.4) == 1);
+  reset.Reset();
+  CHECK(reset.Take(1.2) == 1);
+}
+
 void TestSchedule() {
   Section("limiter schedule");
   FrameLimiter limiter;
@@ -172,6 +212,7 @@ int main() {
   TestChoices();
   TestPacingPolicy();
   TestGameDelta();
+  TestGameSteps();
   TestSchedule();
   TestResync();
   TestTransitions();
