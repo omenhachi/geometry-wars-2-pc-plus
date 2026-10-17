@@ -7,6 +7,9 @@
 #
 # Needs clang-20, clang++-20, lld-20, cmake 3.25+, ninja, rsync, wget or curl, unzip or python3, binutils and the
 # GCC 13+ C++ runtime. Release builds are made on Ubuntu 22.04: the AppImage needs the build machine's glibc.
+# The AppImage runtime (the part that mounts the AppImage before AppRun runs) is built from the pinned AppImage/type2-runtime
+# source with the project's patch (tools/build-appimage-runtime.sh): that needs root or sudo, network access the first time,
+# and is skipped while the pins and patches are unchanged.
 # Needs generated/default (tools/codegen.ps1) and game/extracted/default.xex: the build re-runs codegen
 # when its inputs look changed, and it never packages either of them.
 # The ReXGlue runtime and GPU plugin are built from source with the project's patches
@@ -24,8 +27,6 @@ SDK_SHA256=0388edb3f8fb1444f1b0ad5d440cb02d9690ac20a76b04fd6b7dcc19f59328a6
 XEX_SHA256=6d5d9980a1d17dc74b9ccf540cec16c2e144e7cee3a74938e78c237b8aceeb88
 APPIMAGETOOL_VERSION=1.9.1
 APPIMAGETOOL_SHA256=ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0
-RUNTIME_VERSION=20251108
-RUNTIME_SHA256=2fca8b443c92510f1483a883f60061ad09b46b978b2631c807cd873a47ec260d
 
 CLEAN=0
 for arg in "$@"; do
@@ -136,6 +137,10 @@ done
 grep -q GLIBCXX_3.4.32 "$APPDIR/usr/lib/libstdc++.so.6" || fail "the build machine's libstdc++ is older than GCC 13"
 cp "$WORK/LICENSE" "$WORK/packaging/licenses/ReXGlue-LICENSE.txt" "$WORK/packaging/licenses/THIRD-PARTY-LICENSES.txt" \
   "$WORK/packaging/licenses/THIRD-PARTY-LICENSES-LINUX.txt" "$DOC/"
+for component in type2-runtime libfuse squashfuse Zstandard zlib mimalloc musl libgcc; do
+  grep -qF "AppImage runtime: $component" "$DOC/THIRD-PARTY-LICENSES-LINUX.txt" ||
+    fail "THIRD-PARTY-LICENSES-LINUX.txt has no notice for the AppImage runtime component $component"
+done
 CXX_COPYRIGHT=/usr/share/doc/libstdc++6/copyright
 [ -f "$CXX_COPYRIGHT" ] || fail "missing $CXX_COPYRIGHT (the license of the bundled C++ runtime)"
 cp "$CXX_COPYRIGHT" "$DOC/libstdc++-copyright.txt"
@@ -230,17 +235,17 @@ echo "== AppImage"
 TOOLS="$WORK/tools/appimage"
 mkdir -p "$TOOLS"
 TOOL="$TOOLS/appimagetool-$APPIMAGETOOL_VERSION-x86_64.AppImage"
-RUNTIME="$TOOLS/runtime-$RUNTIME_VERSION-x86_64"
+RUNTIME="$TOOLS/runtime-gw2-x86_64"
 download "https://github.com/AppImage/appimagetool/releases/download/$APPIMAGETOOL_VERSION/appimagetool-x86_64.AppImage" \
   "$TOOL" "$APPIMAGETOOL_SHA256"
-download "https://github.com/AppImage/type2-runtime/releases/download/$RUNTIME_VERSION/runtime-x86_64" \
-  "$RUNTIME" "$RUNTIME_SHA256"
+bash "$ROOT/tools/build-appimage-runtime.sh" "$RUNTIME" "$WORK/appimage-runtime"
 chmod +x "$TOOL"
 mkdir -p "$ROOT/dist"
 OUT="$ROOT/dist/$NAME.AppImage"
 rm -f "$OUT"
 ARCH=x86_64 "$TOOL" --appimage-extract-and-run --no-appstream --runtime-file "$RUNTIME" "$APPDIR" "$OUT" >/dev/null
 chmod 755 "$OUT"
+bash "$ROOT/tools/build-appimage-runtime.sh" --check "$OUT"
 (cd "$ROOT/dist" && sha256sum "$NAME.AppImage" > "$NAME.sha256")
 
 echo

@@ -6,5 +6,6 @@ geometry_wars_retro_evolved_2_manifest.toml text eol=lf
 packaging/linux/AppRun text eol=lf
 packaging/linux/*.desktop text eol=lf
 
-# The runtime patch is applied with git apply on both platforms.
+# The runtime patches are applied with git apply on both platforms.
 patches/rexglue-sdk/* text eol=lf
+patches/appimage-runtime/* text eol=lf

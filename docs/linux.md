@@ -129,9 +129,28 @@ Ubuntu 22.04, clang 20 comes from [apt.llvm.org](https://apt.llvm.org) and the G
 ships 3.22.
 
 The script copies the sources to `~/gw2-linux-build` (set `GW2_WORK` to change it), downloads the pinned ReXGlue
-SDK, appimagetool and AppImage runtime with their SHA-256 checks, prepares the patched ReXGlue runtime and GPU plugin
-the same way `tools/build.sh` does, builds the `linux-amd64-release` preset, checks the libraries again in the build
+SDK and appimagetool with their SHA-256 checks, prepares the patched ReXGlue runtime and GPU plugin
+the same way `tools/build.sh` does, builds the AppImage runtime (below), builds the `linux-amd64-release` preset, checks the libraries again in the build
 folder and the AppDir, checks that the AppDir holds no game files, packages, saves, logs or local paths, and writes
 `dist/GeometryWarsRetroEvolved2-v<version>-linux-x86_64.AppImage` with its `.sha256`. The version is the
 `project()` VERSION in `CMakeLists.txt`. The script publishes nothing, and the game's `default.xex` only enters the
 temporary build folder as input for code generation, never the AppImage.
+
+### The AppImage runtime
+
+The runtime is the small program at the front of every AppImage that mounts it with FUSE and starts AppRun. The
+released runtime stops with "Cannot mount AppImage, please check your FUSE setup" where the mount is not possible, so the
+project builds its own from the upstream [AppImage/type2-runtime](https://github.com/AppImage/type2-runtime) source:
+
+- `patches/appimage-runtime/baseline.env` pins the upstream commit (`dd6cebe`, tag `20251108`), the Alpine 3.21.0 root
+  file system the build runs in, and the SHA-256 of the reviewed result.
+- `patches/appimage-runtime/0001-extract-and-run-when-fuse-fails.patch` makes the runtime unpack the AppImage into a
+  private folder under `/tmp` when the FUSE mount fails, run AppRun from there with the same arguments, return its exit
+  status and remove the folder. Where FUSE works the AppImage is mounted as before. `APPIMAGE_EXTRACT_AND_RUN=1` still
+  forces the unpacking.
+- `tools/build-appimage-runtime.sh` fetches that commit, applies the patch and runs upstream's chroot build into a static
+  musl binary. It needs root or sudo, git, tar, unshare and network access on the first build, and rebuilds only when the
+  pins or the patch change. `--check FILE` verifies a runtime or a finished AppImage.
+
+A restart from the launcher starts the original AppImage again (`APPIMAGE`), never the unpacked copy. The runtime's
+static components and their licenses are listed in `THIRD-PARTY-LICENSES-LINUX.txt` inside the AppImage.
