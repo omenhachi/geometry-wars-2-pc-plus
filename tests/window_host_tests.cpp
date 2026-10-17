@@ -1,4 +1,5 @@
-// Window title tests: the canonical title, the frame-rate format and the one-second sampler, with synthetic time.
+// Window title tests: the canonical title, the render resolution and frame-rate parts, and the one-second sampler, with
+// synthetic time.
 // Pure logic only: the window, the input listener and the VdSwap hook need the running runtime.
 
 #include <chrono>
@@ -31,12 +32,21 @@ void Section(const char* name) {
 
 void TestTitles() {
   Section("window titles");
-  CHECK(std::string(kWindowTitle) == "Geometry Wars: Retro Evolved 2");
-  CHECK(WindowTitle(false, 60.0) == "Geometry Wars: Retro Evolved 2");
-  CHECK(WindowTitle(false, 59.94) == "Geometry Wars: Retro Evolved 2");
-  CHECK(WindowTitle(true, 60.0) == "Geometry Wars: Retro Evolved 2 | FPS: 60.00");
-  CHECK(WindowTitle(true, 59.94) == "Geometry Wars: Retro Evolved 2 | FPS: 59.94");
-  CHECK(WindowTitle(true, 0.5) == "Geometry Wars: Retro Evolved 2 | FPS: 0.50");
+  const std::string game = "Geometry Wars: Retro Evolved 2";
+  const WindowSize render{3360, 1440};
+  CHECK(std::string(kWindowTitle) == game);
+
+  CHECK(WindowTitle(false, render, false, std::nullopt) == game);
+  CHECK(WindowTitle(true, render, false, std::nullopt) == game + " | 3360x1440");
+  CHECK(WindowTitle(false, render, true, std::nullopt) == game);
+  CHECK(WindowTitle(true, render, true, std::nullopt) == game + " | 3360x1440");
+  CHECK(WindowTitle(false, render, true, 60.0) == game + " | FPS: 60.00");
+  CHECK(WindowTitle(true, render, true, 60.0) == game + " | 3360x1440 | FPS: 60.00");
+
+  CHECK(WindowTitle(false, render, true, 59.94) == game + " | FPS: 59.94");
+  CHECK(WindowTitle(true, render, true, 0.5) == game + " | 3360x1440 | FPS: 0.50");
+  CHECK(WindowTitle(true, {1280, 720}, false, 60.0) == game + " | 1280x720");
+  CHECK(WindowTitle(true, {2560, 1440}, true, 59.94) == game + " | 2560x1440 | FPS: 59.94");
 }
 
 void TestSamplerWaitsForOneSecond() {

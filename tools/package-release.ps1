@@ -102,6 +102,7 @@ if ($VerifyOnly) {
 $cmake = Get-Content (Join-Path $Root 'CMakeLists.txt') -Raw
 if ($cmake -notmatch '(?m)^\s*project\(\s*geometry_wars_retro_evolved_2\s+VERSION\s+(\d+\.\d+\.\d+)') { throw 'Project VERSION not found in CMakeLists.txt' }
 $Version = $Matches[1]
+if ($cmake -match '(?m)^\s*set\(GW2_VERSION_SUFFIX\s+"([^"]*)"\)') { $Version += $Matches[1] }
 $Name = "GeometryWarsRetroEvolved2-v$Version-windows-x64"
 $Dist = Join-Path $Root 'dist'
 $Stage = Join-Path $Dist $Name

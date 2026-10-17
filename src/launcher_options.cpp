@@ -1,13 +1,16 @@
 #include "launcher_options.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
 
 #include "bloom_rules.h"
 #include "frame_limiter.h"
+#include "internal_render_scale.h"
 
 namespace gw2 {
 namespace {
@@ -72,19 +75,50 @@ std::string MonitorLabel(int monitor, const std::vector<MonitorInfo>& monitors) 
          Dimensions(display.width, display.height);
 }
 
-std::string RenderScaleLabel(int scale) {
+std::string RenderScaleLabel(int scale, AspectRatio aspect) {
   std::string label = scale == 1 ? "Original" : std::to_string(scale) + "x";
-  label += kDash + Dimensions(kPresentedWidth * scale, kPresentedHeight * scale);
-  if (scale == 2) {
+  const WindowSize size = RenderSize(aspect, scale);
+  label += kDash + Dimensions(size.width, size.height);
+  if (scale == 2 && aspect == AspectRatio::k16x9) {
     label += kDash + std::string("Recommended for 1440p");
   }
   return label;
 }
 
-std::vector<SettingChoice> RenderScaleChoices() {
+std::vector<SettingChoice> RenderScaleChoices(AspectRatio aspect) {
   std::vector<SettingChoice> choices;
   for (int scale = 1; scale <= 4; ++scale) {
-    choices.push_back({std::to_string(scale), RenderScaleLabel(scale)});
+    choices.push_back({std::to_string(scale), RenderScaleLabel(scale, aspect)});
+  }
+  return choices;
+}
+
+std::vector<SettingChoice> AspectRatioChoices() {
+  std::vector<SettingChoice> choices;
+  for (const AspectRatioInfo& info : kAspectRatios) {
+    choices.push_back({info.key, info.label});
+  }
+  return choices;
+}
+
+std::vector<SettingChoice> InternalRenderScaleChoices() {
+  return {{std::to_string(kInternalRenderScaleNative), "100% Native"},
+          {std::to_string(kInternalRenderScalePerformance), "75% Performance"},
+          {std::to_string(kInternalRenderScaleLowEnd), "50% Low-end"}};
+}
+
+std::vector<SettingChoice> GraphicsAdapterChoices(const std::vector<GraphicsAdapter>& adapters,
+                                                  std::string_view current) {
+  std::vector<SettingChoice> choices{{kGraphicsAdapterAuto, "Automatic (Recommended)"}};
+  for (const GraphicsAdapter& adapter : adapters) {
+    const auto same_name = std::count_if(adapters.begin(), adapters.end(),
+                                         [&](const GraphicsAdapter& other) { return other.name == adapter.name; });
+    const std::string index = std::to_string(adapter.index);
+    choices.push_back({index, same_name > 1 ? adapter.name + " (" + index + ")" : adapter.name});
+  }
+  if (const std::optional<int> index = ParseGraphicsAdapter(current);
+      index && ResolveGraphicsAdapter(current, adapters) < 0) {
+    choices.push_back({std::string(current), "Graphics card " + std::to_string(*index) + " (not found)"});
   }
   return choices;
 }

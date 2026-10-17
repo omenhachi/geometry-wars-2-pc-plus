@@ -39,7 +39,7 @@ The features below are those of the stable v0.3.1 unless marked **v0.3.2-rc1**.
 - Native static recompilation for Windows, plus an experimental native Linux / Steam Deck AppImage
 - TRG launcher that installs the game from your own package and remembers its window position, size, maximized and fullscreen state
 - High frame rate support: 30, 60 (the original), 90, 120, 144, 165, 240 or Unlimited, without speeding up the game
-- Render resolution up to 4x (5120×2880), FXAA, 2x or 4x (Compatibility) multisampling, texture filtering up to 16x, VSync and Letterbox / Stretch (v0.3.1)
+- Render resolution up to 4x (5120×2880), internal render resolution (100%, 75% or 50%), graphics card choice on Windows, FXAA, 2x or 4x (Compatibility) multisampling, texture filtering up to 16x, VSync and native aspect ratios (16:9, 16:10, 21:9, 32:9, 4:3, 5:4)
 - Improved frame pacing and performance, with less unnecessary GPU and CPU work, especially at higher render resolutions
 - Automatic discrete-GPU preference on hybrid systems, and a more reliable Exit Game
 - Frame rate in the window title, and an in-game frame rate counter (**F2**)
@@ -112,15 +112,14 @@ The launcher opens before the game. Your choices are saved to `settings.toml` in
 - **Display mode**: Windowed or Borderless Fullscreen. Press **F11** while playing to switch between them. In fullscreen the mouse cursor hides after about 5 seconds without movement and returns as soon as the mouse moves. The launcher always shows it.
 - **Window size** and **Monitor**
 - **VSync** on or off
-- **Aspect ratio** (stable v0.3.1): Letterbox 16:9 keeps the game's picture on any window shape; Stretch fills the window
-- **Aspect Ratio** (**v0.3.2-rc1**): replaces Letterbox / Stretch with explicit formats: 16:9 Original, 16:10, 21:9 Ultrawide, 32:9 Super Ultrawide, 4:3 or 5:4. The game renders 720 lines in that shape, and Window size lists the sizes of the chosen format. A window of another shape shows black bars. Saved Letterbox / Stretch values start as 16:9 Original. The menus, HUD and splash image stay laid out for 16:9.
+- **Aspect Ratio**: 16:9 Original, 16:10, 21:9 Ultrawide, 32:9 Super Ultrawide, 4:3 or 5:4. The game renders in that shape (720 lines, the width follows the format) instead of stretching, and Window size lists the sizes of the chosen format. Render resolution and Internal render resolution scale from it. A window of another shape shows black bars
 
-Window size, monitor and VSync (and, in v0.3.2-rc1, Aspect Ratio and Graphics card) take effect when you press **PLAY**. If one differs from the launcher's window, the game restarts once in a new window.
+Window size, monitor, VSync, Aspect Ratio and graphics card take effect when you press **PLAY**. If one differs from the launcher's window, the game restarts once in a new window.
 
 ### Graphics
-- **Render resolution**: Original (1280×720), 2x (2560×1440, recommended for 1440p), 3x (3840×2160) or 4x (5120×2880). In v0.3.2-rc1 the width follows the selected Aspect Ratio.
-- **Internal render resolution** (**v0.3.2-rc1**): 100% Native, 75% Performance or 50% Low-end. The GPU renders internally at that percentage of the selected Render resolution and scales it up, which lowers GPU work at some cost in sharpness. Available on Windows (Direct3D 12) and Linux (Vulkan), based on work from Hard Corps Uprising v0.6.0.
-- **Graphics card** (**v0.3.2-rc1**, Windows): Automatic (recommended) or a specific Direct3D 12 GPU, based on work from Hard Corps Uprising v0.6.0.
+- **Graphics card** (Windows): Automatic (recommended) or a specific GPU
+- **Render resolution**: Original (1280×720), 2x (2560×1440, recommended for 1440p), 3x (3840×2160) or 4x (5120×2880) at 16:9; the other Aspect Ratios change the width
+- **Internal render resolution**: 100% Native, 75% Performance or 50% Low-end. The GPU draws the game at that share of the Render resolution and scales it up, which lowers the GPU work at some cost in sharpness
 - **Anti-aliasing**: Off, FXAA or FXAA Extreme
 - **Multisampling**: 2x MSAA (default), or 4x MSAA (Compatibility) if 2x shows graphics problems on your GPU or driver
 - **Texture filtering**: Game, Off, 2x, 4x, 8x or 16x
@@ -129,7 +128,7 @@ Window size, monitor and VSync (and, in v0.3.2-rc1, Aspect Ratio and Graphics ca
 ### Gameplay
 - **Frame rate**: 30, 60, 90, 120, 144, 165, 240 or Unlimited. 60 is the original game and the default. The game's speed stays the same at every rate; a slower graphics card or heavier graphics settings lower the frame rate without changing the speed.
 - **Frame rate in title**: shows the frame rate in the window title, for example `Geometry Wars: Retro Evolved 2 | FPS: 60.00`
-- **Render resolution in title** (**v0.3.2-rc1**): shows the render resolution in the window title, for example `Geometry Wars: Retro Evolved 2 | 2560x1440`. Off by default.
+- **Render resolution in title**: shows the render resolution in the window title, for example `Geometry Wars: Retro Evolved 2 | 2560x1440` at 2x on 16:9. It is off by default; with both title options on, the resolution comes before the frame rate.
 - **Frame counter**: shows the frame rate in the corner of the window. Press **F2** while playing to show or hide it.
 
 ### Cheats

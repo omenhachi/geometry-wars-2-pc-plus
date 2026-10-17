@@ -35,7 +35,7 @@ omitted. Dates are commit dates (2026). Merge commits: `1291e6b` (launcher windo
 | | `db1eb48` | rename Linux AppImage artifact | packaging | `GeometryWarsRetroEvolved2Recompiled-v<version>-x86_64.AppImage`, `--out-dir` | [14](14-packaging-release.md) |
 | | `f4f8480` | show an error window when graphics initialization fails | launcher | Superseded by `24d05f2` | [05](05-platform-linux.md) |
 | | `24612e3` | normalize AppImage application naming | packaging | Visible desktop name "Geometry Wars: Retro Evolved 2 Recompiled"; identifiers unchanged | [05](05-platform-linux.md) |
-| | `cccdc91` | keep game speed at 60 FPS setting when frames miss vblanks | frame limiter | `GameStepCounter`: whole 1/60 steps, at most 3, for late frames at 60 | [07](07-display-window-frame-pacing.md) |
+| | `cccdc91` | keep game speed at 60 FPS setting when frames miss vblanks | frame limiter | `GameStepCounter`: whole 1/60 steps, at most 3, for late frames at 60 (later `GameDeltaClock`: whole steps near a multiple, the real interval otherwise) | [07](07-display-window-frame-pacing.md) |
 | | `24d05f2` | open a launcher window on Linux when Vulkan is unavailable | launcher | SDL software fallback launcher, no zenity or GTK; Reference HEAD | [05](05-platform-linux.md) |
 
 ## Superseded approaches worth remembering

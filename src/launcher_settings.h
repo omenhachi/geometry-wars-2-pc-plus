@@ -22,8 +22,13 @@ inline constexpr char kVSyncKey[] = "d3d12_allow_variable_refresh_rate_and_teari
 #else
 inline constexpr char kVSyncKey[] = "vulkan_allow_present_mode_immediate";
 #endif
-inline constexpr char kAspectKey[] = "present_letterbox";
+inline constexpr char kAspectKey[] = "gw2_aspect_ratio";
+inline constexpr char kRetiredAspectKey[] = "present_letterbox";
+inline constexpr char kGraphicsAdapterKey[] = "gw2_graphics_adapter";
+inline constexpr char kD3D12AdapterKey[] = "d3d12_adapter";
 inline constexpr char kRenderScaleKey[] = "resolution_scale";
+inline constexpr char kInternalRenderScaleKey[] = "gw2_internal_render_scale";
+inline constexpr char kD3D12RenderTargetPathKey[] = "render_target_path_d3d12";
 inline constexpr char kAntiAliasingKey[] = "swap_post_effect";
 inline constexpr char kMultisamplingKey[] = "gw2_msaa_compatibility";
 inline constexpr char kNative2xMsaaKey[] = "native_2x_msaa";
@@ -34,6 +39,8 @@ inline constexpr char kVibrationKey[] = "gw2_vibration";
 inline constexpr bool kVibrationDefault = false;
 inline constexpr char kShowFpsKey[] = "gw2_show_fps";
 inline constexpr bool kShowFpsDefault = true;
+inline constexpr char kShowResolutionKey[] = "gw2_show_render_resolution";
+inline constexpr bool kShowResolutionDefault = false;
 inline constexpr char kFrameRateKey[] = "gw2_frame_rate";
 inline constexpr char kLauncherXKey[] = "gw2_launcher_x";
 inline constexpr char kLauncherYKey[] = "gw2_launcher_y";
@@ -83,6 +90,10 @@ class CvarAccess {
 // launchers saved for "Off". The render target caches read it once, when the runtime is set up.
 void ApplyMultisampling(CvarAccess& cvars);
 
+// Makes the D3D12 render target path the host one when Internal render resolution is below 100% and no path is
+// configured. Only the D3D12 build registers the path. Returns whether it changed the path.
+bool ApplyInternalRenderPath(CvarAccess& cvars);
+
 // Pending launcher edits over the saved player values, over the shipped defaults. Nothing reaches the running
 // game until Apply(), and nothing is written until Save().
 class GameSettings final : public trg::SettingsStore {
@@ -105,7 +116,7 @@ class GameSettings final : public trg::SettingsStore {
   bool ApplyDisplayMode();
   // Records the window settings this process creates its window with.
   void MarkWindowCreated();
-  // Whether the pending window size, monitor or VSync needs a new window.
+  // Whether the pending window size, monitor, VSync, graphics card or aspect ratio needs a new process.
   bool WindowChanged() const;
   // Writes one setting now and leaves the other pending edits pending.
   bool SaveNow(std::string_view key, std::string value);

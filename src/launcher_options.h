@@ -4,6 +4,8 @@
 #include <string_view>
 #include <vector>
 
+#include "aspect_ratio.h"
+#include "graphics_adapters.h"
 #include "launcher_platform.h"
 
 namespace gw2 {
@@ -13,18 +15,6 @@ struct SettingChoice {
   std::string value;
   std::string label;
 };
-
-struct WindowSize {
-  int width = 0;
-  int height = 0;
-};
-
-inline constexpr WindowSize kWindowSizes[] = {{853, 480}, {1280, 720}, {1600, 900}, {1920, 1080}};
-
-// The size the Xenos presents the game at, before Render resolution scales it. The guest video mode does not
-// change it.
-inline constexpr int kPresentedWidth = 1280;
-inline constexpr int kPresentedHeight = 720;
 
 enum class PageId { kPlay, kDisplay, kGraphics, kGameplay, kCheats, kControls, kAchievements, kAbout };
 
@@ -42,8 +32,17 @@ std::string WindowSizeLabel(WindowSize size, float scale);
 // "Display 2   2560 × 1440". Monitor 0 is the default, which is the primary display.
 std::string MonitorLabel(int monitor, const std::vector<MonitorInfo>& monitors);
 
-std::vector<SettingChoice> RenderScaleChoices();
-std::string RenderScaleLabel(int scale);
+std::vector<SettingChoice> AspectRatioChoices();
+
+// The picture the game renders at one Render resolution step, for the selected Aspect Ratio.
+std::vector<SettingChoice> RenderScaleChoices(AspectRatio aspect = AspectRatio::k16x9);
+std::string RenderScaleLabel(int scale, AspectRatio aspect = AspectRatio::k16x9);
+
+std::vector<SettingChoice> InternalRenderScaleChoices();
+
+// Automatic, then each adapter (numbered when two share a name), then the saved one if it is not present.
+std::vector<SettingChoice> GraphicsAdapterChoices(const std::vector<GraphicsAdapter>& adapters,
+                                                  std::string_view current);
 
 std::vector<SettingChoice> AntiAliasingChoices();
 std::vector<SettingChoice> TextureFilteringChoices();

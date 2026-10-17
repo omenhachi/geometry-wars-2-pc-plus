@@ -67,7 +67,7 @@ See [14](14-packaging-release.md). Desktop file `packaging/linux/io.github.saulo
 Documented flow: add the AppImage as a non-Steam game; launcher accepts D-pad, left stick, A/B and Start (Start presses Play per `docs/linux.md`). `UNCERTAIN`: never run on a Deck at the time of writing.
 
 ## Known limits (`CONFIRMED` from docs)
-Issue #1 reported slow motion while the counter showed 60 on a Steam Machine; v0.3.1 keeps the game speed at the 60 FPS setting when frames miss vblanks (`GameStepCounter`), but the ~30 FPS rendering itself is unresolved and the fix is unconfirmed by the reporter. The same report's too-dark image was fixed by `0002` and confirmed.
+Issue #1 reported slow motion while the counter showed 60 on a Steam Machine. v0.3.1 (`GameStepCounter`) fixed the game speed at a steady ~30 FPS, as the reporter confirmed, but the reporter still saw short speed-ups when the rate rose toward ~45 FPS; their cause is unproven. `GameDeltaClock` (unreleased) replaces the counter and is not yet validated on Linux, and the ~30 FPS rendering itself is unresolved. The same report's too-dark image was fixed by `0002` and confirmed.
 
 ## Verify
 `tools/package-linux.sh` (its checks), `tools/build-patched-rexruntime.sh --loader-test|--pacing-test|--stress`, `ldd` for unresolved libraries, `readelf -d` for RPATH/RUNPATH.

@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <exception>
 #include <fstream>
+#include <optional>
 #include <string>
 #include <system_error>
 #include <utility>
@@ -12,6 +13,7 @@
 #include <toml++/toml.hpp>
 
 #include "cheats.h"
+#include "internal_render_scale.h"
 #include "launcher_platform.h"
 #include "multisampling.h"
 #include "trg/settings.h"
@@ -26,8 +28,10 @@ constexpr ManagedSetting kManagedSettings[] = {
     {kWindowHeightKey, ValueKind::kInt},
     {kMonitorKey, ValueKind::kInt},
     {kVSyncKey, ValueKind::kBool},
-    {kAspectKey, ValueKind::kBool},
+    {kAspectKey, ValueKind::kString},
+    {kGraphicsAdapterKey, ValueKind::kString},
     {kRenderScaleKey, ValueKind::kInt},
+    {kInternalRenderScaleKey, ValueKind::kInt},
     {kAntiAliasingKey, ValueKind::kString},
     {kMultisamplingKey, ValueKind::kBool},
     {kTextureFilteringKey, ValueKind::kInt},
@@ -36,6 +40,7 @@ constexpr ManagedSetting kManagedSettings[] = {
     {kVibrationKey, ValueKind::kBool},
     {kFrameRateKey, ValueKind::kInt},
     {kShowFpsKey, ValueKind::kBool},
+    {kShowResolutionKey, ValueKind::kBool},
     {kShowFrameCounterKey, ValueKind::kBool},
     {cheats::kInvincibleKey, ValueKind::kBool},
     {cheats::kInfiniteShieldKey, ValueKind::kBool},
@@ -48,7 +53,9 @@ constexpr ManagedSetting kManagedSettings[] = {
     {kLauncherFullscreenKey, ValueKind::kBool},
 };
 
-constexpr std::string_view kWindowKeys[] = {kWindowWidthKey, kWindowHeightKey, kMonitorKey, kVSyncKey};
+// The graphics card and the aspect ratio are applied while the process starts, before the launcher shows.
+constexpr std::string_view kWindowKeys[] = {kWindowWidthKey, kWindowHeightKey, kMonitorKey, kVSyncKey,
+                                            kGraphicsAdapterKey, kAspectKey};
 
 constexpr std::string_view kPlacementKeys[] = {kLauncherXKey, kLauncherYKey, kLauncherWidthKey, kLauncherHeightKey,
                                                 kLauncherMaximizedKey, kLauncherFullscreenKey};
@@ -156,6 +163,15 @@ void ApplyMultisampling(CvarAccess& cvars) {
   }
 }
 
+bool ApplyInternalRenderPath(CvarAccess& cvars) {
+  if (!cvars.IsRegistered(kInternalRenderScaleKey) || !cvars.IsRegistered(kD3D12RenderTargetPathKey)) {
+    return false;
+  }
+  const std::optional<std::string_view> path = RequiredRenderTargetPath(
+      std::atoi(cvars.Value(kInternalRenderScaleKey).c_str()), cvars.Value(kD3D12RenderTargetPathKey));
+  return path && cvars.Assign(kD3D12RenderTargetPathKey, *path);
+}
+
 GameSettings::GameSettings(CvarAccess& cvars, std::filesystem::path player_file,
                            const std::filesystem::path& shipped_config)
     : cvars_(cvars), player_file_(std::move(player_file)), shipped_(ReadSettingsValues(shipped_config)) {
@@ -247,6 +263,7 @@ bool GameSettings::Apply() {
     }
   }
   ApplyMultisampling(cvars_);
+  ApplyInternalRenderPath(cvars_);
   return restart || cvars_.RestartPending();
 }
 

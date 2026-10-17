@@ -14,14 +14,18 @@
 #include <utility>
 #include <vector>
 
+#include "aspect_ratio.h"
 #include "bloom_rules.h"
 #include "cheats.h"
 #include "frame_limiter.h"
+#include "graphics_adapters.h"
+#include "internal_render_scale.h"
 #include "launcher_options.h"
 #include "launcher_play.h"
 #include "launcher_platform.h"
 #include "launcher_settings.h"
 #include "multisampling.h"
+#include "retired_settings.h"
 
 namespace fs = std::filesystem;
 using namespace gw2;
@@ -119,8 +123,10 @@ void RegisterGameDefaults(FakeCvars& cvars) {
   cvars.Register(kWindowHeightKey, "720");
   cvars.Register(kMonitorKey, "1");
   cvars.Register(kVSyncKey, "true");
-  cvars.Register(kAspectKey, "true");
+  cvars.Register(kAspectKey, "16:9");
+  cvars.Register(kGraphicsAdapterKey, kGraphicsAdapterAuto);
   cvars.Register(kRenderScaleKey, "1");
+  cvars.Register(kInternalRenderScaleKey, "100");
   cvars.Register(kAntiAliasingKey, "none");
   cvars.Register(kMultisamplingKey, "false");
   cvars.Register(kNative2xMsaaKey, "true");
@@ -136,6 +142,7 @@ void RegisterGameDefaults(FakeCvars& cvars) {
   cvars.Register(kLauncherMaximizedKey, "false");
   cvars.Register(kLauncherFullscreenKey, "false");
   cvars.Register(kShowFpsKey, kShowFpsDefault ? "true" : "false");
+  cvars.Register(kShowResolutionKey, kShowResolutionDefault ? "true" : "false");
   cvars.Register(kShowFrameCounterKey, kShowFrameCounterDefault ? "true" : "false");
   for (const cheats::CheatInfo& cheat : cheats::kCheats) {
     cvars.Register(cheat.key, cheats::kCheatDefault ? "true" : "false");
@@ -476,6 +483,38 @@ void TestFrameRateSetting() {
   CHECK(!settings.WindowChanged());
 }
 
+void TestRenderResolutionSetting() {
+  Section("render resolution in title");
+  CHECK(!kShowResolutionDefault);
+  CHECK(std::string_view(kShowResolutionKey) == "gw2_show_render_resolution");
+  bool managed = false;
+  for (const ManagedSetting& setting : ManagedSettings()) {
+    managed = managed || setting.key == kShowResolutionKey;
+  }
+  CHECK(managed);
+
+  const fs::path dir = FreshDir("render_resolution");
+  const fs::path file = LauncherSettingsPath(dir);
+  FakeCvars cvars;
+  RegisterGameDefaults(cvars);
+  GameSettings settings(cvars, file, dir / "missing.toml");
+  settings.Capture();
+  settings.MarkWindowCreated();
+  CHECK(settings.Get(kShowResolutionKey) == "false");
+
+  settings.Set(kShowResolutionKey, "true");
+  CHECK(!settings.WindowChanged());
+  CHECK(!settings.Apply());
+  CHECK(cvars.values[kShowResolutionKey] == "true");
+  CHECK(settings.Save());
+  CHECK(ReadText(file).find("gw2_show_render_resolution = true") != std::string::npos);
+
+  settings.ResetToDefaults();
+  CHECK(settings.Get(kShowResolutionKey) == "false");
+  CHECK(settings.Save());
+  CHECK(ReadText(file).find("gw2_show_render_resolution = false") != std::string::npos);
+}
+
 void TestFrameCounterSetting() {
   Section("frame counter");
   CHECK(!kShowFrameCounterDefault);
@@ -707,6 +746,264 @@ void TestMultisamplingSetting() {
   const std::string app = ReadText(kSrcDir / "geometry_wars_retro_evolved_2_app.h");
   CHECK(app.find("gw2::ApplyMultisampling(cvars_);") > app.find("std::optional<rex::PathConfig> OnFinalizePaths("));
   CHECK(app.find("gw2::ApplyMultisampling(cvars_);") < app.find("void LaunchModule()"));
+}
+
+int ManagedCount(std::string_view key, ValueKind kind) {
+  int count = 0;
+  for (const ManagedSetting& setting : ManagedSettings()) {
+    if (setting.key == key) {
+      ++count;
+      CHECK(setting.kind == kind);
+    }
+  }
+  return count;
+}
+
+void TestInternalRenderScaleSetting() {
+  Section("internal render resolution");
+  CHECK(std::string_view(kInternalRenderScaleKey) == "gw2_internal_render_scale");
+  CHECK(ManagedCount(kInternalRenderScaleKey, ValueKind::kInt) == 1);
+  CHECK(!IsWindowSetting(kInternalRenderScaleKey));
+
+  // The SDK's split: host render targets in quarter pixels, resolves at the smallest whole scale above them. The
+  // host size is exactly percent of the render resolution for both 720p and 1080p guest pictures.
+  for (int scale = 1; scale <= 4; ++scale) {
+    for (const int percent : {100, 75, 50}) {
+      const InternalRenderSplit split = SplitInternalRenderScale(scale, percent);
+      for (const auto [width, height] : {std::pair{1280, 720}, std::pair{1920, 1080}}) {
+        CHECK(width * split.host_quarters % 4 == 0 && height * split.host_quarters % 4 == 0);
+        CHECK(width * split.host_quarters / 4 == width * scale * percent / 100);
+        CHECK(height * split.host_quarters / 4 == height * scale * percent / 100);
+      }
+      CHECK(split.resolve_scale >= 1 && split.resolve_scale <= scale);
+      CHECK(split.host_quarters <= split.resolve_scale * 4 && split.host_quarters > (split.resolve_scale - 1) * 4);
+      if (percent == 100) {
+        CHECK(split.host_quarters == scale * 4 && split.resolve_scale == scale);
+      }
+    }
+  }
+  CHECK(SplitInternalRenderScale(1, 75).host_quarters == 3 && SplitInternalRenderScale(1, 75).resolve_scale == 1);
+  CHECK(SplitInternalRenderScale(4, 75).host_quarters == 12 && SplitInternalRenderScale(4, 75).resolve_scale == 3);
+  CHECK(SplitInternalRenderScale(2, 50).host_quarters == 4 && SplitInternalRenderScale(2, 50).resolve_scale == 1);
+  for (const int odd : {0, -1, 1, 25, 60, 90, 101}) {
+    CHECK(NormalizeInternalRenderScale(odd) == 100);
+  }
+
+  const std::vector<SettingChoice> choices = InternalRenderScaleChoices();
+  CHECK(choices.size() == 3);
+  CHECK(choices[0].value == "100" && choices[0].label == "100% Native");
+  CHECK(choices[1].value == "75" && choices[1].label == "75% Performance");
+  CHECK(choices[2].value == "50" && choices[2].label == "50% Low-end");
+
+  CHECK(!RequiredRenderTargetPath(100, ""));
+  CHECK(RequiredRenderTargetPath(75, "") == "rtv");
+  CHECK(RequiredRenderTargetPath(50, "") == "rtv");
+  CHECK(!RequiredRenderTargetPath(60, ""));
+  CHECK(!RequiredRenderTargetPath(75, "rov"));
+  CHECK(!RequiredRenderTargetPath(50, "rtv"));
+
+  // Vulkan builds have no D3D12 path: nothing is assigned.
+  FakeCvars vulkan;
+  RegisterGameDefaults(vulkan);
+  vulkan.values[kInternalRenderScaleKey] = "50";
+  CHECK(!ApplyInternalRenderPath(vulkan));
+  CHECK(vulkan.assigns == 0);
+
+  FakeCvars d3d12;
+  RegisterGameDefaults(d3d12);
+  d3d12.Register(kD3D12RenderTargetPathKey, "");
+  CHECK(!ApplyInternalRenderPath(d3d12));
+  CHECK(d3d12.values[kD3D12RenderTargetPathKey].empty());
+  d3d12.values[kInternalRenderScaleKey] = "75";
+  CHECK(ApplyInternalRenderPath(d3d12));
+  CHECK(d3d12.values[kD3D12RenderTargetPathKey] == "rtv");
+  CHECK(!d3d12.restart_pending);
+  CHECK(!ApplyInternalRenderPath(d3d12));
+  d3d12.values[kD3D12RenderTargetPathKey] = "rov";
+  CHECK(!ApplyInternalRenderPath(d3d12));
+  CHECK(d3d12.values[kD3D12RenderTargetPathKey] == "rov");
+
+  // Older player files have no key: 100%. A change takes a new process, like Render resolution.
+  const fs::path dir = FreshDir("internal_render");
+  const fs::path file = LauncherSettingsPath(dir);
+  WriteText(file, "resolution_scale = 2\n");
+  FakeCvars cvars;
+  RegisterGameDefaults(cvars);
+  cvars.Register(kD3D12RenderTargetPathKey, "");
+  cvars.restart_only.insert(kInternalRenderScaleKey);
+  cvars.registered.erase(kInternalRenderScaleKey);
+  GameSettings settings(cvars, file, dir / "missing.toml");
+  settings.Capture();
+  settings.MarkWindowCreated();
+  cvars.registered.insert(kInternalRenderScaleKey);
+  settings.CaptureLateRegistered();
+  CHECK(settings.Get(kInternalRenderScaleKey) == "100");
+  CHECK(!settings.Apply());
+
+  settings.Set(kInternalRenderScaleKey, "50");
+  CHECK(!settings.WindowChanged());
+  CHECK(settings.Save());
+  CHECK(ReadText(file).find("gw2_internal_render_scale = 50") != std::string::npos);
+  CHECK(ReadText(file).find("resolution_scale = 2") != std::string::npos);
+  CHECK(settings.Apply());
+  CHECK(cvars.values[kInternalRenderScaleKey] == "50");
+  CHECK(cvars.values[kD3D12RenderTargetPathKey] == "rtv");
+
+  settings.ResetToDefaults();
+  CHECK(settings.Get(kInternalRenderScaleKey) == "100");
+  CHECK(settings.Save());
+  CHECK(ReadText(file).find("gw2_internal_render_scale = 100") != std::string::npos);
+
+  const std::string launcher = ReadText(kSrcDir / "launcher.cpp");
+  const std::size_t card = launcher.find("ui.Combo(\"Graphics card\"");
+  const std::size_t render = launcher.find("ui.Combo(\"Render resolution\"");
+  const std::size_t internal = launcher.find("ui.Combo(\"Internal render resolution\"");
+  const std::size_t aa = launcher.find("ui.Choice(\"Anti-aliasing\"");
+  const std::size_t msaa = launcher.find("ui.Toggle(\"Multisampling\"");
+  const std::size_t filtering = launcher.find("ui.Choice(\"Texture filtering\"");
+  const std::size_t bloom = launcher.find("ui.Choice(\"Bloom\"");
+  CHECK(card < render && render < internal && internal < aa && aa < msaa && msaa < filtering && filtering < bloom &&
+        bloom != std::string::npos);
+  const std::string app = ReadText(kSrcDir / "geometry_wars_retro_evolved_2_app.h");
+  const std::size_t applied = app.find("gw2::ApplyInternalRenderPath(cvars_)");
+  CHECK(applied > app.find("std::optional<rex::PathConfig> OnFinalizePaths("));
+  CHECK(applied < app.find("if (!show || !imgui_drawer())"));
+  const std::string patch = ReadText(kSrcDir / ".." / "patches" / "rexglue-sdk" / "0036-internal-render-scale.patch");
+  const std::size_t cvar = patch.find("+REXCVAR_DEFINE_INT32(gw2_internal_render_scale, 100,");
+  CHECK(cvar != std::string::npos);
+  CHECK(patch.find("rex::cvar::Lifecycle::kRequiresRestart", cvar) < patch.find("+REXCVAR", cvar + 1));
+  CHECK(patch.find("hcu_") == std::string::npos);
+}
+
+void TestAspectRatioSetting() {
+  Section("aspect ratio");
+  CHECK(std::string_view(kAspectKey) == "gw2_aspect_ratio");
+  CHECK(std::string_view(kRetiredAspectKey) == "present_letterbox");
+  CHECK(ManagedCount(kAspectKey, ValueKind::kString) == 1);
+  CHECK(ManagedCount(kRetiredAspectKey, ValueKind::kBool) == 0);
+  CHECK(IsWindowSetting(kAspectKey));
+
+  const std::vector<SettingChoice> choices = AspectRatioChoices();
+  CHECK(choices.size() == 6);
+  CHECK(choices[0].value == "16:9" && choices[0].label == "16:9 Original");
+  CHECK(choices[1].value == "16:10" && choices[1].label == "16:10");
+  CHECK(choices[2].value == "21:9" && choices[2].label == "21:9 Ultrawide");
+  CHECK(choices[3].value == "32:9" && choices[3].label == "32:9 Super Ultrawide");
+  CHECK(choices[4].value == "4:3" && choices[5].value == "5:4");
+
+  // Render resolution shows the picture the game renders for the format.
+  CHECK(RenderScaleLabel(1) == RenderScaleLabel(1, AspectRatio::k16x9));
+  CHECK(RenderScaleLabel(1, AspectRatio::k21x9) == "Original \xE2\x80\x94 1680 \xC3\x97 720");
+  CHECK(RenderScaleLabel(2, AspectRatio::k21x9) == "2x \xE2\x80\x94 3360 \xC3\x97 1440");
+  CHECK(RenderScaleLabel(4, AspectRatio::k5x4) == "4x \xE2\x80\x94 3584 \xC3\x97 2880");
+  CHECK(RenderScaleChoices(AspectRatio::k4x3)[0].label == "Original \xE2\x80\x94 960 \xC3\x97 720");
+
+  // The format is applied while the process starts, so a different one restarts the game; Apply never assigns it.
+  const fs::path dir = FreshDir("aspect");
+  const fs::path file = LauncherSettingsPath(dir);
+  FakeCvars cvars;
+  RegisterGameDefaults(cvars);
+  GameSettings settings(cvars, file, dir / "missing.toml");
+  settings.Capture();
+  settings.MarkWindowCreated();
+  CHECK(settings.Get(kAspectKey) == "16:9");
+  CHECK(!settings.WindowChanged());
+  settings.Set(kAspectKey, "21:9");
+  CHECK(settings.WindowChanged());
+  CHECK(!settings.Apply());
+  CHECK(cvars.values[kAspectKey] == "16:9");
+  CHECK(settings.Save());
+  CHECK(ReadText(file).find("gw2_aspect_ratio = \"21:9\"") != std::string::npos);
+  settings.Set(kAspectKey, "16:9");
+  CHECK(!settings.WindowChanged());
+  settings.Set(kAspectKey, "32:9");
+  settings.ResetToDefaults();
+  CHECK(settings.Get(kAspectKey) == "16:9");
+
+  // A player file from the Letterbox/Stretch launcher loses that line, whichever its value, and keeps the rest.
+  for (const char* legacy : {"true", "false"}) {
+    const fs::path old_dir = FreshDir("aspect_legacy");
+    const fs::path old_file = LauncherSettingsPath(old_dir);
+    WriteText(old_file, std::string("resolution_scale = 2\npresent_letterbox = ") + legacy + "\ngw2_bloom = \"off\"\n");
+    CHECK(RemoveRetiredSetting(old_file, kRetiredAspectKey) == RetiredSettingResult::kRemoved);
+    const Values values = ReadSettingsValues(old_file);
+    CHECK(values.find("present_letterbox") == values.end());
+    CHECK(values.at("resolution_scale") == "2" && values.at("gw2_bloom") == "off");
+    CHECK(values.find(kAspectKey) == values.end());
+  }
+
+  const std::string launcher = ReadText(kSrcDir / "launcher.cpp");
+  const std::size_t window_size = launcher.find("ui.Row(\"Window size\"");
+  const std::size_t monitor = launcher.find("ui.Row(\"Monitor\"");
+  const std::size_t aspect = launcher.find("ui.Combo(\"Aspect Ratio\"");
+  const std::size_t vsync = launcher.find("ui.Choice(\"VSync\"");
+  CHECK(window_size < monitor && monitor < aspect && aspect < vsync && window_size != std::string::npos &&
+        vsync != std::string::npos);
+  CHECK(launcher.find("Sets the game's target rendering format and the Window size choices.") != std::string::npos);
+  CHECK(launcher.find("Letterbox") == std::string::npos && launcher.find("Stretch") == std::string::npos);
+  CHECK(launcher.find("RenderScaleChoices(SelectedAspectRatio())") != std::string::npos);
+  CHECK(launcher.find("size.aspect != aspect") != std::string::npos);
+
+  const std::string app = ReadText(kSrcDir / "geometry_wars_retro_evolved_2_app.h");
+  const std::size_t load = app.find("gw2::LoadPlayerSettings(");
+  const std::size_t adapter = app.find("gw2::ApplyGraphicsAdapter();");
+  const std::size_t apply = app.find("gw2::ApplyAspectRatio();");
+  const std::size_t settle = app.find("gw2::SettleStartupCvars();");
+  CHECK(load < adapter && adapter < apply && apply < settle && load != std::string::npos);
+  CHECK(app.find("gw2::ApplyAspectRatio();", apply + 1) == std::string::npos);
+
+  const std::string cvar_source = ReadText(kSrcDir / "launcher_cvars.cpp");
+  CHECK(cvar_source.find("RemoveRetiredSetting(player_file, kRetiredAspectKey)") <
+        cvar_source.find("rex::cvar::LoadConfig(player_file)"));
+  CHECK(cvar_source.find("SetFlagByName(\"present_letterbox\", \"true\")") != std::string::npos);
+  CHECK(cvar_source.find("REXCVAR_DEFINE_STRING(gw2_aspect_ratio, \"16:9\"") != std::string::npos);
+  const std::string config = ReadText(kSrcDir / ".." / "config" / "geometry_wars_retro_evolved_2.toml");
+  CHECK(!config.empty() && config.find("video_mode_") == std::string::npos && config.find("present_letterbox") == std::string::npos);
+}
+
+void TestGraphicsAdapterSetting() {
+  Section("graphics card");
+  CHECK(std::string_view(kGraphicsAdapterKey) == "gw2_graphics_adapter");
+  CHECK(ManagedCount(kGraphicsAdapterKey, ValueKind::kString) == 1);
+  CHECK(IsWindowSetting(kGraphicsAdapterKey));
+
+  const std::vector<GraphicsAdapter> adapters = {{0, "NVIDIA GeForce RTX 4070"}, {1, "Intel UHD Graphics 730"}};
+  std::vector<SettingChoice> choices = GraphicsAdapterChoices(adapters, kGraphicsAdapterAuto);
+  CHECK(choices.size() == 3);
+  CHECK(choices[0].value == "auto" && choices[0].label == "Automatic (Recommended)");
+  CHECK(choices[1].value == "0" && choices[1].label == "NVIDIA GeForce RTX 4070");
+  CHECK(choices[2].value == "1" && choices[2].label == "Intel UHD Graphics 730");
+  choices = GraphicsAdapterChoices({{0, "Same"}, {2, "Same"}}, "0");
+  CHECK(choices.size() == 3 && choices[1].label == "Same (0)" && choices[2].label == "Same (2)");
+  choices = GraphicsAdapterChoices(adapters, "5");
+  CHECK(choices.size() == 4 && choices[3].value == "5" && choices[3].label == "Graphics card 5 (not found)");
+  CHECK(GraphicsAdapterChoices({}, "garbage").size() == 1);
+
+  // The device exists before the launcher shows, so a different card restarts the game; Apply never assigns it.
+  const fs::path dir = FreshDir("graphics_card");
+  const fs::path file = LauncherSettingsPath(dir);
+  FakeCvars cvars;
+  RegisterGameDefaults(cvars);
+  GameSettings settings(cvars, file, dir / "missing.toml");
+  settings.Capture();
+  settings.MarkWindowCreated();
+  CHECK(settings.Get(kGraphicsAdapterKey) == "auto");
+  CHECK(!settings.WindowChanged());
+  settings.Set(kGraphicsAdapterKey, "1");
+  CHECK(settings.WindowChanged());
+  CHECK(!settings.Apply());
+  CHECK(cvars.values[kGraphicsAdapterKey] == "auto");
+  CHECK(settings.Save());
+  CHECK(ReadText(file).find("gw2_graphics_adapter = \"1\"") != std::string::npos);
+  CHECK(ReadSettingsValues(file).at(kGraphicsAdapterKey) == "1");
+  settings.ResetToDefaults();
+  CHECK(settings.Get(kGraphicsAdapterKey) == "auto");
+
+  const std::string app = ReadText(kSrcDir / "geometry_wars_retro_evolved_2_app.h");
+  const std::size_t load = app.find("gw2::LoadPlayerSettings(");
+  const std::size_t apply = app.find("gw2::ApplyGraphicsAdapter();");
+  CHECK(load != std::string::npos && apply != std::string::npos && load < apply);
+  CHECK(apply < app.find("void OnPreSetup("));
 }
 
 void TestLauncherPlacementSettings() {
@@ -993,10 +1290,14 @@ int main() {
   TestPagesAndKeyList();
   TestSettingsFileValues();
   TestFrameRateSetting();
+  TestRenderResolutionSetting();
   TestFrameCounterSetting();
   TestFrameLimitSetting();
   TestBloomSetting();
   TestMultisamplingSetting();
+  TestInternalRenderScaleSetting();
+  TestAspectRatioSetting();
+  TestGraphicsAdapterSetting();
   TestLauncherPlacementSettings();
   TestCheatSettings();
   TestUnregisteredCheatIsRejected();

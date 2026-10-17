@@ -1,9 +1,14 @@
 #include "window_host.h"
 
+#include <algorithm>
 #include <cstddef>
+#include <cstdlib>
 #include <mutex>
+#include <optional>
+#include <string>
 #include <utility>
 
+#include <rex/cvar.h>
 #include <rex/hook.h>
 #include <rex/ppc.h>
 #include <rex/ui/imgui_dialog.h>
@@ -15,6 +20,7 @@
 
 #include "frame_limiter.h"
 #include "launcher_cvars.h"
+#include "launcher_settings.h"
 #include "rumble.h"
 
 // The SDK's VdSwap body, exported by rexruntime.dll. The SDK has no header for it.
@@ -43,14 +49,26 @@ std::function<bool()> g_gameplay_active;
 // UI thread only.
 CursorHider g_cursor;
 
+WindowSize RenderResolution() {
+  const int scale = std::max(1, std::atoi(rex::cvar::GetFlagByName(kRenderScaleKey).c_str()));
+  return RenderSize(ParseAspectRatio(REXCVAR_GET(gw2_aspect_ratio)), scale);
+}
+
+std::string ComposeTitle(std::optional<double> fps) {
+  return WindowTitle(REXCVAR_GET(gw2_show_render_resolution), RenderResolution(), REXCVAR_GET(gw2_show_fps), fps);
+}
+
 // Runs on the UI thread. The guest thread only queues the sampled rate.
 void ShowFrameRate(double fps) {
   std::lock_guard lock(g_mutex);
   if (!g_window) {
     return;
   }
-  g_title = WindowTitle(REXCVAR_GET(gw2_show_fps), fps);
-  g_window->SetTitle(g_title);
+  std::string title = ComposeTitle(fps);
+  if (title != g_title) {
+    g_title = std::move(title);
+    g_window->SetTitle(g_title);
+  }
 }
 
 void CountGuestFrame() {
@@ -159,7 +177,7 @@ void AttachWindowHost(rex::ui::Window* window, rex::ui::WindowedAppContext& app_
     g_app_context = &app_context;
     g_toggle_window_mode = std::move(toggle_window_mode);
     g_gameplay_active = std::move(gameplay_active);
-    g_title = kWindowTitle;
+    g_title = ComposeTitle(std::nullopt);
     window->SetTitle(g_title);
   }
   window->AddInputListener(&g_window_host, kWindowHostZOrder);

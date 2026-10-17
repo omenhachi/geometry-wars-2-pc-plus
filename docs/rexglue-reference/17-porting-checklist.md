@@ -11,7 +11,7 @@ current change (see [19](19-cross-project-porting-guide.md#validation-policy)); 
 - [ ] Dump the decrypted image (`tools/dump_image`) and run `tools/find-missing-functions.py` (`--apply-high`, `--verify`, `--self-test`); keep manual boundaries in `config/overrides.toml`
 - [ ] Set `gpu_plugin = "xenos"` in the shipped toml (the Xbox 360 GPU plugin; the only plugin this repository uses)
 - [ ] Inspect the title's license/trial behavior and choose its `license_mask`; `license_mask = 1` (full license) is right only when that matches the intended behavior. Geometry Wars needs it because it neither loads nor creates a profile in trial mode, and the SDK default `0` means trial (`GAME_ADAPTATION`, [11](11-offline-services-profile-achievements.md))
-- [ ] Decide whether the guest video mode needs pinning (`video_mode_width/height`). Geometry Wars pins 1280x720 so its render resolution labels hold (`GAME_ADAPTATION`, [06](06-graphics-vulkan.md))
+- [ ] Decide what the guest video mode should be (`video_mode_width/height`). The SDK ignores a value equal to its default (1280x720) and follows the window size instead, so a game that picks its canvas from the video mode needs a non-default value or a hook. Geometry Wars sets it from the Aspect Ratio and hooks `XGetVideoMode` so the game always builds its 720-line canvas (`GAME_ADAPTATION`, [06](06-graphics-vulkan.md))
 - [ ] Check how the game reacts to an unsaved title-specific profile setting; add the default-value hook only if it rejects the SDK's NO_VALUE answer ([11](11-offline-services-profile-achievements.md))
 - [ ] Gate: first visible frame, no `[error]` log lines for a few minutes
 

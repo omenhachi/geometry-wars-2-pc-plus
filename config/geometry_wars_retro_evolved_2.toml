@@ -4,10 +4,9 @@ license_mask = 1
 gpu_plugin = "xenos"
 
 # Launcher and game window, centered on the primary display. Size is in logical pixels
-# (scaled by Windows DPI) and is reduced to fit the display; the guest video mode is pinned so it stays 720p.
+# (scaled by Windows DPI) and is reduced to fit the display. The game sets the guest video mode from the launcher's
+# Aspect Ratio, so it does not follow the window size.
 fullscreen = false
 monitor = 1
 window_width = 1280
 window_height = 720
-video_mode_width = 1280
-video_mode_height = 720

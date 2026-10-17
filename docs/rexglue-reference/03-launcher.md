@@ -57,7 +57,7 @@ Play, Display, Graphics, Gameplay, Cheats, Controls, Achievements, About. Tables
 | Display mode (Windowed / Borderless Fullscreen) | `fullscreen` |
 | Window size, Monitor | `window_width`, `window_height`, `monitor` |
 | VSync | `d3d12_allow_variable_refresh_rate_and_tearing` (Windows), `vulkan_allow_present_mode_immediate` (Linux, inverted semantics: Off allows tearing) |
-| Aspect | `present_letterbox` |
+| Aspect Ratio | `gw2_aspect_ratio`; applied at start by `ApplyAspectRatio` (sets `video_mode_width`, `video_mode_height`, `present_letterbox`), a window-class setting, so a change restarts once. The retired `present_letterbox` line is removed from the player file |
 | Render resolution | `resolution_scale` (1-4) |
 | Anti-aliasing | `swap_post_effect` (`none`/`fxaa`/`fxaa_extreme`) |
 | Texture filtering | `anisotropic_override` |
