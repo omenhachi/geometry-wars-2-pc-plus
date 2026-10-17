@@ -11,6 +11,7 @@
 REXCVAR_DECLARE(bool, show_launcher);
 REXCVAR_DECLARE(bool, gw2_skip_launcher);
 REXCVAR_DECLARE(int32_t, gw2_frame_rate);
+REXCVAR_DECLARE(bool, gw2_vibration);
 REXCVAR_DECLARE(bool, gw2_show_fps);
 REXCVAR_DECLARE(bool, gw2_show_frame_counter);
 REXCVAR_DECLARE(bool, gw2_msaa_compatibility);

@@ -15,6 +15,7 @@
 
 #include "frame_limiter.h"
 #include "launcher_cvars.h"
+#include "rumble.h"
 
 // The SDK's VdSwap body, exported by rexruntime.dll. The SDK has no header for it.
 namespace rex::kernel::xboxkrnl {
@@ -206,6 +207,7 @@ REX_HOOK_RAW(__imp__VdSwap) {
   const bool repeat = std::exchange(t_repeat_present, false);
   if (!repeat) {
     gw2::PaceGuestFrame();
+    gw2::rumble::ServiceFrame(ctx, base);
   }
   rex::ppc::HostToGuestFunction<rex::kernel::xboxkrnl::VdSwap_entry>(ctx, base);
   if (repeat) {

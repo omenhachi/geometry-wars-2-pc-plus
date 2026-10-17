@@ -24,6 +24,7 @@
 #include "launcher_platform.h"
 #include "launcher_settings.h"
 #include "live_fix.h"
+#include "rumble.h"
 #include "user_data.h"
 #include "window_host.h"
 
@@ -187,6 +188,7 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
     // ReXApp destroys the window before the runtime; the input drivers must detach while it still exists. The
     // runtime's own Shutdown call later finds nothing left to release.
     if (auto* input = runtime() ? runtime()->input_system() : nullptr) {
+      gw2::rumble::Shutdown(input);
       input->Shutdown();
     }
     gw2::DetachCheatMenu();

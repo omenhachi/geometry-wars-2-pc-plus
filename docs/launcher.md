@@ -110,6 +110,7 @@ The game side of each cheat is in [cheats.md](cheats.md).
 
 - Controller: automatic, with no setup.
 - Keyboard: Enabled or Disabled, the `mnk_mode` cvar ("Enable keyboard/mouse controller emulation").
+- Vibration: Off or On (default Off), the `gw2_vibration` cvar ("Controller rumble"). Off sends no rumble to the controller.
 - Keyboard keys: the registry's `Input/Keybinds/Controller` entries, read-only, with multiple keys listed as "A or B".
 
 ## Achievements

@@ -15,6 +15,7 @@ REXCVAR_DEFINE_BOOL(gw2_skip_launcher, false, "Launcher",
                     "Skip the launcher once (set when the launcher restarts the game)");
 REXCVAR_DEFINE_INT32(gw2_frame_rate, gw2::kFrameRateDefault, "Geometry Wars",
                      "Frame-rate limit: 30, 60, 90, 120, 144, 165, 240 or 0 for Unlimited");
+REXCVAR_DEFINE_BOOL(gw2_vibration, gw2::kVibrationDefault, "Geometry Wars", "Controller vibration");
 REXCVAR_DEFINE_BOOL(gw2_show_fps, gw2::kShowFpsDefault, "Geometry Wars",
                     "Show the frame rate in the window title");
 REXCVAR_DEFINE_BOOL(gw2_show_frame_counter, gw2::kShowFrameCounterDefault, "Geometry Wars",

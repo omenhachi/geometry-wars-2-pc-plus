@@ -49,6 +49,11 @@ set(GW2_SOURCES
     src/cheat_hooks.cpp
     src/cheats.cpp
     src/bloom_fix.cpp
+    src/rumble.cpp
+    src/player_rumble_hooks.cpp
+    src/king_rumble_hooks.cpp
+    src/gravity_well_hooks.cpp
+    src/gate_rumble_hooks.cpp
     src/crt_native.cpp
     src/gpu_fence_wait.cpp
     src/live_stats.cpp

@@ -127,6 +127,7 @@ void RegisterGameDefaults(FakeCvars& cvars) {
   cvars.Register(kTextureFilteringKey, "3");
   cvars.Register(kBloomKey, "original");
   cvars.Register(kKeyboardKey, "true");
+  cvars.Register(kVibrationKey, kVibrationDefault ? "true" : "false");
   cvars.Register(kFrameRateKey, std::to_string(kFrameRateDefault));
   cvars.Register(kLauncherXKey, "0");
   cvars.Register(kLauncherYKey, "0");

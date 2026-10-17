@@ -6,6 +6,8 @@
 #include "cheat_rules.h"
 #include "cheats.h"
 #include "guest_memory.h"
+#include "player_records.h"
+#include "rumble.h"
 
 namespace {
 
@@ -20,9 +22,7 @@ void StoreFloat(uint8_t* base, uint32_t addr, float value) {
   gw2::StoreBE32(base, addr, std::bit_cast<uint32_t>(value));
 }
 
-bool IsPlayer(const uint8_t* base, uint32_t object) {
-  return object != 0 && gw2::LoadBE32(base, object) == gw2::cheats::kPlayerVtable;
-}
+using gw2::players::IsPlayer;
 
 }  // namespace
 
@@ -30,8 +30,14 @@ bool IsPlayer(const uint8_t* base, uint32_t object) {
 REX_EXTERN(__imp__sub_8204FF00);
 REX_HOOK_RAW(sub_8204FF00) {
   const uint32_t player = ctx.r3.u32;
-  const bool infinite = IsPlayer(base, player) && Enabled(Cheat::InfiniteShield);
+  const bool is_player = IsPlayer(base, player);
+  const bool infinite = is_player && Enabled(Cheat::InfiniteShield);
   __imp__sub_8204FF00(ctx, base);
+  if (is_player && gw2::LoadBE32(base, player + gw2::cheats::kPlayerIndexOffset) == 0) {
+    gw2::rumble::ObserveLocalPlayer(LoadFloat(base, player + gw2::players::kCenterXOffset),
+                                    LoadFloat(base, player + gw2::players::kCenterYOffset),
+                                    LoadFloat(base, player + gw2::players::kRadiusOffset));
+  }
   if (!infinite) {
     return;
   }
@@ -46,26 +52,39 @@ REX_HOOK_RAW(sub_8204FF00) {
 // returns from here before anything else; this only does that for hits that would kill.
 REX_EXTERN(__imp__sub_8204EEA8);
 REX_HOOK_RAW(sub_8204EEA8) {
+  const uint32_t caller = static_cast<uint32_t>(ctx.lr);
   const uint32_t player = ctx.r3.u32;
-  if (IsPlayer(base, player) &&
+  const bool is_player = IsPlayer(base, player);
+  if (is_player &&
       gw2::cheats::SuppressesHit(Enabled(Cheat::Invincible), LoadFloat(base, player + gw2::cheats::kPlayerBombGraceOffset),
                                  LoadFloat(base, player + gw2::cheats::kPlayerShieldOffset))) {
     return;
   }
+  const uint32_t index = is_player ? gw2::LoadBE32(base, player + gw2::cheats::kPlayerIndexOffset) : 0;
+  const uint32_t counter = is_player ? gw2::players::ShieldHitCountAddress(index) : 0;
+  const uint32_t before = counter != 0 ? gw2::LoadBE32(base, counter) : 0;
   __imp__sub_8204EEA8(ctx, base);
+  if (counter != 0 && gw2::LoadBE32(base, counter) == before + 1) {
+    gw2::rumble::RequestShieldHitPulse(index, caller);
+  }
 }
 
 // Player bomb input, called by Player::Update. When a bomb fires it takes one from the count at the player's record.
 REX_EXTERN(__imp__sub_8204F288);
 REX_HOOK_RAW(sub_8204F288) {
+  const uint32_t caller = static_cast<uint32_t>(ctx.lr);
   const uint32_t player = ctx.r3.u32;
-  const uint32_t counter =
-      IsPlayer(base, player) ? gw2::cheats::BombCountAddress(gw2::LoadBE32(base, player + gw2::cheats::kPlayerIndexOffset))
-                             : 0;
+  const bool is_player = IsPlayer(base, player);
+  const uint32_t index = is_player ? gw2::LoadBE32(base, player + gw2::cheats::kPlayerIndexOffset) : 0;
+  const uint32_t counter = is_player ? gw2::cheats::BombCountAddress(index) : 0;
   const bool infinite = counter != 0 && Enabled(Cheat::InfiniteBombs);
-  const uint32_t before = infinite ? gw2::LoadBE32(base, counter) : 0;
+  const uint32_t before = counter != 0 ? gw2::LoadBE32(base, counter) : 0;
   __imp__sub_8204F288(ctx, base);
-  if (infinite && gw2::cheats::BombWasConsumed(before, gw2::LoadBE32(base, counter))) {
+  if (counter == 0 || !gw2::cheats::BombWasConsumed(before, gw2::LoadBE32(base, counter))) {
+    return;
+  }
+  gw2::rumble::RequestBombPulse(index, caller);
+  if (infinite) {
     gw2::StoreBE32(base, counter, before);
   }
 }

@@ -519,6 +519,7 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
   void PageControls(trg::Ui& ui) {
     ui.Info("Controller", "Automatic: Xbox controllers work without setup.");
     ui.Toggle("Keyboard", "Enable keyboard/mouse controller emulation.", kKeyboardKey, true, "Disabled", "Enabled");
+    ui.Toggle("Vibration", "Controller rumble.", kVibrationKey, kVibrationDefault, "Off", "On");
     if (ui.Section("Keyboard keys")) {
       for (const rex::cvar::FlagEntry& entry : rex::cvar::GetRegistry()) {
         if (entry.category == "Input/Keybinds/Controller") {
