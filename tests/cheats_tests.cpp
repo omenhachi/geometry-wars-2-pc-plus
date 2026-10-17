@@ -340,7 +340,7 @@ void TestHookWiring() {
     }
   }
   CHECK(hooked.count("sub_8204F288") == 1);
-  CHECK(hooked.count("sub_8204E988") == 0);
+  CHECK(hooks.find("sub_8204E988") == std::string::npos);
 
   CHECK(Count(hooks, "Enabled(Cheat::Invincible)") >= 1);
   CHECK(Count(hooks, "Enabled(Cheat::InfiniteShield)") == 1);
