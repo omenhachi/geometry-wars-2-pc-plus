@@ -6,7 +6,6 @@
 
 [![Latest release](https://img.shields.io/github/v/release/saulob/geometry-wars-retro-evolved-2-recompiled?style=for-the-badge&label=release&color=943cff&labelColor=07101f&cacheSeconds=300)](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/saulob/geometry-wars-retro-evolved-2-recompiled/total?style=for-the-badge&color=943cff&labelColor=07101f&cacheSeconds=300)](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled/releases)
-[![Prerelease v0.3.2-rc1](https://img.shields.io/badge/prerelease-v0.3.2--rc1-e8a317?style=for-the-badge&labelColor=07101f)](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled/releases/tag/v0.3.2-rc1)
 ![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux%20experimental%20%7C%20Steam%20Deck%20experimental-00acc1?style=for-the-badge&labelColor=07101f)
 
 <sub>The original Xbox 360 game code, statically recompiled to native PC code with the <a href="https://github.com/rexglue/rexglue-sdk">ReXGlue SDK</a>. <b>No game files included</b>: bring your own Geometry Wars: Retro Evolved 2 Xbox Live Arcade package.</sub>
@@ -15,27 +14,19 @@
 
 <img width="1905" height="1071" alt="2026-10-11_18-47" src="https://github.com/user-attachments/assets/08b1ed2c-3244-41c1-94f1-e2ae4c1b76d1" />
 
-## v0.3.2-rc1 diagnostic prerelease
+## What's new in v0.4.0
 
-**Latest stable release: v0.3.1. Newest test build: v0.3.2-rc1.**
-
-A diagnostic prerelease of the upcoming v0.3.2 is available. It is not a stable release, and the stable release remains v0.3.1. It includes:
-
-- new **Aspect Ratio** options, including 21:9 Ultrawide and 32:9 Super Ultrawide
+- **Controller vibration** for gameplay events (bombs, deaths, shield hits, gates and more). It is **Off by default**: turn it on under **Controls > Vibration**.
+- **Aspect Ratio** options, including 21:9 Ultrawide and 32:9 Super Ultrawide
 - **Internal render resolution** at 100%, 75% or 50%
 - **Graphics card** selection on Windows
 - optional **render resolution in the window title**
-- an experimental Linux frame-pacing change for [Issue #1](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled/issues/1)
+- a Linux game-timing change for [Issue #1](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled/issues/1), and an AppImage that starts by itself when FUSE cannot mount it
 
-Linux users affected by the remaining speed-up when the frame rate rises toward about 45 FPS are especially encouraged to test it and attach a new log to the issue.
-
-**[Download / test v0.3.2-rc1](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled/releases/tag/v0.3.2-rc1)**
-
-The features below are those of the stable v0.3.1 unless marked **v0.3.2-rc1**.
-
+The full list is in the [v0.4.0 release notes](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled/releases/tag/v0.4.0).
 ## Features
 
-- **v0.3.2-rc1 (prerelease):** Aspect Ratio selector (16:9 Original, 16:10, 21:9 Ultrawide, 32:9 Super Ultrawide, 4:3, 5:4), Internal render resolution, Windows Graphics card selection and optional render resolution in the window title. Internal render resolution and Graphics card selection are based on work from Hard Corps Uprising v0.6.0.
+- Controller vibration for gameplay events, off by default (Controls > Vibration). It is a PC-port addition, not a restored original feature
 - Native static recompilation for Windows, plus an experimental native Linux / Steam Deck AppImage
 - TRG launcher that installs the game from your own package and remembers its window position, size, maximized and fullscreen state
 - High frame rate support: 30, 60 (the original), 90, 120, 144, 165, 240 or Unlimited, without speeding up the game
@@ -68,7 +59,7 @@ The launcher checks the Title ID and content type when you pick the package, and
 
 ## Installing
 
-1. Download **GeometryWarsRetroEvolved2-v0.3.1-windows-x64.zip** from the [latest release](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled/releases/latest) and extract it anywhere you can write to. To test the diagnostic prerelease instead, use the [v0.3.2-rc1 download](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled/releases/tag/v0.3.2-rc1) above.
+1. Download **GeometryWarsRetroEvolved2-v0.4.0-windows-x64.zip** from the [latest release](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled/releases/latest) and extract it anywhere you can write to.
 2. Run **geometry_wars_retro_evolved_2.exe**. The launcher opens.
 3. On the **Play** page click **Install from package...** and pick your package. It is one file with a long hexadecimal name and no extension. On an Xbox 360 drive it is in `Content\0000000000000000\584108FF\000D0000\`.
 4. Wait until **Ready to play** appears. The game files are copied into the `game` folder next to the program. The package file itself is not copied there.
@@ -86,10 +77,9 @@ Your settings, profile, scores, achievements, saves and progression, and the sha
 
 ### Linux and Steam Deck
 
-**Experimental.** This is a native Linux build (ReXGlue's Linux runtime with Vulkan), not Proton or Wine. Real-hardware testing so far is one report from a Steam Machine ([#1](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled/issues/1)), which found a very dark image and slow motion while the frame rate shows 60. The dark image was fixed in v0.2.3, and the reporter confirmed it. The reporter tested v0.3.1: at about 30 FPS the game speed was mostly correct, and Deadline's song finished when the timer ended. Short speed-up bursts were still seen when the frame rate rose toward about 45 FPS, and why some Linux systems render around 30 FPS is still under investigation.
+**Experimental.** This is a native Linux build (ReXGlue's Linux runtime with Vulkan), not Proton or Wine. Real-hardware testing so far is one report from a Steam Machine ([#1](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled/issues/1)), which found a very dark image and slow motion while the frame rate shows 60. The dark image was fixed in v0.2.3, and the reporter confirmed it. At about 30 FPS the game speed was mostly correct in v0.3.1, but short speed-ups were still seen when the frame rate rose toward about 45 FPS. v0.4.0 changes the game's timing to address that, but **it has not been confirmed on the affected Linux machine yet**, and why some Linux systems render around 30 FPS is still under investigation.
 
-The [v0.3.2-rc1 prerelease](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled/releases/tag/v0.3.2-rc1) contains a new experimental timing approach (`GameDeltaClock`) and temporary `DEBUG_SAULO` timing diagnostics that write to the log. **It has not been validated on the affected Linux machine, and [Issue #1](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled/issues/1) is still under investigation.** If you are affected, please test it and attach the new log to the issue.
-
+If FUSE cannot mount the AppImage (for example in a restricted environment), it unpacks itself into a private temporary folder and runs from there. You do not need `APPIMAGE_EXTRACT_AND_RUN=1`.
 1. Download **GeometryWarsRetroEvolved2Recompiled-v…-x86_64.AppImage** from the release and mark it executable (right-click > **Properties** > **Permissions** > **Is executable**, or `chmod +x`).
 2. Run it, then install your package from the **Play** page as above. The game files go in a `game` folder next to the AppImage. The package picker needs `zenity` or `kdialog`.
 3. On a Steam Deck (intended flow, not yet tried on a Deck), do this in **Desktop Mode**, then add the AppImage with **Games > Add a Non-Steam Game to My Library** and play it from **Game Mode**.
@@ -141,6 +131,7 @@ All three are Off by default. The launcher's Cheats page saves them and they tak
 ### Controls
 - Xbox controllers work without setup
 - **Keyboard**: enabled or disabled. When enabled, the keyboard and mouse emulate the controller, and the keys are listed on the page.
+- **Vibration**: Off or On (controller rumble). Off by default, with no strength setting. When On, the controller vibrates for bombs, deaths, respawns, game over, extra lives and bombs, shield hits, the King zone, Gravity Well explosions and overloads, and gate crossings. Windows has been tested with a physical controller; Linux and Steam Deck vibration has not been confirmed on real hardware yet.
 - Online multiplayer is not supported.
 
 ### Achievements

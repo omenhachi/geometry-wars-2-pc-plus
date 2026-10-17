@@ -10,17 +10,17 @@ class IInputSystem;
 
 namespace gw2::rumble {
 
-void RequestBombPulse(uint32_t user, uint32_t caller);
-void RequestExtraLifePulse(uint32_t user, uint32_t caller);
-void RequestExtraBombPulse(uint32_t user, uint32_t caller);
-void RequestShieldHitPulse(uint32_t user, uint32_t caller);
-void RequestGravityOverloadPulse(uint32_t caller);
-void RequestGravityExplosionPulse(uint32_t caller);
-void RequestGatePulse(uint32_t gate, uint32_t score_id, uint32_t caller);
+void RequestBombPulse(uint32_t user);
+void RequestExtraLifePulse(uint32_t user);
+void RequestExtraBombPulse(uint32_t user);
+void RequestShieldHitPulse(uint32_t user);
+void RequestGravityOverloadPulse();
+void RequestGravityExplosionPulse();
+void RequestGatePulse();
 void ObserveKingZone(float x, float y, float radius, float fraction);
 void ObserveLocalPlayer(float x, float y, float radius);
-void PlayerKilled(uint32_t user, bool final_life, bool game_over_possible, uint32_t caller);
-void PlayerSpawned(uint32_t user, uint32_t caller);
+void PlayerKilled(uint32_t user, bool final_life, bool game_over_possible);
+void PlayerSpawned(uint32_t user);
 void ServiceFrame(PPCContext& ctx, uint8_t* base);
 void Shutdown(rex::system::IInputSystem* input_system);
 

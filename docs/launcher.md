@@ -143,7 +143,7 @@ The game side of each cheat is in [cheats.md](cheats.md).
 
 - Controller: automatic, with no setup.
 - Keyboard: Enabled or Disabled, the `mnk_mode` cvar ("Enable keyboard/mouse controller emulation").
-- Vibration: Off or On (default Off), the `gw2_vibration` cvar ("Controller rumble"). Off sends no rumble to the controller.
+- Vibration: Off or On (default Off), the `gw2_vibration` cvar ("Controller rumble"). Off sends no rumble to the controller, and turning it Off while playing stops any rumble in progress. There is no strength setting. When On, the controller vibrates for bombs, deaths, respawns, game over, extra lives, extra bombs, shield hits, the King zone, Gravity Well explosions and overloads, and gate crossings. Rumble goes through ReXGlue's input system on Windows and Linux; it has been tested on a physical controller on Windows only.
 - Keyboard keys: the registry's `Input/Keybinds/Controller` entries, read-only, with multiple keys listed as "A or B".
 
 ## Achievements

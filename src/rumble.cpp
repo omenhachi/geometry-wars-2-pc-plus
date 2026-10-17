@@ -83,32 +83,6 @@ constexpr Pattern PatternFor(Event event) {
   return {};
 }
 
-const char* Name(Event event) {
-  switch (event) {
-    case Event::kGameOver:
-      return "game_over";
-    case Event::kDeath:
-      return "death";
-    case Event::kBomb:
-      return "bomb";
-    case Event::kGravityOverload:
-      return "gravity_well_overload";
-    case Event::kGravityExplosion:
-      return "gravity_well_explosion";
-    case Event::kExtraLife:
-      return "extra_life";
-    case Event::kExtraBomb:
-      return "extra_bomb";
-    case Event::kRespawn:
-      return "respawn";
-    case Event::kGate:
-      return "gate";
-    case Event::kShieldHit:
-      return "shield_hit";
-  }
-  return "";
-}
-
 // The game's XInputSetState wrapper reads the controller state through this pointer on every call.
 constexpr uint32_t kVibrationGateAddress = 0x820005D4;
 // Scratch word for the user index that sub_820383B8 reads through r3. It lies below the callee's own frame.
@@ -127,8 +101,7 @@ struct Motors {
   uint32_t user = 0;
   float left = 0.0f;
   float right = 0.0f;
-  uint32_t result = 0;
-};
+  };
 
 struct Queued {
   bool valid = false;
@@ -202,25 +175,20 @@ bool ApplyMotors(PPCContext& ctx, uint8_t* base, uint32_t user, float left, floa
   }
   const uint32_t slot = ctx.r1.u32 - kUserSlotOffset;
   if (!CanDrive(base, slot)) {
-    REXLOG_INFO("[DEBUG_SAULO][Rumble] skipped: guest vibration memory not committed gate=0x{:08X}",
-                gw2::LoadBE32(base, kVibrationGateAddress));
     return false;
   }
   if (motors.user != user && (motors.left != 0.0f || motors.right != 0.0f)) {
     SetMotors(ctx, base, slot, motors.user, 0.0f, 0.0f);
   }
-  const uint32_t result = SetMotors(ctx, base, slot, user, left, right);
-  motors = {user, left, right, result};
+  SetMotors(ctx, base, slot, user, left, right);
+  motors = {user, left, right};
   return true;
 }
 
 // Caller holds g_state.mutex.
-void StopPlayback(PPCContext& ctx, uint8_t* base, Clock::time_point now) {
-  Playback& playback = g_state.playback;
+void StopPlayback(PPCContext& ctx, uint8_t* base) {
   ApplyMotors(ctx, base, g_state.motors.user, 0.0f, 0.0f);
-  REXLOG_INFO("[DEBUG_SAULO][Rumble] stop event={} user={} elapsed_ms={}", Name(playback.event), playback.user,
-              std::chrono::duration_cast<milliseconds>(now - playback.started).count());
-  playback.active = false;
+  g_state.playback.active = false;
 }
 
 // Caller holds g_state.mutex.
@@ -230,8 +198,6 @@ void StartPlayback(PPCContext& ctx, uint8_t* base, Event event, uint32_t user, C
     return;
   }
   g_state.playback = {true, event, user, 0, now, now};
-  REXLOG_INFO("[DEBUG_SAULO][Rumble] start event={} user={} left={:.3f} right={:.3f} duration_ms={} xinput=0x{:08X}",
-              Name(event), user, first.left, first.right, first.duration_ms, g_state.motors.result);
 }
 
 // Caller holds g_state.mutex. Moves through the steps whose time has run out, so each motor change happens once.
@@ -241,17 +207,13 @@ void AdvancePlayback(PPCContext& ctx, uint8_t* base, Clock::time_point now) {
   while (now - playback.step_started >= milliseconds(pattern.steps[playback.step].duration_ms)) {
     playback.step_started += milliseconds(pattern.steps[playback.step].duration_ms);
     if (++playback.step == pattern.count) {
-      StopPlayback(ctx, base, now);
+      StopPlayback(ctx, base);
       return;
     }
     const Step& step = pattern.steps[playback.step];
     if (!ApplyMotors(ctx, base, playback.user, step.left, step.right)) {
-      StopPlayback(ctx, base, now);
+      StopPlayback(ctx, base);
       return;
-    }
-    if (pattern.count > 1) {
-      REXLOG_INFO("[DEBUG_SAULO][Rumble] step event={} index={} left={:.3f} right={:.3f} duration_ms={} xinput=0x{:08X}",
-                  Name(playback.event), playback.step, step.left, step.right, step.duration_ms, g_state.motors.result);
     }
   }
 }
@@ -272,11 +234,10 @@ void DeferLocked(Queued dropped) {
 }
 
 // Caller holds g_state.mutex. A higher-priority request replaces the queued one; equal priority takes the newest.
-void QueueLocked(Event event, uint32_t user, uint32_t caller) {
+void QueueLocked(Event event, uint32_t user) {
   if (!g_state.enabled) {
     return;
   }
-  REXLOG_INFO("[DEBUG_SAULO][Rumble] event={} user={} caller=0x{:08X}", Name(event), user, caller);
   const Queued incoming{true, event, user};
   if (!g_state.queued.valid || event <= g_state.queued.event) {
     if (g_state.queued.valid) {
@@ -324,13 +285,6 @@ void TrackKingStage(uint8_t stage) {
   if (stage == current) {
     return;
   }
-  if (stage == 0) {
-    REXLOG_INFO("[DEBUG_SAULO][Rumble] event=king exit");
-  } else if (current == 0) {
-    REXLOG_INFO("[DEBUG_SAULO][Rumble] event=king enter stage={}", stage);
-  } else {
-    REXLOG_INFO("[DEBUG_SAULO][Rumble] event=king stage={}", stage);
-  }
   current = stage;
 }
 
@@ -348,7 +302,6 @@ bool SyncEnabled(PPCContext& ctx, uint8_t* base) {
   const bool enabled = REXCVAR_GET(gw2_vibration);
   if (enabled != g_state.enabled) {
     g_state.enabled = enabled;
-    REXLOG_INFO("[DEBUG_SAULO][Rumble] enabled={}", enabled ? 1 : 0);
     if (!enabled) {
       g_state.queued = {};
       g_state.deferred = {};
@@ -365,51 +318,50 @@ bool SyncEnabled(PPCContext& ctx, uint8_t* base) {
 
 }  // namespace
 
-void RequestBombPulse(uint32_t user, uint32_t caller) {
+void RequestBombPulse(uint32_t user) {
   std::lock_guard lock(g_state.mutex);
   if (g_state.accepting) {
-    QueueLocked(Event::kBomb, user, caller);
+    QueueLocked(Event::kBomb, user);
   }
 }
 
-void RequestExtraLifePulse(uint32_t user, uint32_t caller) {
+void RequestExtraLifePulse(uint32_t user) {
   std::lock_guard lock(g_state.mutex);
   if (g_state.accepting) {
-    QueueLocked(Event::kExtraLife, user, caller);
+    QueueLocked(Event::kExtraLife, user);
   }
 }
 
-void RequestExtraBombPulse(uint32_t user, uint32_t caller) {
+void RequestExtraBombPulse(uint32_t user) {
   std::lock_guard lock(g_state.mutex);
   if (g_state.accepting) {
-    QueueLocked(Event::kExtraBomb, user, caller);
+    QueueLocked(Event::kExtraBomb, user);
   }
 }
 
-void RequestGravityOverloadPulse(uint32_t caller) {
+void RequestGravityOverloadPulse() {
   std::lock_guard lock(g_state.mutex);
   if (g_state.accepting) {
-    QueueLocked(Event::kGravityOverload, kLocalUser, caller);
+    QueueLocked(Event::kGravityOverload, kLocalUser);
   }
 }
 
-void RequestGravityExplosionPulse(uint32_t caller) {
+void RequestGravityExplosionPulse() {
   std::lock_guard lock(g_state.mutex);
   if (g_state.accepting) {
-    QueueLocked(Event::kGravityExplosion, kLocalUser, caller);
+    QueueLocked(Event::kGravityExplosion, kLocalUser);
   }
 }
 
-void RequestGatePulse(uint32_t gate, uint32_t score_id, uint32_t caller) {
+void RequestGatePulse() {
   std::lock_guard lock(g_state.mutex);
   if (g_state.accepting && g_state.enabled) {
-    REXLOG_INFO("[DEBUG_SAULO][Rumble] event=gate user={} gate=0x{:08X} score_id={}", kLocalUser, gate, score_id);
-    QueueLocked(Event::kGate, kLocalUser, caller);
+    QueueLocked(Event::kGate, kLocalUser);
   }
 }
 
 // Shield absorbs are frequent while touching enemies, so they are rate limited and never queue behind a pulse.
-void RequestShieldHitPulse(uint32_t user, uint32_t caller) {
+void RequestShieldHitPulse(uint32_t user) {
   std::lock_guard lock(g_state.mutex);
   const auto now = Clock::now();
   if (!g_state.accepting || !g_state.enabled || g_state.playback.active) {
@@ -420,11 +372,11 @@ void RequestShieldHitPulse(uint32_t user, uint32_t caller) {
   }
   g_state.shield_pulse_seen = true;
   g_state.last_shield_pulse = now;
-  QueueLocked(Event::kShieldHit, user, caller);
+  QueueLocked(Event::kShieldHit, user);
 }
 
 // Repeated kills of the same death are ignored until the player spawns again.
-void PlayerKilled(uint32_t user, bool final_life, bool game_over_possible, uint32_t caller) {
+void PlayerKilled(uint32_t user, bool final_life, bool game_over_possible) {
   std::lock_guard lock(g_state.mutex);
   if (user == kLocalUser) {
     g_state.local_player.seen = false;
@@ -435,15 +387,15 @@ void PlayerKilled(uint32_t user, bool final_life, bool game_over_possible, uint3
   g_state.death_seen[user] = true;
   g_state.deferred = {};
   if (final_life && game_over_possible) {
-    QueueLocked(Event::kGameOver, user, caller);
+    QueueLocked(Event::kGameOver, user);
     return;
   }
   g_state.respawn_expected[user] = !final_life;
-  QueueLocked(Event::kDeath, user, caller);
+  QueueLocked(Event::kDeath, user);
 }
 
 // The first spawn of a player has no preceding death, so it does not count as a respawn.
-void PlayerSpawned(uint32_t user, uint32_t caller) {
+void PlayerSpawned(uint32_t user) {
   std::lock_guard lock(g_state.mutex);
   if (!g_state.accepting || user >= players::kRecordCount) {
     return;
@@ -451,7 +403,7 @@ void PlayerSpawned(uint32_t user, uint32_t caller) {
   const bool respawn = std::exchange(g_state.respawn_expected[user], false);
   g_state.death_seen[user] = false;
   if (respawn) {
-    QueueLocked(Event::kRespawn, user, caller);
+    QueueLocked(Event::kRespawn, user);
   }
 }
 

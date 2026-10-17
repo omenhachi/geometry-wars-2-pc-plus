@@ -86,10 +86,13 @@ failure rules.
 - On a Steam Machine the game was reported to render around 30 FPS and to run slowly with it
   ([#1](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled/issues/1)). v0.3.1 keeps the game's speed
   at the 60 FPS setting when frames miss vblanks (see [launcher.md](launcher.md)), so a slow frame rate no longer slows
-  the game itself. Why that system renders around 30 FPS is still under investigation, and the timing fix has not been
+  the game itself. v0.4.0 replaces that with a new timing clock for the short speed-ups seen when the rate rises
+  toward about 45 FPS. Why that system renders around 30 FPS is still under investigation, and the timing fix has not been
   confirmed on the reporter's hardware yet. The same report's very dark image was fixed in v0.2.3 (see
   [rexglue-gpu-patch.md](rexglue-gpu-patch.md)), and the reporter confirmed it.
-- Otherwise untested on real hardware: audio, controllers, performance and the frame rates above 60 are unconfirmed on
+- Controller vibration (Controls > Vibration, off by default) is included in the Linux build but has not been confirmed on a real controller or a Steam Deck.
+- The AppImage's automatic extraction when FUSE cannot mount was exercised by forcing the mount to fail on a Linux test machine. It has not been tried on a SteamOS device.
+- Otherwise untested on real hardware: audio, other controller features, performance and the frame rates above 60 are unconfirmed on
   Linux. They were validated on Windows only.
 - The portable `user_data` folder and the move from the XDG folder are covered by unit tests with temporary folders
   only. They have not been tried with an AppImage on a real Linux PC or Steam Deck.

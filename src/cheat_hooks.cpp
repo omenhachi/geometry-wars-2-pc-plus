@@ -52,7 +52,6 @@ REX_HOOK_RAW(sub_8204FF00) {
 // returns from here before anything else; this only does that for hits that would kill.
 REX_EXTERN(__imp__sub_8204EEA8);
 REX_HOOK_RAW(sub_8204EEA8) {
-  const uint32_t caller = static_cast<uint32_t>(ctx.lr);
   const uint32_t player = ctx.r3.u32;
   const bool is_player = IsPlayer(base, player);
   if (is_player &&
@@ -65,14 +64,13 @@ REX_HOOK_RAW(sub_8204EEA8) {
   const uint32_t before = counter != 0 ? gw2::LoadBE32(base, counter) : 0;
   __imp__sub_8204EEA8(ctx, base);
   if (counter != 0 && gw2::LoadBE32(base, counter) == before + 1) {
-    gw2::rumble::RequestShieldHitPulse(index, caller);
+    gw2::rumble::RequestShieldHitPulse(index);
   }
 }
 
 // Player bomb input, called by Player::Update. When a bomb fires it takes one from the count at the player's record.
 REX_EXTERN(__imp__sub_8204F288);
 REX_HOOK_RAW(sub_8204F288) {
-  const uint32_t caller = static_cast<uint32_t>(ctx.lr);
   const uint32_t player = ctx.r3.u32;
   const bool is_player = IsPlayer(base, player);
   const uint32_t index = is_player ? gw2::LoadBE32(base, player + gw2::cheats::kPlayerIndexOffset) : 0;
@@ -83,7 +81,7 @@ REX_HOOK_RAW(sub_8204F288) {
   if (counter == 0 || !gw2::cheats::BombWasConsumed(before, gw2::LoadBE32(base, counter))) {
     return;
   }
-  gw2::rumble::RequestBombPulse(index, caller);
+  gw2::rumble::RequestBombPulse(index);
   if (infinite) {
     gw2::StoreBE32(base, counter, before);
   }

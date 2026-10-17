@@ -2,7 +2,6 @@
 #include <chrono>
 
 #include <rex/hook.h>
-#include <rex/logging.h>
 
 #include "guest_memory.h"
 #include "player_records.h"
@@ -20,7 +19,6 @@ constexpr auto kGateCooldown = std::chrono::milliseconds(180);
 struct Passage {
   uint32_t gate = 0;
   uint32_t player = 0;
-  uint32_t score_id = 0;
 };
 
 struct Latch {
@@ -61,9 +59,9 @@ uint32_t FindLocalPlayer(const uint8_t* base) {
   return found;
 }
 
-void RecordPassage(uint32_t gate, uint32_t player, uint32_t score_id) {
+void RecordPassage(uint32_t gate, uint32_t player) {
   if (g_passage_count < g_passages.size()) {
-    g_passages[g_passage_count++] = Passage{gate, player, score_id};
+    g_passages[g_passage_count++] = Passage{gate, player};
   }
 }
 
@@ -88,23 +86,20 @@ Latch& LatchFor(uint32_t gate, uint32_t player) {
   return latch;
 }
 
-void EnterGate(Latch& latch, uint32_t score_id) {
-  REXLOG_INFO("[DEBUG_SAULO][Gate] enter gate=0x{:08X} score_id={}", latch.gate, score_id);
+void EnterGate(Latch& latch) {
   const auto now = Clock::now();
   if (latch.pulsed && now - latch.last_pulse < kGateCooldown) {
-    REXLOG_INFO("[DEBUG_SAULO][Rumble] gate duplicate suppressed gate=0x{:08X}", latch.gate);
     return;
   }
   latch.pulsed = true;
   latch.last_pulse = now;
-  gw2::rumble::RequestGatePulse(latch.gate, score_id, kGateScoreCaller);
+  gw2::rumble::RequestGatePulse();
 }
 
 void EndGateUpdate() {
   for (Latch& latch : g_latches) {
     if (latch.inside && !PassageContains(latch.gate, latch.player)) {
       latch.inside = false;
-      REXLOG_INFO("[DEBUG_SAULO][Gate] exit gate=0x{:08X}", latch.gate);
     }
   }
   for (size_t i = 0; i < g_passage_count; ++i) {
@@ -112,7 +107,7 @@ void EndGateUpdate() {
     Latch& latch = LatchFor(passage.gate, passage.player);
     if (!latch.inside) {
       latch.inside = true;
-      EnterGate(latch, passage.score_id);
+      EnterGate(latch);
     }
   }
 }
@@ -134,7 +129,7 @@ REX_HOOK_RAW(sub_820787F8) {
   if (static_cast<uint32_t>(ctx.lr) == kGateScoreCaller && g_local_player != 0) {
     const uint32_t player = gw2::LoadBE32(base, ctx.r31.u32);
     if (player == g_local_player) {
-      RecordPassage(gw2::LoadBE32(base, ctx.r28.u32), player, ctx.r3.u32);
+      RecordPassage(gw2::LoadBE32(base, ctx.r28.u32), player);
     }
   }
   __imp__sub_820787F8(ctx, base);
