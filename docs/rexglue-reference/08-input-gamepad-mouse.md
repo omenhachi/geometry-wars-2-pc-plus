@@ -37,10 +37,12 @@ Z-order convention: app listener 0, ImGui drawer 64, project listeners 1000 so h
 - A pointer over an ImGui overlay keeps clicks from the game.
 
 ## Mouse and cursor
-- `CursorHider` (`src/window_host.h`) is a pure state machine: in fullscreen gameplay with focus, the cursor hides after `kCursorHideDelay` (5 s) without motion; any motion shows it. Not active in windowed mode, without focus, or while the launcher is open (`gameplay_active` callback).
-- The game owns the idle timer and uses `Window::CursorVisibility::kVisible/kHidden`, not the SDK's `kAutoHidden`. `OnMouseMove`, `OnGotFocus`, `OnLostFocus` and an ImGui dialog tick (`CursorTick::OnDraw`, run every frame on the UI thread) drive `UpdateCursor`. The cursor is restored on window closing and on `DetachWindowHost`.
-- Origin `16a97f6`. Tests: `tests/window_host_tests.cpp` (state machine). Runtime behavior on real windows was pending a manual test when written (`UNCERTAIN`).
+- `CursorHider` (`src/window_host.h`) is a pure last-input state machine: mouse movement, a mouse button or the wheel show the cursor; a new keyboard press, controller button, D-pad press, trigger past its threshold or stick past its dead zone hide it. The last meaningful gameplay device wins.
+- It works in both Windowed and Borderless Fullscreen, during gameplay with focus. The launcher (`gameplay_active` false) always shows the cursor. While a mouse-driven overlay is up, the cursor stays visible and closing the overlay restores the last gameplay device.
+- `WindowHost` handles keys, mouse movement/buttons/wheel and focus. `CursorTick::OnDraw` polls new controller input through a passive SDL `GamepadWatcher` and reads `ImGuiIO::WantCaptureMouse`; the app's `ui_active` callback covers the cheat menu and achievements overlay. Nothing consumes gameplay input.
+- Thresholds are XInput's published values: stick dead zone 7849 and trigger threshold 30/255. Uses `Window::CursorVisibility::kVisible/kHidden`, not the SDK's `kAutoHidden`. The cursor is restored on window closing and on `DetachWindowHost`.
+- Tests: `tests/window_host_tests.cpp` (state machine, controller thresholds, overlay/focus restoration).
 - Launcher mouse: TRG; pointer clicks over overlays are not forwarded to the game.
 
 ## Focus
-Focus gates cursor hiding; there is no code that pauses the game on focus loss (SDK behavior). Shift-at-start needs focus on Linux ([05](05-platform-linux.md)).
+Focus forces the cursor visible; when focus returns, the last gameplay device decides unless an overlay keeps it visible. There is no code that pauses the game on focus loss (SDK behavior). Shift-at-start needs focus on Linux ([05](05-platform-linux.md)).

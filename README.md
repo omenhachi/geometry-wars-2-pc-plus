@@ -38,7 +38,7 @@ The full list is in the [v0.4.0 release notes](https://github.com/saulob/geometr
 - Cheats (Invincible, Infinite Shield, Infinite Bombs), set in the launcher or toggled in game with **F10**
 - Portable `user_data` folder next to the program, with automatic migration of v0.1.0 data
 - **F11** in the launcher and **F11** in the game are independent: the launcher's fullscreen never changes the game's Display mode
-- The mouse cursor hides after about 5 seconds without movement during fullscreen gameplay
+- The mouse cursor shows on mouse activity and hides on keyboard or controller activity during gameplay
 - Xbox controllers without setup, and keyboard support
 
 ## What you need
@@ -99,7 +99,7 @@ The launcher opens before the game. Your choices are saved to `settings.toml` in
 - The **Ready to play** status, and the **Show this launcher** setting
 
 ### Display
-- **Display mode**: Windowed or Borderless Fullscreen. Press **F11** while playing to switch between them. In fullscreen the mouse cursor hides after about 5 seconds without movement and returns as soon as the mouse moves. The launcher always shows it.
+- **Display mode**: Windowed or Borderless Fullscreen. Press **F11** while playing to switch between them. In either mode, mouse activity shows the cursor and keyboard or controller activity hides it. Mouse-driven overlays and the launcher always show it.
 - **Window size** and **Monitor**
 - **VSync** on or off
 - **Aspect Ratio**: 16:9 Original, 16:10, 21:9 Ultrawide, 32:9 Super Ultrawide, 4:3 or 5:4. The game renders in that shape (720 lines, the width follows the format) instead of stretching, and Window size lists the sizes of the chosen format. Render resolution and Internal render resolution scale from it. A window of another shape shows black bars

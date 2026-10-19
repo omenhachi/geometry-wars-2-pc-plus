@@ -315,7 +315,7 @@ MSAA; whether it creates any 2x MSAA render target is not known.
 
 ## Why 0029
 
-While any ImGui dialog exists (the game keeps its frame counter and cursor timer as dialogs), the presenter paints from
+While any ImGui dialog exists (the game keeps its frame counter and cursor tick as dialogs), the presenter paints from
 the UI thread, and the ImGui drawer asks for a repaint after every frame. Each guest frame was presented as it arrived,
 and the UI repaint presented it again at the next vertical blank: two presents for every guest frame. On Linux, with no
 vertical blank ticks, the repaint ran as fast as the GPU allowed. A repaint for the UI alone now waits for the next guest

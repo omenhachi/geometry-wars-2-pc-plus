@@ -72,8 +72,8 @@ PLAYING
 - F11 in the game switches between Windowed and Borderless Fullscreen. F11 in
   the launcher switches only the launcher; the launcher remembers its position,
   size and state, separately from the game.
-- In fullscreen the mouse cursor hides after about 5 seconds without movement
-  and returns when the mouse moves.
+- In gameplay, mouse activity shows the cursor and keyboard or controller
+  activity hides it. Mouse-driven overlays and the launcher always show it.
 - Xbox controllers work without setup.
 - The keyboard works too; the Controls page lists the keys.
 - Frame rate: the Gameplay page offers 30, 60, 90, 120, 144, 165, 240 and

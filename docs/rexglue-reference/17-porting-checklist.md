@@ -46,7 +46,7 @@ current change (see [19](19-cross-project-porting-guide.md#validation-policy)); 
 
 ## PHASE 6 - Input
 - [ ] Port `LauncherGamepad`, F11 window host, input z-order convention ([08](08-input-gamepad-mouse.md))
-- [ ] Cursor auto-hide (optional) with the pure `CursorHider`
+- [ ] Last-input cursor visibility (optional) with the pure `CursorHider`
 - [ ] Input gating for overlays with release gate
 - [ ] Gate: launcher fully usable with controller only; no key reaches the game while an overlay is open
 

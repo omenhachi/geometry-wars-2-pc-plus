@@ -144,7 +144,7 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
   std::optional<rex::PathConfig> OnFinalizePaths(const rex::PathConfig& defaults,
                                                  std::function<void(rex::PathConfig)> resume) override {
     gw2::AttachWindowHost(window(), app_context(), [this] { ToggleWindowMode(); },
-                          [this] { return !launcher_open_; });
+                          [this] { return !launcher_open_; }, [this] { return CursorUiActive(); });
     gw2::ApplyWindowIcon();
     settings_->CaptureLateRegistered();
     gw2::ApplyMultisampling(cvars_);
@@ -296,6 +296,10 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
     if (auto* input = static_cast<rex::input::InputSystem*>(runtime()->input_system())) {
       input->SetActiveCallback(gw2::GameInputActive);
     }
+  }
+
+  bool CursorUiActive() const {
+    return launcher_open_ || gw2::CheatMenuOpen() || achievements_ != nullptr;
   }
 
   // The new process owns the game, so this one exits the way ReXApp::OnClosing does, without the subsystem teardown.
