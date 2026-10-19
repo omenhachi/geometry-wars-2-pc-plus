@@ -296,17 +296,14 @@ add_custom_command(TARGET geometry_wars_retro_evolved_2 POST_BUILD
     VERBATIM
 )
 
-# Optional: the launcher falls back to its gradient when the art is absent.
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/assets/launcher/header-art.png")
-    add_custom_command(TARGET geometry_wars_retro_evolved_2 POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E make_directory
-            "$<TARGET_FILE_DIR:geometry_wars_retro_evolved_2>/assets/launcher"
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${CMAKE_CURRENT_SOURCE_DIR}/assets/launcher/header-art.png"
-            "$<TARGET_FILE_DIR:geometry_wars_retro_evolved_2>/assets/launcher/header-art.png"
-        VERBATIM
-    )
-endif()
+add_custom_command(TARGET geometry_wars_retro_evolved_2 POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+        "$<TARGET_FILE_DIR:geometry_wars_retro_evolved_2>/assets/launcher"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_CURRENT_SOURCE_DIR}/assets/launcher/header-art.png"
+        "$<TARGET_FILE_DIR:geometry_wars_retro_evolved_2>/assets/launcher/header-art.png"
+    VERBATIM
+)
 
 # Unit tests need no game files and no ReXGlue runtime. They are not part of the default build:
 #   cmake --build <dir> --target gw2_tests
