@@ -26,6 +26,9 @@ class GameSettings;
 
 void LoadLauncherFonts(ImFontAtlas* atlas, float density);
 
+// Re-rasterizes the launcher fonts in place when the window moves to a display with another scale.
+void UpdateLauncherFonts(rex::ui::ImGuiDrawer* drawer, rex::ui::ImmediateDrawer* immediate_drawer, float density);
+
 // The launcher's UI fonts and accent, also used by the in-game cheat menu. The fonts are null when the system has none.
 ImFont* LauncherRegularFont();
 ImFont* LauncherSemiboldFont();
@@ -34,7 +37,9 @@ ImVec4 LauncherAccent();
 struct LauncherPaths {
   std::filesystem::path game_dir;
   std::filesystem::path user_data_root;
+  std::filesystem::path logs_dir;
   UserDataOutcome user_data_outcome = UserDataOutcome::kPortable;
+  rex::ui::ImmediateDrawer* immediate_drawer = nullptr;  // launcher header art
 };
 
 // Empty when the launcher opens before the runtime exists, which is only when the game files are not installed.

@@ -13,8 +13,6 @@
 
 #include "launcher_placement.h"
 
-struct ImGuiIO;
-
 namespace gw2 {
 
 // TRG Launcher and the settings file take UTF-8 paths.
@@ -134,25 +132,21 @@ std::optional<PreShowResult> TakePreShowResult();
 // Starts a new instance with this run's command line plus `extra_args`.
 bool RelaunchSelf(std::wstring_view extra_args);
 
+// The architecture this build runs as ("x86-64", "arm64", ...), for the startup log line.
+const char* ArchitectureName();
+
+// The graphics backend the xenos GPU plugin uses here.
+const char* GraphicsBackendName();
+
+// Windows: caches the current run's log file and installs the unhandled exception filter that appends a CRASH
+// REPORT block to it. A no-op on Linux.
+void InstallCrashReports();
+
 struct UiFontFiles {
   std::filesystem::path regular;
   std::filesystem::path semibold;
   std::filesystem::path bold;
 };
 UiFontFiles FindUiFonts();
-
-// Feeds a game controller to Dear ImGui while the launcher or the in-game cheat menu is open.
-class LauncherGamepad {
- public:
-  void Update(ImGuiIO& io);
-  void Release(ImGuiIO& io);
-
- private:
-  int pad_ = -1;
-  double next_scan_ = 0.0;
-#if !defined(_WIN32)
-  bool subsystem_ = false;
-#endif
-};
 
 }  // namespace gw2

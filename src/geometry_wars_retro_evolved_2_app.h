@@ -14,8 +14,10 @@
 #include <rex/system/kernel_state.h>
 #include <rex/ui/overlay/debug_overlay.h>
 #include <rex/ui/windowed_app_context.h>
+#include <rex/version.h>
 
 #include "achievements_overlay.h"
+#include "active_log.h"
 #include "cheat_menu.h"
 #include "frame_counter.h"
 #include "game_files.h"
@@ -25,7 +27,10 @@
 #include "launcher_platform.h"
 #include "launcher_settings.h"
 #include "live_fix.h"
+#include "log_filter.h"
+#include "log_path.h"
 #include "rumble.h"
+#include "session_log.h"
 #include "user_data.h"
 #include "window_host.h"
 
@@ -46,6 +51,10 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
 
  protected:
   void OnConfigurePaths(rex::PathConfig& paths) override {
+    if (const auto inherited = gw2::TakeInheritedSessionLog()) {
+      rex::cvar::SetFlagFromCommandLine("log_file", gw2::Utf8(*inherited));
+      gw2::InstallCrashReports();
+    }
     const std::filesystem::path port_folder = gw2::PortFolder();
     if (paths.game_data_root.empty()) {
       paths.game_data_root = port_folder / "game";
@@ -53,13 +62,12 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
     shipped_config_ = paths.config_path;
     ChooseUserData(paths, port_folder);
     // ReXGlue writes its logs beside the executable, which is read-only inside an AppImage.
-    if (port_folder != rex::filesystem::GetExecutableFolder() && rex::cvar::GetFlagByName("log_file").empty()) {
-      for (const auto& logs : {port_folder / "logs", paths.user_data_root / "logs"}) {
-        if (const std::filesystem::path file = gw2::NextLogFile(logs, "geometry_wars_retro_evolved_2");
-            !file.empty()) {
-          rex::cvar::SetFlagByName("log_file", gw2::Utf8(file));
-          break;
-        }
+    const bool appimage = port_folder != rex::filesystem::GetExecutableFolder();
+    if (appimage && rex::cvar::GetFlagByName("log_file").empty()) {
+      const std::filesystem::path logs = gw2::LogsFolder(port_folder, paths.user_data_root, {}, appimage);
+      if (const std::filesystem::path file = gw2::NextLogFile(logs, "geometry_wars_retro_evolved_2");
+          !file.empty()) {
+        rex::cvar::SetFlagByName("log_file", gw2::Utf8(file));
       }
     }
   }
@@ -75,6 +83,7 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
   }
 
   void OnPostInitLogging() override {
+    gw2::InstallCrashReports();
     const gw2::UserDataMessage message = gw2::DescribeUserData(user_data_);
     if (message.warning) {
       REXLOG_WARN("{}", message.text);
@@ -82,6 +91,10 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
       REXLOG_INFO("{}", message.text);
     }
     gw2::LoadPlayerSettings(gw2::LauncherSettingsPath(user_data_root()));
+    gw2::ApplyDetailedLogging();
+    gw2::InstallSessionLogCleanup();
+    REXLOG_INFO("Geometry Wars: Retro Evolved 2 port {} ({}, {}, ReXGlue SDK {})", GW2_PORT_VERSION,
+                gw2::ArchitectureName(), gw2::GraphicsBackendName(), REXGLUE_VERSION_STRING);
     gw2::ApplyGraphicsAdapter();
     gw2::ApplyAspectRatio();
   }
@@ -122,6 +135,10 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
     gw2::LoadLauncherFonts(atlas, window() ? float(window()->GetDpi()) / float(window()->GetMediumDpi()) : 1.0f);
   }
 
+  void OnDpiScaleChanged(float scale) override {
+    gw2::UpdateLauncherFonts(imgui_drawer(), immediate_drawer(), scale);
+  }
+
   // Missing or invalid game files open the launcher before the runtime exists, since it is the only way to install.
   // Valid files open it after the runtime is built, so the Achievements page reads the game's own achievement data.
   std::optional<rex::PathConfig> OnFinalizePaths(const rex::PathConfig& defaults,
@@ -147,11 +164,17 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
       return defaults;
     }
     launcher_open_ = true;
-    gw2::ShowLauncher(imgui_drawer(), {defaults.game_data_root, defaults.user_data_root, user_data_.outcome},
+    const std::filesystem::path logs_dir = LogsDirectory(defaults.user_data_root);
+    gw2::ShowLauncher(imgui_drawer(),
+                      {defaults.game_data_root, defaults.user_data_root, logs_dir, user_data_.outcome,
+                       immediate_drawer()},
                       *settings_, {},
                       {.play = [this, resume, defaults] {
                          launcher_open_ = false;
-                         app_context().CallInUIThreadDeferred([resume, defaults] { resume(defaults); });
+                         app_context().CallInUIThreadDeferred([resume, defaults] {
+                           gw2::ApplyDetailedLogging();
+                           resume(defaults);
+                         });
                        },
                        .restart = [this] { return RestartInNewWindow(); },
                        .quit = [this] {
@@ -171,10 +194,13 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
     }
     show_launcher_after_runtime_ = false;
     launcher_open_ = true;
-    gw2::ShowLauncher(imgui_drawer(), {game_data_root(), user_data_root(), user_data_.outcome}, *settings_,
-                      {runtime(), immediate_drawer(), &achievements()},
+    gw2::ShowLauncher(imgui_drawer(),
+                      {game_data_root(), user_data_root(), LogsDirectory(user_data_root()), user_data_.outcome,
+                       immediate_drawer()},
+                      *settings_, {runtime(), immediate_drawer(), &achievements()},
                       {.play = [this] {
                          launcher_open_ = false;
+                         gw2::ApplyDetailedLogging();
                          StartGame();
                        },
                        .restart = [this] { return RestartInNewWindow(); },
@@ -213,6 +239,15 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
     CloseAchievements();
   }
 
+  // Window close is a hard exit: the base TerminateTitle would wait on guest threads that are still running guest
+  // code. Finalizing here is the only chance to apply the logging policy before the process ends.
+  void OnClosing(rex::ui::UIEvent&) override {
+    REXLOG_INFO("Window closing, hard-exiting process.");
+    gw2::FinalizeSessionLog();
+    rex::FlushLogging();
+    std::_Exit(0);
+  }
+
   // F7 toggles the same overlay as the game's Achievements item. The overlay is owned here, not by ReXApp.
   std::unique_ptr<rex::ui::ImGuiDialog> CreateAchievementsOverlay() override {
     if (launcher_open_) {
@@ -227,6 +262,12 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
   }
 
  private:
+  std::filesystem::path LogsDirectory(const std::filesystem::path& user_data) const {
+    const std::filesystem::path port_folder = gw2::PortFolder();
+    return gw2::LogsFolder(port_folder, user_data, gw2::ActiveLogFile(),
+                           port_folder != rex::filesystem::GetExecutableFolder());
+  }
+
   // The cache folder ReXGlue derived from the system root follows the user data root unless it was set explicitly.
   void ChooseUserData(rex::PathConfig& paths, const std::filesystem::path& port_folder) {
     user_data_ = gw2::SelectUserData({port_folder, paths.user_data_root, !REXCVAR_GET(user_data_root).empty()});

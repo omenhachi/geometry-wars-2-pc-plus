@@ -2,8 +2,11 @@
 
 #include <algorithm>
 #include <cfloat>
+#include <cmath>
 #include <cstdint>
 #include <filesystem>
+#include <fstream>
+#include <iterator>
 #include <memory>
 #include <optional>
 #include <string>
@@ -14,25 +17,33 @@
 #include <imgui.h>
 
 #include <rex/cvar.h>
+#include <rex/filesystem.h>
 #include <rex/logging.h>
 #include <rex/system/achievement_manager.h>
+#include <rex/ui/image_decode.h>
+#include <rex/ui/immediate_drawer.h>
 #include <rex/ui/imgui_dialog.h>
+#include <rex/ui/imgui_drawer.h>
 #include <rex/ui/overlay/achievement_icon_cache.h>
 #include <rex/version.h>
 
-#include "trg/headers.h"
 #include "trg/launcher.h"
 #include "trg/platform.h"
 
 #include "cheats.h"
+#include "dpi.h"
 #include "frame_limiter.h"
 #include "game_files.h"
+#include "imgui_gamepad.h"
+#include "keybinds.h"
 #include "launcher_achievements.h"
 #include "launcher_options.h"
 #include "launcher_placement.h"
 #include "launcher_play.h"
 #include "launcher_platform.h"
+#include "launcher_quit.h"
 #include "launcher_settings.h"
+#include "log_filter.h"
 
 namespace gw2 {
 namespace {
@@ -41,7 +52,9 @@ namespace {
 const ImVec4 kAccent = ImVec4(0.580f, 0.235f, 1.0f, 1.0f);
 constexpr double kPlayFeedbackSeconds = 0.4;
 constexpr ImGuiConfigFlags kNavFlags = ImGuiConfigFlags_NavEnableKeyboard | ImGuiConfigFlags_NavEnableGamepad;
-constexpr char kRepositoryText[] = "github.com/saulob/geometry-wars-retro-evolved-2-recompiled";
+constexpr char kAuthorUrl[] = "https://github.com/saulob";
+constexpr char kRepositoryUrl[] = "https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled";
+constexpr char kAuthorText[] = "BY SAULOB";
 constexpr char kShowLauncherHelp[] = "Off starts the game directly. Hold Shift while starting to bring it back.";
 constexpr char kWindowSizeHelp[] =
     "The game window's size in Windowed mode. A new window: the game restarts once when you press Play.";
@@ -60,12 +73,52 @@ trg::Theme LauncherTheme() {
   return trg::Theme::Midnight().WithAccent(kAccent);
 }
 
-trg::HeaderPainter LauncherHeader() {
-  return trg::headers::Gradient(IM_COL32(10, 18, 34, 255), IM_COL32(44, 18, 80, 255), IM_COL32(8, 26, 44, 255),
-                                IM_COL32(8, 10, 18, 255));
+constexpr float kHeaderArtAspect = 1600.0f / 180.0f;
+
+trg::HeaderPainter LauncherHeader(ImTextureID art, float art_aspect) {
+  return [art, art_aspect](const trg::HeaderContext& c) {
+    c.draw->AddRectFilledMultiColor(c.min, c.max, IM_COL32(10, 18, 34, 255), IM_COL32(44, 18, 80, 255),
+                                    IM_COL32(8, 26, 44, 255), IM_COL32(8, 10, 18, 255));
+    if (art == ImTextureID{}) {
+      return;
+    }
+    const float height = c.max.y - c.min.y;
+    const float width = height * art_aspect;
+    const ImVec2 top_left(c.max.x - width, c.min.y);
+    c.draw->AddImage(ImTextureRef(art), top_left, c.max);
+  };
+}
+
+std::unique_ptr<rex::ui::ImmediateTexture> LoadHeaderArt(rex::ui::ImmediateDrawer* drawer) {
+  if (!drawer) {
+    return nullptr;
+  }
+  const std::filesystem::path path =
+      rex::filesystem::GetExecutableFolder() / "assets" / "launcher" / "header-art.png";
+  std::ifstream in(path, std::ios::binary);
+  if (!in) {
+    return nullptr;
+  }
+  const std::vector<uint8_t> encoded((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+  int width = 0;
+  int height = 0;
+  const std::vector<uint8_t> pixels = rex::ui::DecodeImageRGBA(encoded.data(), encoded.size(), width, height);
+  if (pixels.empty() || width <= 0 || height <= 0) {
+    REXLOG_WARN("Launcher header art could not be decoded: {}", Utf8(path));
+    return nullptr;
+  }
+  return drawer->CreateTexture(uint32_t(width), uint32_t(height), rex::ui::ImmediateTextureFilter::kLinear, false,
+                               pixels.data());
+}
+
+std::string DisplayUrl(const char* url) {
+  const std::string text = url;
+  const size_t scheme = text.find("://");
+  return scheme == std::string::npos ? text : text.substr(scheme + 3);
 }
 
 trg::Fonts g_fonts;
+float g_font_density = 1.0f;
 
 const char* StateName(GameFileState state) {
   switch (state) {
@@ -167,6 +220,7 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
     if (game_.runtime && game_.immediate_drawer) {
       icons_ = std::make_unique<rex::ui::AchievementIconCache>(game_.immediate_drawer, game_.runtime);
     }
+    header_art_ = LoadHeaderArt(paths_.immediate_drawer);
     if (SelectedAspectRatio() != AspectRatio::k16x9) {
       SelectWindowSizeForAspect();
     }
@@ -208,7 +262,7 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
         RequestPlay();
         break;
       case trg::Result::kQuit:
-        if (!play_.starting()) {
+        if (!play_.starting() && LauncherQuitAllowed(ImGui::IsKeyPressed(ImGuiKey_Escape, false))) {
           Finish(callbacks_.quit);
         }
         break;
@@ -367,10 +421,18 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
     c.theme = LauncherTheme();
     c.fonts = g_fonts;
     c.branding.title = "GEOMETRY WARS: RETRO EVOLVED 2";
-    c.branding.subtitle = "PC PORT  \xC2\xB7  LAUNCHER";
+    c.branding.subtitle_segments = {
+        {"PC PORT   \xC2\xB7   ", ""},
+        {kAuthorText, kAuthorUrl},
+    };
     c.branding.subtitle_color = kAccent;
-    c.branding.background = LauncherHeader();
+    const float art_aspect =
+        header_art_ ? float(header_art_->width) / float(header_art_->height) : kHeaderArtAspect;
+    c.branding.background = LauncherHeader(header_art_ ? reinterpret_cast<ImTextureID>(header_art_.get())
+                                                       : ImTextureID{},
+                                           art_aspect);
     c.note = "Play applies the changes. Save keeps them without starting.";
+    c.hints = "Enter  Play     Alt+F4  Quit     Ctrl+S  Save";
     for (const PageId page : kPageOrder) {
       c.pages.push_back(MakePage(page));
     }
@@ -554,15 +616,44 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
 
   void PageControls(trg::Ui& ui) {
     ui.Info("Controller", "Automatic: Xbox controllers work without setup.");
-    ui.Toggle("Keyboard", "Enable keyboard/mouse controller emulation.", kKeyboardKey, true, "Disabled", "Enabled");
+    ui.Toggle("Keyboard", "Use the keyboard for gameplay controls together with the controller.", kKeyboardKey,
+              true, "Off", "On");
     ui.Toggle("Vibration", "Controller rumble.", kVibrationKey, kVibrationDefault, "Off", "On");
-    if (ui.Section("Keyboard keys")) {
-      for (const rex::cvar::FlagEntry& entry : rex::cvar::GetRegistry()) {
-        if (entry.category == "Input/Keybinds/Controller") {
-          ui.Info(entry.description.c_str(), KeyList(entry.getter()).c_str());
-        }
+    if (ui.ConfirmRow("Keyboard defaults", "Puts the keyboard controls back to their standard layout.",
+                      "Reset to defaults", "Put every key back to its default?", "Reset")) {
+      ResetKeyboardDefaults(ui.settings());
+      ui.SetStatus("Keyboard controls reset to defaults.");
+    }
+    if (ui.Section("Keyboard controls", true)) {
+      ui.Help("Click a key, then press the new one. Esc cancels.");
+      const bool enabled = ui.settings().GetBool(kKeyboardKey, true);
+      if (!enabled) {
+        ImGui::BeginDisabled();
+      }
+      for (const KeyboardAction& action : kKeyboardActions) {
+        KeyboardRow(ui, action);
+      }
+      if (!enabled) {
+        ImGui::EndDisabled();
       }
     }
+  }
+
+  // The key table holds the ReXGlue keybind_* settings, so a row edits the same store the rest of the launcher uses.
+  // The store keeps the edit pending until Save or Play.
+  static void KeyboardRow(trg::Ui& ui, const KeyboardAction& action) {
+    const std::string shown = KeyboardBindingLabel(SavedKeyboardBinding(ui.settings(), action));
+    const std::optional<ImGuiKey> key = ui.KeyBindRow(action.label, nullptr, shown);
+    if (!key) {
+      return;
+    }
+    const ImGuiIO& io = ImGui::GetIO();
+    const std::string binding = KeyboardBindingFor(*key, io.KeyShift, io.KeyCtrl, io.KeyAlt);
+    if (binding.empty()) {
+      ui.SetStatus("That key cannot be used.");
+      return;
+    }
+    ui.settings().Set(action.key, binding);
   }
 
   void PageCheats(trg::Ui& ui) {
@@ -640,10 +731,30 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
       settings_.ResetToDefaults();
       launcher_->SetStatus("Settings reset to defaults. Save or press Play to keep them.", 6.0);
     }
+    ui.Heading("Diagnostics");
+    if (ui.Toggle("Detailed logging", "Keeps logs for normal sessions. Crash diagnostics are always preserved.",
+                  "detailed_logging", true)) {
+      rex::cvar::SetFlagByName("detailed_logging", settings_.Get("detailed_logging", "true"));
+      ApplyDetailedLogging();
+    }
+    if (ui.ButtonRow("Logs folder", "Open the folder containing session and crash logs", "Open logs folder")) {
+      OpenLogsFolder();
+    }
     ui.Info("Port version", GW2_PORT_VERSION);
     ui.Info("Libraries", "ReXGlue SDK " REXGLUE_VERSION_STRING "  \xC2\xB7  TRG Launcher " GW2_TRG_LAUNCHER_VERSION);
     ui.Info("Game", "Xbox Live Arcade, title 584108FF, game version 0.0.1.2");
-    ui.Help(kRepositoryText);
+    ui.Link(DisplayUrl(kRepositoryUrl).c_str(), kRepositoryUrl);
+  }
+
+  void OpenLogsFolder() {
+    std::error_code ec;
+    std::filesystem::path folder = paths_.logs_dir;
+    std::filesystem::create_directories(folder, ec);
+    if (!std::filesystem::is_directory(folder, ec)) {
+      REXLOG_WARN("Could not create the logs folder {}: {}", Utf8(folder), ec.message());
+      folder = folder.parent_path();
+    }
+    trg::OpenInFileManager(Utf8(folder));
   }
 
   void BrowseAndInstall() {
@@ -726,7 +837,8 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
   std::vector<MonitorInfo> monitors_;
   std::vector<GraphicsAdapter> graphics_adapters_;
   std::unique_ptr<trg::Launcher> launcher_;
-  LauncherGamepad gamepad_;
+  std::unique_ptr<rex::ui::ImmediateTexture> header_art_;
+  ImGuiGamepad gamepad_;
   PlayGate play_;
   bool nav_taken_ = false;
   bool done_ = false;
@@ -748,6 +860,8 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
 void LoadLauncherFonts(ImFontAtlas* atlas, float density) {
   // Latin-1 plus General Punctuation.
   static const ImWchar kRanges[] = {0x0020, 0x00FF, 0x2010, 0x205E, 0};
+  density = ValidDpiScale(density);
+  g_font_density = density;
   ImFontConfig config;
   config.RasterizerDensity = density;
   const auto load = [&](const std::filesystem::path& path) -> ImFont* {
@@ -761,6 +875,37 @@ void LoadLauncherFonts(ImFontAtlas* atlas, float density) {
   g_fonts.regular = load(fonts.regular);
   g_fonts.semibold = load(fonts.semibold);
   g_fonts.bold = load(fonts.bold);
+}
+
+void UpdateLauncherFonts(rex::ui::ImGuiDrawer* drawer, rex::ui::ImmediateDrawer* immediate_drawer, float density) {
+  if (!drawer || !immediate_drawer || !g_fonts.regular) {
+    return;
+  }
+  density = ValidDpiScale(density);
+  if (std::abs(density - g_font_density) < 0.001f) {
+    return;
+  }
+
+  ImGuiIO& io = drawer->GetIO();
+  for (ImFont* font : {g_fonts.regular, g_fonts.semibold, g_fonts.bold}) {
+    if (!font) {
+      continue;
+    }
+    const ImWchar fallback = font->FallbackChar;
+    const ImWchar ellipsis = font->EllipsisChar;
+    font->ClearOutputData();
+    font->FallbackChar = fallback;
+    font->EllipsisChar = ellipsis;
+    font->CurrentRasterizerDensity = density;
+    for (ImFontConfig* source : font->Sources) {
+      source->RasterizerDensity = density;
+    }
+  }
+  io.Fonts->TexIsBuilt = false;
+  // The drawer holds the uploaded atlas until the immediate drawer is replaced.
+  drawer->SetImmediateDrawer(nullptr);
+  drawer->SetImmediateDrawer(immediate_drawer);
+  g_font_density = density;
 }
 
 ImFont* LauncherRegularFont() {

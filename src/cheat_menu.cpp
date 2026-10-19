@@ -16,8 +16,8 @@
 #include "achievements_overlay_rules.h"
 #include "cheat_menu_rules.h"
 #include "cheats.h"
+#include "imgui_gamepad.h"
 #include "launcher.h"
-#include "launcher_platform.h"
 #include "live_fix.h"
 
 namespace gw2 {
@@ -170,7 +170,7 @@ class CheatMenuDialog final : public rex::ui::ImGuiDialog {
     }
   }
 
-  LauncherGamepad gamepad_;
+  ImGuiGamepad gamepad_;
   std::bitset<ImGuiKey_NamedKey_COUNT> pressed_;
   ImGuiConfigFlags saved_nav_flags_ = 0;
   ImGuiBackendFlags saved_has_gamepad_ = 0;

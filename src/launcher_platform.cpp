@@ -4,6 +4,10 @@
 #include <cstdlib>
 
 #include <rex/filesystem.h>
+#include <rex/logging.h>
+
+#include "active_log.h"
+#include "crash_report.h"
 
 namespace gw2 {
 
@@ -27,6 +31,20 @@ std::filesystem::path PortFolder() {
   }
 #endif
   return rex::filesystem::GetExecutableFolder();
+}
+
+void InstallCrashReports() {
+#if defined(_WIN32)
+  const std::filesystem::path file = ActiveLogFile();
+  if (file.empty()) {
+    REXLOG_WARN("Windows crash reporting disabled: the current log file could not be resolved");
+    return;
+  }
+  std::error_code ec;
+  const std::filesystem::path absolute = std::filesystem::absolute(file, ec);
+  InstallCrashReporting(Utf8(ec ? file : absolute).c_str());
+  REXLOG_INFO("Windows crash reporting enabled for current log.");
+#endif
 }
 
 }  // namespace gw2
