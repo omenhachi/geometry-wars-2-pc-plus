@@ -64,7 +64,8 @@ constexpr char kShowFpsHelp[] =
     "Shows the game's frame rate in the window title: Geometry Wars: Retro Evolved 2 | FPS: 60.00";
 constexpr char kShowResolutionHelp[] = "Shows the game's render resolution in the window title";
 constexpr char kFrameRateHelp[] =
-    "Controls the game's frame-rate limit. 60 matches the original game.";
+    "60 FPS is the original game rate. Higher frame rates use automatic visual interpolation while gameplay simulation "
+    "remains at 60 Hz.";
 constexpr char kFrameCounterHelp[] = "Shows the game's frame rate in the corner. F2 toggles it while playing.";
 constexpr char kCheatsHelp[] =
     "Press F10 while playing to open the Cheats menu. Changes made there apply only to the current session.";

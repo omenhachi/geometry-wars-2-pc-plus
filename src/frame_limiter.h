@@ -114,6 +114,9 @@ class SimulationPacer {
     clock_.Reset();
   }
 
+  // Real time accumulated past the last tick; the next tick is due after step - remainder().
+  double remainder() const { return remainder_; }
+
  private:
   static constexpr double kTickTolerance = 1e-9;
 
@@ -196,6 +199,9 @@ void SyncGameDelta(uint8_t* base, LimiterClock::time_point now);
 
 // Returns whether the game's update should run on this outer-loop frame, writing its time step when it should.
 bool BeginSimulationTick(uint8_t* base, LimiterClock::time_point now);
+
+// Time the simulation pacer has accumulated past its last tick.
+double SimulationRemainder();
 
 // Returns whether the effect clock should advance on this outer-loop frame.
 bool BeginVisualClockTick(LimiterClock::time_point now);

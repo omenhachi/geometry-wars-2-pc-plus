@@ -58,10 +58,12 @@ normal on Windows only.
 See [08](08-input-gamepad-mouse.md).
 
 ## High refresh rate
-Rates up to 240 and Unlimited present at the selected rate while gameplay updates at 60 Hz. Intermediate frames repeat
-the latest simulation state; interpolation is not implemented. The presenter's VSync setting can still cap the rate
-(VSync Off allows tearing). The guest vblank is fixed at 60 Hz. Display refresh/monitor change handling is not
-implemented beyond SDK behavior (`UNCERTAIN`; no repository code reacts to display changes).
+Rates up to 240 and Unlimited present at the selected rate while gameplay updates at 60 Hz. Intermediate frames
+interpolate the renderer's gameplay object transforms between the last two completed simulation states
+(`src/visual_interpolation.*`, hooked at the scene renderer `sub_82065E38` and object draw `sub_82045740`); manual
+runtime validation is pending. The presenter's VSync setting can still cap the rate (VSync Off allows tearing). The
+guest vblank is fixed at 60 Hz. Display refresh/monitor change handling is not implemented beyond SDK behavior
+(`UNCERTAIN`; no repository code reacts to display changes).
 
 ## Pitfalls
 - Hooks named like the SDK export: `REX_HOOK_RAW(__imp__VdSwap)` replaces the import thunk, so the original is called through `rex::ppc::HostToGuestFunction<VdSwap_entry>` instead of `REX_EXTERN` (which would re-enter the hook). Declaring `VdSwap_entry` yourself is needed because the SDK has no header for it.

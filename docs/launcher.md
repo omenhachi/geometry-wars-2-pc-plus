@@ -117,7 +117,7 @@ Frame rate is the game's frame-rate limit and applies on PLAY without a restart.
   exactly that many original steps; the difference carries to the next frame, so the game time follows the clock.
 - **30** adds a limiter (`steady_clock`, a high-resolution timer, then a short spin).
 - **90 and above** also make the game's present callback swap at once instead of at the next vblank. Unlimited does not wait.
-- **90, 120, 144, 165, 240 and Unlimited** present at the selected rate while the game's update stays at 60 Hz. Intermediate frames repeat the latest game state, so enemy AI, animations and timers keep the original timing. The game's time step is written only on the 60 Hz updates.
+- **90, 120, 144, 165, 240 and Unlimited** present at the selected rate while the game's update stays at 60 Hz. Intermediate frames interpolate gameplay object transforms between the last two completed simulation states, so enemy AI, gameplay animations and timers keep the original timing. The game's time step is written only on the 60 Hz updates. Manual runtime validation of the interpolation path is still pending.
 
 When rendering falls below 60, the update uses the same `GameDeltaClock` policy as the 60 setting, so game time remains synchronized with real time. Presenter VSync can still cap the presentation rate.
 
@@ -178,7 +178,7 @@ TRG Launcher is the `third_party/trg-launcher` submodule pinned to `b384a28` (ve
 ## Limits
 
 - ReXGlue's own overlays (F3 debug, Backtick console, F4 settings) can still open over the launcher. F7 does not open the in-game achievements overlay while the launcher is open.
-- High-refresh frames repeat the latest simulation state; rendering is not interpolated.
+- High-refresh frames interpolate gameplay object transforms. Particles, trails and other effects are not interpolated in this pass.
 - The graphics base size is derived, not measured here (see Graphics).
 
 ## Tests

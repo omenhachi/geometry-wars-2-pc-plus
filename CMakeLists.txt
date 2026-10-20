@@ -201,6 +201,7 @@ set(GW2_SOURCES
     src/log_path.cpp
     src/session_log.cpp
     src/user_data.cpp
+    src/visual_interpolation.cpp
     src/window_host.cpp
 )
 if(WIN32)
@@ -333,6 +334,7 @@ gw2_add_test(window_host_tests)
 target_compile_definitions(window_host_tests PRIVATE GW2_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src")
 gw2_add_test(frame_counter_tests)
 gw2_add_test(frame_limiter_tests src/frame_wait.cpp)
+gw2_add_test(visual_interpolation_tests src/visual_interpolation.cpp)
 gw2_add_test(launcher_placement_tests)
 gw2_add_test(user_data_tests src/user_data.cpp)
 gw2_add_test(cheats_tests)

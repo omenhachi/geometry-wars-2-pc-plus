@@ -12,6 +12,7 @@
 #include <rex/hook.h>
 
 #include "guest_memory.h"
+#include "visual_interpolation.h"
 
 namespace gw2 {
 namespace {
@@ -62,6 +63,26 @@ DebugSauloTimingState g_debug_saulo;
 
 int64_t DebugSauloNowMs() {
   return std::chrono::duration_cast<std::chrono::milliseconds>(LimiterClock::now().time_since_epoch()).count();
+}
+
+double SecondsSinceEpoch(LimiterClock::time_point now) {
+  return std::chrono::duration<double>(now.time_since_epoch()).count();
+}
+
+double InterpolationStep(uint8_t* base) {
+  const uint32_t bits = LoadBE32(base, kGameDeltaAddress);
+  const float step = bits != 0 ? std::bit_cast<float>(bits) : float(kVisualStep);
+  if (!(step > 0.0f)) {
+    return kVisualStep;
+  }
+  return std::clamp(double(step), kGameDeltaMin, kGameDeltaMax);
+}
+
+double InterpolationInitialInterval(int fps) {
+  if (fps == kFrameRateUnlimited) {
+    return kVisualStep;
+  }
+  return fps > kFrameRateDefault ? 1.0 / double(fps) : kVisualStep;
 }
 
 bool CaptureOriginal(GameDeltaState& state, uint8_t* base) {
@@ -164,6 +185,11 @@ bool BeginSimulationTick(uint8_t* base, LimiterClock::time_point now) {
   return true;
 }
 
+double SimulationRemainder() {
+  std::lock_guard lock(g_delta_mutex);
+  return g_delta.pacer.remainder();
+}
+
 bool BeginVisualClockTick(LimiterClock::time_point now) {
   if (!GatesSimulation(ConfiguredFrameRate())) {
     g_visual_clock.previous.reset();
@@ -239,14 +265,16 @@ void DebugSauloTimingPresent(uint8_t* base) {
   const uint64_t visual_calls = g_debug_saulo.visual_calls.exchange(0, std::memory_order_relaxed);
   const uint64_t visual_updates = g_debug_saulo.visual_updates.exchange(0, std::memory_order_relaxed);
   const uint64_t enemy_updates = g_debug_saulo.enemy_updates.exchange(0, std::memory_order_relaxed);
+  const InterpolationStats interpolation = TakeInterpolationStats();
   const uint32_t delta_bits = LoadBE32(base, kGameDeltaAddress);
   const float delta = delta_bits != 0 ? std::bit_cast<float>(delta_bits) : 0.0f;
   REXLOG_INFO(
       "DEBUG_SAULO timing selected={} render_fps={:.1f} present_fps={:.1f} presents={} sim_tps={:.1f} sim_ticks={} "
-      "skipped={} visual_calls={} visual_updates={} enemy_updates={} delta_ms={:.3f}",
+      "skipped={} visual_calls={} visual_updates={} enemy_updates={} interp_frames={} interp_objects={} "
+      "interp_snaps={} interp_alpha={:.3f} delta_ms={:.3f}",
       ConfiguredFrameRate(), double(loop_frames) / seconds, double(presents) / seconds, presents,
       double(sim_ticks) / seconds, sim_ticks, skipped, visual_calls, visual_updates, enemy_updates,
-      delta * 1000.0f);
+      interpolation.frames, interpolation.objects, interpolation.snaps, interpolation.alpha, delta * 1000.0f);
 }
 
 }  // namespace gw2
@@ -268,9 +296,29 @@ REX_HOOK_RAW(sub_820366A0) {
   if (gw2::BeginSimulationTick(base, gw2::LimiterClock::now())) {
     gw2::DebugSauloTimingSimulationTick();
     __imp__sub_820366A0(ctx, base);
+    gw2::VisualInterpolationSimulationTick(gw2::SecondsSinceEpoch(gw2::LimiterClock::now()),
+                                           gw2::SimulationRemainder());
   } else {
     gw2::DebugSauloTimingSkipped();
   }
+}
+
+// The scene renderer rebuilds its vertex batches from object transforms every frame.
+REX_EXTERN(__imp__sub_82065E38);
+REX_HOOK_RAW(sub_82065E38) {
+  const int fps = gw2::ConfiguredFrameRate();
+  gw2::VisualInterpolationBeginFrame(gw2::SecondsSinceEpoch(gw2::LimiterClock::now()),
+                                    gw2::GatesSimulation(fps), gw2::InterpolationStep(base),
+                                    gw2::InterpolationInitialInterval(fps));
+  __imp__sub_82065E38(ctx, base);
+}
+
+// One gameplay object's per-frame draw. Interpolated values are written and restored around the draw.
+REX_EXTERN(__imp__sub_82045740);
+REX_HOOK_RAW(sub_82045740) {
+  const gw2::ObjectTransformOverride override = gw2::VisualInterpolationPrepareObject(base, ctx.r3.u32);
+  __imp__sub_82045740(ctx, base);
+  gw2::VisualInterpolationRestoreObject(base, override);
 }
 
 // The effect clock is advanced by sub_82090CD8; keep its state frozen on render-only frames.
