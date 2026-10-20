@@ -78,7 +78,7 @@ void TestClassification() {
   using spdlog::level::warn;
 
   CHECK(!gw2::ShouldLogInMinimalMode(info, "core", "Launcher shown after the runtime"));
-  CHECK(!gw2::ShouldLogInMinimalMode(info, "core", "Game files in C:\\game: valid"));
+  CHECK(gw2::ShouldLogInMinimalMode(info, "core", "Game files: valid (default.xex 704512 bytes, SHA-256 ABC)"));
   CHECK(!gw2::ShouldLogInMinimalMode(info, "gpu", "GPU wait for idle = 00000000"));
   CHECK(!gw2::ShouldLogInMinimalMode(info, "krnl", "Function table initialized for module: code=..."));
   CHECK(!gw2::ShouldLogInMinimalMode(debug, "core", "RexApp starting"));
@@ -88,17 +88,20 @@ void TestClassification() {
   CHECK(gw2::ShouldLogInMinimalMode(err, "gpu", "Failed to create a Direct3D 12 device"));
   CHECK(gw2::ShouldLogInMinimalMode(spdlog::level::critical, "core", "fatal"));
 
-  CHECK(gw2::ShouldLogInMinimalMode(
-      info, "core", "Geometry Wars: Retro Evolved 2 port 0.4.0 (x86-64, Direct3D 12, ReXGlue SDK 0.10.0)"));
-  CHECK(gw2::ShouldLogInMinimalMode(info, "core", "User data: portable path selected: C:\\game\\user_data"));
-  CHECK(gw2::ShouldLogInMinimalMode(info, "core", "Player settings: C:\\game\\user_data\\settings.toml"));
+  CHECK(gw2::ShouldLogInMinimalMode(info, "core", "Geometry Wars: Retro Evolved 2 port 0.4.0"));
+  CHECK(gw2::ShouldLogInMinimalMode(info, "core", "Build: Release x86-64 | ReXGlue SDK 0.10.0 | Direct3D 12"));
+  CHECK(gw2::ShouldLogInMinimalMode(info, "core", "Runtime OS: Windows 11 64-bit (build 22631)"));
+  CHECK(gw2::ShouldLogInMinimalMode(info, "core", "Runtime GPU: selected=Automatic | resolved=Test GPU"));
+  CHECK(gw2::ShouldLogInMinimalMode(info, "core", "Visual interpolation enabled: measured presentation 143.9 Hz"));
+  CHECK(gw2::ShouldLogInMinimalMode(info, "core", "User data: portable path selected: user_data"));
+  CHECK(gw2::ShouldLogInMinimalMode(info, "core", "Player settings: settings.toml"));
   CHECK(gw2::ShouldLogInMinimalMode(info, "core", "Graphics card: Test GPU (adapter 0)"));
   CHECK(gw2::ShouldLogInMinimalMode(info, "core", "Internal render resolution: 75% 960x540 -> 1280x720"));
   CHECK(gw2::ShouldLogInMinimalMode(info, "gpu", "DXGI adapter: Test GPU (vendor 0x1002, device 0x1234)"));
   CHECK(gw2::ShouldLogInMinimalMode(info, "core", "Aspect ratio: 16:9 (1280x720)"));
   CHECK(gw2::ShouldLogInMinimalMode(info, "core", "Multisampling: 2x MSAA"));
   CHECK(gw2::ShouldLogInMinimalMode(info, "core", "Windows crash reporting enabled for current log."));
-  CHECK(gw2::ShouldLogInMinimalMode(info, "core", "Execution complete"));
+  CHECK(gw2::ShouldLogInMinimalMode(info, "core", "Execution complete: clean exit, uptime 00:12:43"));
   CHECK(gw2::ShouldLogInMinimalMode(info, "core", "Window closing, hard-exiting process."));
 }
 
@@ -150,7 +153,8 @@ void TestCrashReportIndependent() {
   CHECK(detailed_length == minimal_length);
   CHECK(std::string(detailed, detailed_length) == std::string(minimal, minimal_length));
   CHECK(Has(std::string(detailed, detailed_length), "CRASH REPORT\n"));
-  CHECK(Has(std::string(detailed, detailed_length), "Exception code: 0xC0000005 (ACCESS_VIOLATION)"));
+  CHECK(Has(std::string(detailed, detailed_length), "Exception: ACCESS_VIOLATION"));
+  CHECK(Has(std::string(detailed, detailed_length), "Exception code: 0xC0000005"));
 }
 
 void TestSessionLifecycle(const std::filesystem::path& dir) {
@@ -160,7 +164,8 @@ void TestSessionLifecycle(const std::filesystem::path& dir) {
   config.log_dir = dir.string();
   config.default_level = spdlog::level::info;
   rex::InitLogging(config);
-  REXLOG_INFO("Geometry Wars: Retro Evolved 2 port 0.4.0 (x86-64, Direct3D 12, ReXGlue SDK 0.10.0)");
+  REXLOG_INFO("Geometry Wars: Retro Evolved 2 port 0.4.0");
+  REXLOG_INFO("Build: Release x86-64 | ReXGlue SDK 0.10.0 | Direct3D 12");
   rex::FlushLogging();
 
   const std::filesystem::path active = gw2::ActiveLogFile();
@@ -170,12 +175,15 @@ void TestSessionLifecycle(const std::filesystem::path& dir) {
   SetDetailedLogging(true);
   CHECK(!gw2::MinimalLogFilterInstalled());
   REXLOG_INFO("launcher detailed segment");
+  REXLOG_INFO("Execution complete");
+  REXLOG_INFO("Execution complete: clean exit, uptime 00:00:01");
   rex::FlushLogging();
   CHECK(gw2::ActiveLogFile() == active);
 
   SetDetailedLogging(false);
   CHECK(gw2::MinimalLogFilterInstalled());
   REXLOG_INFO("launcher minimal segment");
+  REXLOG_INFO("Execution complete");
   REXLOG_INFO("Windows crash reporting enabled for current log.");
   REXLOG_INFO("ordinary detailed chatter");
   CHECK(gw2::ActiveLogFile() == active);
@@ -191,6 +199,9 @@ void TestSessionLifecycle(const std::filesystem::path& dir) {
   CHECK(!Has(log, "game minimal segment"));
   CHECK(Has(log, "a warning survives"));
   CHECK(Has(log, "Graphics card: Test GPU"));
+  CHECK(!Has(log, "Execution complete\n"));
+  CHECK(!Has(log, "Execution complete\r\n"));
+  CHECK(Has(log, "Execution complete: clean exit, uptime 00:00:01"));
 
   SetDetailedLogging(true);
   gw2::FinalizeSessionLog();
@@ -335,6 +346,13 @@ void TestWiring() {
   CHECK(Has(app, "gw2::InstallSessionLogCleanup();"));
   CHECK(Has(app, "gw2::FinalizeSessionLog();"));
   CHECK(Has(app, "gw2::TakeInheritedSessionLog()"));
+
+  const std::string launcher_source = ReadSource("launcher.cpp");
+  CHECK(Has(launcher_source, "Game files: {} (default.xex"));
+  CHECK(!Has(launcher_source, "Game files in {}"));
+  const std::string cvars_source = ReadSource("launcher_cvars.cpp");
+  CHECK(Has(cvars_source, "\"Player settings: {}\", settings_name"));
+  CHECK(!Has(cvars_source, "\"Player settings: {}\", Utf8(player_file)"));
 
   const std::string session = ReadSource("session_log.cpp");
   CHECK(Has(session, "DetailedLoggingEnabled()"));

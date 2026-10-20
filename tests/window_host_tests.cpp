@@ -438,6 +438,16 @@ void TestCursorWiring() {
   CHECK(!Has(launcher, "SetInputActivityCallback"));
 }
 
+void TestDiagnosticDrawableSize() {
+  Section("diagnostic drawable size");
+  const std::string host = ReadSource("window_host.cpp");
+  CHECK(Has(host, "GetClientRect(handle"));
+  const std::string app = ReadSource("geometry_wars_retro_evolved_2_app.h");
+  CHECK(Has(app, "gw2::CurrentDrawableSize(window())"));
+  CHECK(!Has(app, "GetActualPhysicalWidth"));
+  CHECK(!Has(app, "GetActualPhysicalHeight"));
+}
+
 void TestInputActivityPatch() {
   Section("input activity patch");
   const std::string root = std::string(GW2_SRC_DIR) + "/../patches/rexglue-sdk/";
@@ -463,6 +473,7 @@ int main() {
   TestCursorWindowModes();
   TestCursorLauncher();
   TestCursorWiring();
+  TestDiagnosticDrawableSize();
   TestInputActivityPatch();
   TestTitles();
   TestSamplerWaitsForOneSecond();

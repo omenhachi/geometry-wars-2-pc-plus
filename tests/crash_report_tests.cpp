@@ -57,13 +57,22 @@ gw2::CrashReport BaseReport() {
   report.address = 0x00007FF6A1B2C3D4ull;
   report.thread_id = 12345;
   report.process_id = 4321;
+  report.product = "Geometry Wars: Retro Evolved 2";
   report.architecture = "x86-64";
   report.game_version = "0.4.0";
+  report.build_config = "Release";
+  report.uptime_ms = 451000;
   report.faulting_module = {"ntdll.dll", 0x00007FF6A1B00000ull, true};
   report.has_context = true;
   report.instruction_pointer = 0x00007FF6A1B2C3D4ull;
   report.stack_pointer = 0x000000A1B2C3D4E0ull;
   report.frame_pointer = 0x000000A1B2C3D500ull;
+  report.guest_function = {0x82045740u, "sub_82045740", true};
+  std::snprintf(report.runtime_frame_rate, sizeof(report.runtime_frame_rate), "144");
+  std::snprintf(report.runtime_simulation, sizeof(report.runtime_simulation), "60Hz");
+  std::snprintf(report.runtime_interpolation, sizeof(report.runtime_interpolation), "Active (143.9 Hz)");
+  std::snprintf(report.runtime_present, sizeof(report.runtime_present), "Immediate");
+  std::snprintf(report.runtime_gpu, sizeof(report.runtime_gpu), "NVIDIA GeForce RTX 4070");
   return report;
 }
 
@@ -82,19 +91,30 @@ void TestHeapCorruptionBlock() {
   CHECK(Has(text, "============================================================\n"));
   CHECK(Has(text, "CRASH REPORT\n"));
   CHECK(Has(text, "[2026-10-18 23:31:02.123] [error] [core] [t12345] "));
-  CHECK(Has(text, "Exception code: 0xC0000374 (STATUS_HEAP_CORRUPTION)"));
+  CHECK(Has(text, "Product: Geometry Wars: Retro Evolved 2"));
+  CHECK(Has(text, "Version: 0.4.0"));
+  CHECK(Has(text, "Build: Release x86-64"));
+  CHECK(Has(text, "Uptime: 00:07:31"));
+  CHECK(Has(text, "Exception: STATUS_HEAP_CORRUPTION"));
+  CHECK(Has(text, "Exception code: 0xC0000374"));
   CHECK(Has(text, "Exception address: 0x00007FF6A1B2C3D4"));
   CHECK(Has(text, "Exception flags: 0x00000000"));
   CHECK(Has(text, "Exception parameters: 0"));
-  CHECK(Has(text, "Faulting module: ntdll.dll (base 0x00007FF6A1B00000, offset 0x000000000002C3D4)"));
+  CHECK(Has(text, "Faulting instruction: ntdll.dll+0x000000000002C3D4 (base 0x00007FF6A1B00000)"));
   CHECK(Has(text, "Thread ID: 12345"));
   CHECK(Has(text, "Process ID: 4321"));
-  CHECK(Has(text, "Architecture: x86-64"));
-  CHECK(Has(text, "Game version: 0.4.0"));
+  CHECK(Has(text, "Guest function: sub_82045740"));
+  CHECK(Has(text, "Guest address: 0x82045740"));
   CHECK(Has(text, "Instruction pointer: 0x00007FF6A1B2C3D4"));
   CHECK(Has(text, "Stack pointer: 0x000000A1B2C3D4E0"));
   CHECK(Has(text, "Frame pointer: 0x000000A1B2C3D500"));
   CHECK(Has(text, "Stack trace: unavailable"));
+  CHECK(Has(text, "Last runtime state:"));
+  CHECK(Has(text, "  frame_rate=144"));
+  CHECK(Has(text, "  simulation=60Hz"));
+  CHECK(Has(text, "  interpolation=Active (143.9 Hz)"));
+  CHECK(Has(text, "  present=Immediate"));
+  CHECK(Has(text, "  gpu=NVIDIA GeForce RTX 4070"));
   CHECK(!Has(text, "parameter["));
 }
 
@@ -108,7 +128,8 @@ void TestExceptionCodeNames() {
 
 void TestAccessViolations() {
   std::printf("access violation read/write/execute formatting\n");
-  CHECK(Has(AccessViolationText(0), "Exception code: 0xC0000005 (ACCESS_VIOLATION)"));
+  CHECK(Has(AccessViolationText(0), "Exception: ACCESS_VIOLATION"));
+  CHECK(Has(AccessViolationText(0), "Exception code: 0xC0000005"));
   CHECK(Has(AccessViolationText(0), "Memory access: read"));
   CHECK(Has(AccessViolationText(0), "Referenced address: 0x0000000000001234"));
   CHECK(Has(AccessViolationText(1), "Memory access: write"));
@@ -119,7 +140,7 @@ void TestModuleOffset() {
   std::printf("module-relative offset calculation\n");
   gw2::CrashReport report = BaseReport();
   report.address = 0x00007FF6A1B00000ull + 0x1234u;
-  CHECK(Has(Format(report), "offset 0x0000000000001234"));
+  CHECK(Has(Format(report), "Faulting instruction: ntdll.dll+0x0000000000001234"));
 }
 
 void TestUnknownModuleFallback() {
@@ -129,7 +150,7 @@ void TestUnknownModuleFallback() {
   report.frames[0] = {0x00007FF6A1B2C3D4ull, {}};
   report.frame_count = 1;
   const std::string text = Format(report);
-  CHECK(Has(text, "Faulting module: unknown"));
+  CHECK(Has(text, "Faulting instruction: unknown"));
   CHECK(Has(text, "#00 0x00007FF6A1B2C3D4 [unknown module]"));
 }
 
@@ -281,12 +302,14 @@ void TestRealCrashAppendsToActiveLog() {
   const std::string text = ReadText(active);
   CHECK(Has(text, "run started"));
   CHECK(CountOf(text, "CRASH REPORT") == 1);
-  CHECK(Has(text, "Exception code: 0xC0000374 (STATUS_HEAP_CORRUPTION)"));
+  CHECK(Has(text, "Version:"));
+  CHECK(Has(text, "Uptime:"));
+  CHECK(Has(text, "Exception: STATUS_HEAP_CORRUPTION"));
+  CHECK(Has(text, "Exception code: 0xC0000374"));
   CHECK(Has(text, "Exception address: 0x"));
-  CHECK(Has(text, "Faulting module:"));
+  CHECK(Has(text, "Faulting instruction:"));
   CHECK(Has(text, "Thread ID:"));
   CHECK(Has(text, "Process ID:"));
-  CHECK(Has(text, "Architecture:"));
   CHECK(Has(text, "Instruction pointer: 0x"));
   CHECK(!Has(text, "parameter["));
   CHECK(ReadText(older) == "previous run\n");
@@ -305,7 +328,8 @@ void TestRealAccessViolationBlock() {
 
   const std::string text = ReadText(log);
   CHECK(CountOf(text, "CRASH REPORT") == 1);
-  CHECK(Has(text, "Exception code: 0xC0000005 (ACCESS_VIOLATION)"));
+  CHECK(Has(text, "Exception: ACCESS_VIOLATION"));
+  CHECK(Has(text, "Exception code: 0xC0000005"));
   CHECK(Has(text, "Exception parameters: 2"));
   CHECK(Has(text, "Memory access: write"));
   CHECK(Has(text, "Referenced address: 0x0000000000001234"));

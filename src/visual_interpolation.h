@@ -31,6 +31,8 @@ class InterpolationScheduler {
     float alpha = 0.0f;
     uint32_t tick = 0;
     uint32_t epoch = 1;
+    double measured_hz = 0.0;
+    uint64_t frame_count = 0;
   };
 
   void Reset(double initial_interval);
@@ -102,7 +104,8 @@ struct ObjectTransformOverride {
 
 void VisualInterpolationReset(double initial_interval);
 void VisualInterpolationSimulationTick(double now, double remainder);
-void VisualInterpolationBeginFrame(double now, bool gates, double step, double initial_interval);
+InterpolationScheduler::Frame VisualInterpolationBeginFrame(double now, bool gates, double step,
+                                                            double initial_interval);
 ObjectTransformOverride VisualInterpolationPrepareObject(uint8_t* base, uint32_t object);
 void VisualInterpolationRestoreObject(uint8_t* base, const ObjectTransformOverride& override);
 InterpolationStats TakeInterpolationStats();

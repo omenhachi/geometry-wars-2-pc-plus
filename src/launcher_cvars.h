@@ -63,7 +63,17 @@ void ApplyGraphicsAdapter();
 // and before SettleStartupCvars, which drops the restart marks of these restart-only cvars.
 void ApplyAspectRatio();
 
-// Logs the graphics and frame-rate settings the game starts with.
-void LogGameSettings(const MonitorInfo& display, int monitor);
+struct StartupWindowInfo {
+  int configured_width = 0;
+  int configured_height = 0;
+  int output_width = 0;
+  int output_height = 0;
+  bool fullscreen = false;
+  std::string controller;
+};
+
+// Logs the effective runtime configuration, game fingerprint and graphics settings the game starts with.
+void LogStartupDiagnostics(const MonitorInfo& display, int monitor, const std::filesystem::path& game_dir,
+                           const StartupWindowInfo& window);
 
 }  // namespace gw2

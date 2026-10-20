@@ -154,6 +154,8 @@ InterpolationScheduler::Frame InterpolationScheduler::BeginFrame(double now, boo
   frame.interpolating = enabled_;
   frame.tick = tick_;
   frame.epoch = epoch_;
+  frame.measured_hz = smoothed_ > 0.0 ? 1.0 / smoothed_ : 0.0;
+  frame.frame_count = frame_count_;
   if (enabled_ && step > 0.0) {
     if (new_tick_) {
       const double remainder = std::clamp(tick_remainder_, 0.0, step);
@@ -246,7 +248,8 @@ void VisualInterpolationSimulationTick(double now, double remainder) {
   g_scheduler.SimulationTick(now, remainder);
 }
 
-void VisualInterpolationBeginFrame(double now, bool gates, double step, double initial_interval) {
+InterpolationScheduler::Frame VisualInterpolationBeginFrame(double now, bool gates, double step,
+                                                            double initial_interval) {
   std::lock_guard lock(g_scheduler_mutex);
   if (!g_initialized) {
     g_scheduler.Prepare(initial_interval);
@@ -257,6 +260,7 @@ void VisualInterpolationBeginFrame(double now, bool gates, double step, double i
   if (g_frame.interpolating) {
     g_frames.fetch_add(1, std::memory_order_relaxed);
   }
+  return g_frame;
 }
 
 ObjectTransformOverride VisualInterpolationPrepareObject(uint8_t* base, uint32_t object) {

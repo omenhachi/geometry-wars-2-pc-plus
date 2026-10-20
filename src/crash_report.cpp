@@ -1,7 +1,9 @@
 #include "crash_report.h"
 
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 
 #if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
@@ -19,6 +21,12 @@
 #define GW2_CRASH_GAME_VERSION "unknown"
 #endif
 
+#if defined(GW2_BUILD_CONFIG)
+#define GW2_CRASH_BUILD_CONFIG GW2_BUILD_CONFIG
+#else
+#define GW2_CRASH_BUILD_CONFIG "unknown"
+#endif
+
 namespace gw2 {
 namespace {
 
@@ -26,6 +34,48 @@ constexpr size_t kReportBufferBytes = 16384;
 constexpr size_t kLogPathChars = 1024;
 constexpr int kSeparatorWidth = 60;
 constexpr char kHexDigits[] = "0123456789ABCDEF";
+constexpr const char* kProduct = "Geometry Wars: Retro Evolved 2";
+constexpr const char* kBuildConfig = GW2_CRASH_BUILD_CONFIG;
+
+char g_runtime_frame_rate[24] = {};
+char g_runtime_simulation[24] = {};
+char g_runtime_interpolation[48] = {};
+char g_runtime_present[24] = {};
+char g_runtime_gpu[96] = {};
+std::atomic<int> g_interpolation_effective{0};
+std::atomic<uint32_t> g_interpolation_hz_centi{0};
+std::atomic<CrashGuestFunctionResolver> g_guest_resolver{nullptr};
+
+void CopyText(char* out, size_t size, const char* text) {
+  if (out == nullptr || size == 0) {
+    return;
+  }
+  if (text == nullptr) {
+    out[0] = '\0';
+    return;
+  }
+  size_t i = 0;
+  for (; i + 1 < size && text[i] != '\0'; ++i) {
+    out[i] = text[i];
+  }
+  out[i] = '\0';
+}
+
+void FillRuntimeState(CrashReport& report) {
+  CopyText(report.runtime_frame_rate, sizeof(report.runtime_frame_rate), g_runtime_frame_rate);
+  CopyText(report.runtime_simulation, sizeof(report.runtime_simulation), g_runtime_simulation);
+  CopyText(report.runtime_present, sizeof(report.runtime_present), g_runtime_present);
+  CopyText(report.runtime_gpu, sizeof(report.runtime_gpu), g_runtime_gpu);
+  const int effective = g_interpolation_effective.load(std::memory_order_relaxed);
+  if (effective != 0) {
+    char text[48];
+    std::snprintf(text, sizeof(text), "%s (%.1f Hz)", effective == 1 ? "Active" : "Inactive",
+                  double(g_interpolation_hz_centi.load(std::memory_order_relaxed)) / 100.0);
+    CopyText(report.runtime_interpolation, sizeof(report.runtime_interpolation), text);
+  } else {
+    CopyText(report.runtime_interpolation, sizeof(report.runtime_interpolation), g_runtime_interpolation);
+  }
+}
 
 #if defined(_WIN32)
 constexpr const char* kArchitecture =
@@ -44,6 +94,7 @@ wchar_t g_log_path[kLogPathChars];
 char g_report_buffer[kReportBufferBytes];
 CrashReport g_report;
 volatile LONG g_filter_installed = 0;
+uint64_t g_process_start_tick = 0;
 #endif
 
 #if defined(_WIN32)
@@ -104,6 +155,15 @@ class CrashWriter {
     while (count > 0) {
       Char(digits[--count]);
     }
+  }
+
+  void Duration(uint64_t milliseconds) {
+    const uint64_t seconds = milliseconds / 1000;
+    DecPadded(seconds / 3600, 2);
+    Char(':');
+    DecPadded((seconds / 60) % 60, 2);
+    Char(':');
+    DecPadded(seconds % 60, 2);
   }
 
   size_t Finish() {
@@ -254,11 +314,19 @@ void FillReport(CrashReport& report, const EXCEPTION_POINTERS* info) {
   }
   report.thread_id = GetCurrentThreadId();
   report.process_id = GetCurrentProcessId();
+  report.product = kProduct;
   report.architecture = kArchitecture;
   report.game_version = kGameVersion;
+  report.build_config = kBuildConfig;
+  report.uptime_ms = g_process_start_tick != 0 ? GetTickCount64() - g_process_start_tick : 0;
   FillModule(report.faulting_module, record.ExceptionAddress);
   FillContext(report, info->ContextRecord);
   FillFrames(report);
+  if (const CrashGuestFunctionResolver resolver = g_guest_resolver.load(std::memory_order_acquire);
+      resolver != nullptr) {
+    resolver(report.address, &report.guest_function);
+  }
+  FillRuntimeState(report);
 }
 
 void WriteReport(const EXCEPTION_POINTERS* info) {
@@ -365,14 +433,52 @@ size_t FormatCrashReport(const CrashReport& report, char* buffer, size_t size) {
   Prefix(writer, report);
   writer.Text("Windows unhandled exception\n");
 
+  if (report.product != nullptr) {
+    Prefix(writer, report);
+    writer.Text("Product: ");
+    writer.Text(report.product);
+    writer.Char('\n');
+  }
+  if (report.game_version != nullptr) {
+    Prefix(writer, report);
+    writer.Text("Version: ");
+    writer.Text(report.game_version);
+    writer.Char('\n');
+  }
+  if (report.build_config != nullptr) {
+    Prefix(writer, report);
+    writer.Text("Build: ");
+    writer.Text(report.build_config);
+    if (report.architecture != nullptr) {
+      writer.Char(' ');
+      writer.Text(report.architecture);
+    }
+    writer.Char('\n');
+  }
+  Prefix(writer, report);
+  writer.Text("Uptime: ");
+  writer.Duration(report.uptime_ms);
+  writer.Char('\n');
+
+  Prefix(writer, report);
+  writer.Text("Thread ID: ");
+  writer.Dec(report.thread_id);
+  writer.Char('\n');
+
+  Prefix(writer, report);
+  writer.Text("Process ID: ");
+  writer.Dec(report.process_id);
+  writer.Char('\n');
+
+  Prefix(writer, report);
+  writer.Text("Exception: ");
+  const char* exception_name = ExceptionCodeName(report.code);
+  writer.Text(exception_name != nullptr ? exception_name : "unknown");
+  writer.Char('\n');
+
   Prefix(writer, report);
   writer.Text("Exception code: ");
   writer.Hex(report.code, 8);
-  if (const char* name = ExceptionCodeName(report.code); name != nullptr) {
-    writer.Text(" (");
-    writer.Text(name);
-    writer.Char(')');
-  }
   writer.Char('\n');
 
   Prefix(writer, report);
@@ -412,39 +518,27 @@ size_t FormatCrashReport(const CrashReport& report, char* buffer, size_t size) {
   }
 
   Prefix(writer, report);
-  writer.Text("Faulting module: ");
+  writer.Text("Faulting instruction: ");
   if (report.faulting_module.known && report.faulting_module.name[0] != '\0') {
     writer.Text(report.faulting_module.name);
+    writer.Char('+');
+    writer.Hex(ModuleOffset(report.address, report.faulting_module.base), 16);
     writer.Text(" (base ");
     writer.Hex(report.faulting_module.base, 16);
-    writer.Text(", offset ");
-    writer.Hex(ModuleOffset(report.address, report.faulting_module.base), 16);
     writer.Char(')');
   } else {
     writer.Text("unknown");
   }
   writer.Char('\n');
 
-  Prefix(writer, report);
-  writer.Text("Thread ID: ");
-  writer.Dec(report.thread_id);
-  writer.Char('\n');
-
-  Prefix(writer, report);
-  writer.Text("Process ID: ");
-  writer.Dec(report.process_id);
-  writer.Char('\n');
-
-  if (report.architecture != nullptr) {
+  if (report.guest_function.known) {
     Prefix(writer, report);
-    writer.Text("Architecture: ");
-    writer.Text(report.architecture);
+    writer.Text("Guest function: ");
+    writer.Text(report.guest_function.name[0] != '\0' ? report.guest_function.name : "unknown");
     writer.Char('\n');
-  }
-  if (report.game_version != nullptr) {
     Prefix(writer, report);
-    writer.Text("Game version: ");
-    writer.Text(report.game_version);
+    writer.Text("Guest address: ");
+    writer.Hex(report.guest_function.address, 8);
     writer.Char('\n');
   }
 
@@ -495,6 +589,30 @@ size_t FormatCrashReport(const CrashReport& report, char* buffer, size_t size) {
     }
   }
 
+  const bool has_runtime_state = report.runtime_frame_rate[0] != '\0' || report.runtime_simulation[0] != '\0' ||
+                                 report.runtime_interpolation[0] != '\0' || report.runtime_present[0] != '\0' ||
+                                 report.runtime_gpu[0] != '\0';
+  if (has_runtime_state) {
+    Prefix(writer, report);
+    writer.Text("Last runtime state:\n");
+    const auto field = [&](const char* name, const char* value) {
+      if (value[0] == '\0') {
+        return;
+      }
+      Prefix(writer, report);
+      writer.Text("  ");
+      writer.Text(name);
+      writer.Char('=');
+      writer.Text(value);
+      writer.Char('\n');
+    };
+    field("frame_rate", report.runtime_frame_rate);
+    field("simulation", report.runtime_simulation);
+    field("interpolation", report.runtime_interpolation);
+    field("present", report.runtime_present);
+    field("gpu", report.runtime_gpu);
+  }
+
   Separator(writer, report);
   return writer.Finish();
 }
@@ -505,12 +623,34 @@ void InstallCrashReporting(const char* utf8_log_file) {
   if (g_log_path[0] == L'\0') {
     return;
   }
+  if (g_process_start_tick == 0) {
+    g_process_start_tick = GetTickCount64();
+  }
   if (InterlockedCompareExchange(&g_filter_installed, 1, 0) == 0) {
     SetUnhandledExceptionFilter(&HandleUnhandledException);
   }
 #else
   (void)utf8_log_file;
 #endif
+}
+
+void SetCrashRuntimeState(const char* frame_rate, const char* simulation, const char* interpolation,
+                          const char* present, const char* gpu) {
+  CopyText(g_runtime_frame_rate, sizeof(g_runtime_frame_rate), frame_rate);
+  CopyText(g_runtime_simulation, sizeof(g_runtime_simulation), simulation);
+  CopyText(g_runtime_interpolation, sizeof(g_runtime_interpolation), interpolation);
+  CopyText(g_runtime_present, sizeof(g_runtime_present), present);
+  CopyText(g_runtime_gpu, sizeof(g_runtime_gpu), gpu);
+}
+
+void SetCrashInterpolationState(bool active, double measured_hz) {
+  g_interpolation_hz_centi.store(measured_hz > 0.0 ? uint32_t(measured_hz * 100.0 + 0.5) : 0,
+                                 std::memory_order_relaxed);
+  g_interpolation_effective.store(active ? 1 : 2, std::memory_order_relaxed);
+}
+
+void SetCrashGuestFunctionResolver(CrashGuestFunctionResolver resolver) {
+  g_guest_resolver.store(resolver, std::memory_order_release);
 }
 
 bool CrashReportingInstalled() {

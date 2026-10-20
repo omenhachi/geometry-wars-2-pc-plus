@@ -19,9 +19,12 @@
 #include "achievements_overlay.h"
 #include "active_log.h"
 #include "cheat_menu.h"
+#include "diagnostics.h"
 #include "frame_counter.h"
 #include "game_files.h"
 #include "graphics_fallback.h"
+#include "guest_functions.h"
+#include "input_summary.h"
 #include "launcher.h"
 #include "launcher_cvars.h"
 #include "launcher_platform.h"
@@ -31,6 +34,7 @@
 #include "log_path.h"
 #include "rumble.h"
 #include "session_log.h"
+#include "system_info.h"
 #include "user_data.h"
 #include "window_host.h"
 
@@ -45,6 +49,7 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
 
   static std::unique_ptr<rex::ui::WindowedApp> Create(rex::ui::WindowedAppContext& ctx) {
     gw2::SetApplicationId();
+    gw2::InstallGuestFunctionTable(PPCImageConfig.func_mappings);
     return std::unique_ptr<GeometryWarsRetroEvolved2App>(
         new GeometryWarsRetroEvolved2App(ctx, "geometry_wars_retro_evolved_2", PPCImageConfig));
   }
@@ -83,6 +88,7 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
   }
 
   void OnPostInitLogging() override {
+    gw2::InitializeProcessUptime();
     gw2::InstallCrashReports();
     const gw2::UserDataMessage message = gw2::DescribeUserData(user_data_);
     if (message.warning) {
@@ -93,8 +99,16 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
     gw2::LoadPlayerSettings(gw2::LauncherSettingsPath(user_data_root()));
     gw2::ApplyDetailedLogging();
     gw2::InstallSessionLogCleanup();
-    REXLOG_INFO("Geometry Wars: Retro Evolved 2 port {} ({}, {}, ReXGlue SDK {})", GW2_PORT_VERSION,
-                gw2::ArchitectureName(), gw2::GraphicsBackendName(), REXGLUE_VERSION_STRING);
+    const gw2::ApplicationIdentity identity{
+        .product = "Geometry Wars: Retro Evolved 2",
+        .version = GW2_PORT_VERSION,
+        .build_config = gw2::BuildConfigurationName(),
+        .architecture = gw2::ArchitectureName(),
+        .sdk = REXGLUE_VERSION_STRING,
+        .backend = gw2::GraphicsBackendName(),
+    };
+    REXLOG_INFO("{}", gw2::FormatApplicationVersion(identity));
+    REXLOG_INFO("{}", gw2::FormatBuildIdentity(identity));
     gw2::ApplyGraphicsAdapter();
     gw2::ApplyAspectRatio();
   }
@@ -237,6 +251,7 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
     gw2::DetachCheatMenu();
     gw2::DetachWindowHost();
     CloseAchievements();
+    REXLOG_INFO("Execution complete: clean exit, uptime {}", gw2::ProcessUptimeText());
   }
 
   // Window close is a hard exit: the base TerminateTitle would wait on guest threads that are still running guest
@@ -283,7 +298,17 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
   // The cheat menu exists only once the game starts, so F10 does nothing over the launcher or the installer.
   void StartGame() {
     const int monitor = std::atoi(rex::cvar::GetFlagByName(gw2::kMonitorKey).c_str());
-    gw2::LogGameSettings(gw2::MonitorForSetting(monitor), monitor);
+    gw2::StartupWindowInfo startup_window;
+    startup_window.fullscreen = window() != nullptr && window()->IsFullscreen();
+    const int window_width = std::atoi(rex::cvar::GetFlagByName(gw2::kWindowWidthKey).c_str());
+    const int window_height = std::atoi(rex::cvar::GetFlagByName(gw2::kWindowHeightKey).c_str());
+    startup_window.configured_width = window() != nullptr ? int(window()->GetDesiredLogicalWidth()) : window_width;
+    startup_window.configured_height = window() != nullptr ? int(window()->GetDesiredLogicalHeight()) : window_height;
+    const gw2::WindowSize drawable = gw2::CurrentDrawableSize(window());
+    startup_window.output_width = drawable.width;
+    startup_window.output_height = drawable.height;
+    startup_window.controller = gw2::ControllerSummary();
+    gw2::LogStartupDiagnostics(gw2::MonitorForSetting(monitor), monitor, game_data_root(), startup_window);
     InstallCheatMenu();
     ReXApp::LaunchModule();
   }

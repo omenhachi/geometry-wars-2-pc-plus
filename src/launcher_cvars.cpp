@@ -12,12 +12,16 @@
 #include <rex/logging.h>
 
 #include "aspect_ratio.h"
+#include "crash_report.h"
+#include "diagnostics.h"
 #include "frame_limiter.h"
+#include "game_files.h"
 #include "graphics_adapters.h"
 #include "internal_render_scale.h"
 #include "launcher_options.h"
 #include "launcher_platform.h"
 #include "retired_settings.h"
+#include "system_info.h"
 
 REXCVAR_DEFINE_BOOL(show_launcher, true, "Launcher",
                     "Show the launcher before the game starts (hold Shift at start to force it)");
@@ -55,10 +59,6 @@ namespace {
 
 int IntCvar(std::string_view name) {
   return std::atoi(rex::cvar::GetFlagByName(name).c_str());
-}
-
-std::string FrameRateName(int fps) {
-  return fps == kFrameRateUnlimited ? "Unlimited" : std::to_string(fps);
 }
 
 std::string TextureFilteringName(std::string_view value) {
@@ -106,6 +106,20 @@ std::string CvarOr(std::string_view name, std::string_view fallback) {
   return value.empty() ? std::string(fallback) : value;
 }
 
+std::string GameStateName(GameFileState state) {
+  switch (state) {
+    case GameFileState::kValid:
+      return "verified";
+    case GameFileState::kDifferentVersion:
+      return "different version";
+    case GameFileState::kReadError:
+      return "read error";
+    case GameFileState::kMissing:
+      return "missing";
+  }
+  return "unknown";
+}
+
 }  // namespace
 
 void LoadPlayerSettings(const std::filesystem::path& player_file) {
@@ -114,18 +128,19 @@ void LoadPlayerSettings(const std::filesystem::path& player_file) {
     return;
   }
   // The retired Letterbox/Stretch line goes whatever its value: the picture always keeps the chosen format.
+  const std::string settings_name = FileNameOnly(Utf8(player_file));
   switch (RemoveRetiredSetting(player_file, kRetiredAspectKey)) {
     case RetiredSettingResult::kRemoved:
-      REXLOG_INFO("Removed the retired {} setting from {}", kRetiredAspectKey, Utf8(player_file));
+      REXLOG_INFO("Removed the retired {} setting from {}", kRetiredAspectKey, settings_name);
       break;
     case RetiredSettingResult::kFailed:
-      REXLOG_WARN("Could not remove the retired {} setting from {}", kRetiredAspectKey, Utf8(player_file));
+      REXLOG_WARN("Could not remove the retired {} setting from {}", kRetiredAspectKey, settings_name);
       break;
     case RetiredSettingResult::kAbsent:
       break;
   }
   rex::cvar::LoadConfig(player_file);
-  REXLOG_INFO("Player settings: {}", Utf8(player_file));
+  REXLOG_INFO("Player settings: {}", settings_name);
 }
 
 bool TakeSkipLauncher() {
@@ -196,31 +211,75 @@ int ConfiguredFrameRate() {
   return IsFrameRateChoice(fps) ? fps : kFrameRateDefault;
 }
 
-void LogGameSettings(const MonitorInfo& display, int monitor) {
+void LogStartupDiagnostics(const MonitorInfo& display, int monitor, const std::filesystem::path& game_dir,
+                           const StartupWindowInfo& window) {
   const AspectRatio aspect = ParseAspectRatio(REXCVAR_GET(gw2_aspect_ratio));
   const int scale = std::max(1, IntCvar(kRenderScaleKey));
   const int percent = NormalizeInternalRenderScale(IntCvar(kInternalRenderScaleKey));
   const InternalRenderSplit split = SplitInternalRenderScale(scale, percent);
   const int fps = ConfiguredFrameRate();
-  const bool fullscreen = rex::cvar::GetFlagByName(kFullscreenKey) == "true";
   const bool vsync = rex::cvar::GetFlagByName(kVSyncKey) != "true";
-  const std::string refresh = display.refresh_hz > 0 ? "@" + std::to_string(display.refresh_hz) + "Hz" : "";
-  const std::string display_name = monitor > 0 ? "monitor " + std::to_string(monitor) : "primary monitor";
-  REXLOG_INFO(
-      "Game settings: display={}x{}{} (scale {}%, {}), window={}x{} {}, aspect={}, frame_rate={} (selected), vsync={}, "
-      "present={}",
-      display.width, display.height, refresh, int(std::lround(display.scale * 100.0f)), display_name,
-      IntCvar(kWindowWidthKey), IntCvar(kWindowHeightKey), fullscreen ? "fullscreen" : "windowed",
-      InfoFor(aspect).key, FrameRateName(fps), vsync ? "On" : "Off",
-      PresentModeFor(fps) == PresentMode::kImmediate ? "immediate" : "vblank");
-  REXLOG_INFO(
-      "Graphics settings: gpu={}, adapter={}, render={}% {}x{} (guest {}x{}, host targets {}/4, resolve {}x), msaa={}, "
-      "aa={}, filtering={}, bloom={}",
-      GraphicsCardName(), CvarOr(kD3D12AdapterKey, "n/a"), percent,
-      InternalRenderSize(CanvasWidth(aspect), scale, percent), InternalRenderSize(kCanvasHeight, scale, percent),
-      CanvasWidth(aspect), kCanvasHeight, split.host_quarters, split.resolve_scale,
-      REXCVAR_GET(gw2_msaa_compatibility) ? "4x compatibility" : "2x native", CvarOr(kAntiAliasingKey, "none"),
-      TextureFilteringName(CvarOr(kTextureFilteringKey, "-1")), CvarOr(kBloomKey, "original"));
+
+  StartupDiagnostics diagnostics;
+  diagnostics.system.os = OsDescription();
+  diagnostics.system.cpu = CpuDescription();
+  diagnostics.system.logical_processors = LogicalProcessorCount();
+
+  diagnostics.gpu.selected = GraphicsCardName();
+  const GraphicsAdapterDetails adapter =
+      EffectiveGraphicsAdapter(std::atoi(CvarOr(kD3D12AdapterKey, "-1").c_str()));
+  diagnostics.gpu.resolved = adapter.name;
+  diagnostics.gpu.adapter = adapter.index;
+  diagnostics.gpu.vendor_id = adapter.vendor_id;
+  diagnostics.gpu.device_id = adapter.device_id;
+  diagnostics.gpu.resolved_known = adapter.known;
+
+  diagnostics.display.monitor = monitor;
+  diagnostics.display.width = display.width;
+  diagnostics.display.height = display.height;
+  diagnostics.display.refresh_hz = display.refresh_hz;
+  diagnostics.display.scale_percent = int(std::lround(display.scale * 100.0f));
+  diagnostics.display.fullscreen = window.fullscreen;
+  diagnostics.display.configured_width = window.configured_width;
+  diagnostics.display.configured_height = window.configured_height;
+  diagnostics.display.output_width = window.output_width;
+  diagnostics.display.output_height = window.output_height;
+  diagnostics.display.aspect = InfoFor(aspect).key;
+
+  const GameCheck game = CheckGameFiles(game_dir);
+  diagnostics.game.title_id = kTitleId;
+  diagnostics.game.executable = "default.xex";
+  diagnostics.game.size = game.xex_size;
+  diagnostics.game.sha256 = game.xex_sha256;
+  diagnostics.game.fingerprint = GameStateName(game.state);
+
+  diagnostics.gameplay.frame_rate = FrameRateText(fps);
+  diagnostics.gameplay.simulation = SimulationRateText(fps);
+  diagnostics.gameplay.interpolation = InterpolationPolicyText(fps);
+  diagnostics.gameplay.vsync = vsync ? "On" : "Off";
+  diagnostics.gameplay.present = PresentModeText(fps);
+
+  diagnostics.graphics.render_percent = percent;
+  diagnostics.graphics.render_width = InternalRenderSize(CanvasWidth(aspect), scale, percent);
+  diagnostics.graphics.render_height = InternalRenderSize(kCanvasHeight, scale, percent);
+  diagnostics.graphics.guest_width = CanvasWidth(aspect);
+  diagnostics.graphics.guest_height = kCanvasHeight;
+  diagnostics.graphics.host_quarters = split.host_quarters;
+  diagnostics.graphics.resolve_scale = split.resolve_scale;
+  diagnostics.graphics.msaa = REXCVAR_GET(gw2_msaa_compatibility) ? "4x compatibility" : "2x native";
+  diagnostics.graphics.anti_aliasing = CvarOr(kAntiAliasingKey, "none");
+  diagnostics.graphics.filtering = TextureFilteringName(CvarOr(kTextureFilteringKey, "-1"));
+  diagnostics.graphics.bloom = CvarOr(kBloomKey, "original");
+
+  diagnostics.input.keyboard_mode = CvarOr("mnk_mode", "false") == "true" ? "On" : "Off";
+  diagnostics.input.controller = window.controller;
+
+  for (const std::string& line : FormatStartupDiagnostics(diagnostics)) {
+    REXLOG_INFO("{}", line);
+  }
+  SetCrashRuntimeState(diagnostics.gameplay.frame_rate.c_str(), diagnostics.gameplay.simulation.c_str(),
+                       diagnostics.gameplay.interpolation.c_str(), diagnostics.gameplay.present.c_str(),
+                       diagnostics.gpu.resolved_known ? diagnostics.gpu.resolved.c_str() : "unknown");
 }
 
 }  // namespace gw2

@@ -11,6 +11,7 @@
 
 #include <rex/hook.h>
 
+#include "crash_report.h"
 #include "guest_memory.h"
 #include "visual_interpolation.h"
 
@@ -307,9 +308,20 @@ REX_HOOK_RAW(sub_820366A0) {
 REX_EXTERN(__imp__sub_82065E38);
 REX_HOOK_RAW(sub_82065E38) {
   const int fps = gw2::ConfiguredFrameRate();
-  gw2::VisualInterpolationBeginFrame(gw2::SecondsSinceEpoch(gw2::LimiterClock::now()),
-                                    gw2::GatesSimulation(fps), gw2::InterpolationStep(base),
-                                    gw2::InterpolationInitialInterval(fps));
+  const gw2::InterpolationScheduler::Frame interpolation =
+      gw2::VisualInterpolationBeginFrame(gw2::SecondsSinceEpoch(gw2::LimiterClock::now()),
+                                         gw2::GatesSimulation(fps), gw2::InterpolationStep(base),
+                                         gw2::InterpolationInitialInterval(fps));
+  static bool reported = false;
+  static bool reported_active = false;
+  if (gw2::GatesSimulation(fps) && interpolation.frame_count >= 8 && interpolation.measured_hz > 0.0 &&
+      (!reported || interpolation.interpolating != reported_active)) {
+    reported = true;
+    reported_active = interpolation.interpolating;
+    REXLOG_INFO("Visual interpolation {}: measured presentation {:.1f} Hz",
+                reported_active ? "enabled" : "inactive", interpolation.measured_hz);
+    gw2::SetCrashInterpolationState(reported_active, interpolation.measured_hz);
+  }
   __imp__sub_82065E38(ctx, base);
 }
 

@@ -194,28 +194,23 @@ UserDataSelection SelectUserData(const UserDataRequest& request, const UserDataF
 }
 
 UserDataMessage DescribeUserData(const UserDataSelection& selection) {
-  const std::string root = Utf8(selection.root);
-  const std::string portable = Utf8(selection.portable);
-  const std::string system = Utf8(selection.system);
   switch (selection.outcome) {
     case UserDataOutcome::kPortable:
-      return {false, "User data: portable path selected: " + root};
+      return {false, "User data: portable path selected: user_data"};
     case UserDataOutcome::kMigrated:
-      return {false, "User data: migrated legacy data from " + system + " to " + root};
+      return {false, "User data: migrated legacy data into user_data"};
     case UserDataOutcome::kMigratedLegacyKept:
-      return {true, "User data: migrated legacy data to " + root + ", but the old folder " + system +
-                        " was not removed (" + selection.detail + ")"};
+      return {true, "User data: migrated legacy data into user_data; the old folder was not removed (" +
+                        selection.detail + ")"};
     case UserDataOutcome::kBothExist:
-      return {true, "User data: portable and legacy data both exist; portable data selected: " + root +
-                        " (legacy folder left in place: " + system + ")"};
+      return {true, "User data: portable and legacy data both exist; portable data selected: user_data"};
     case UserDataOutcome::kMigrationFailed:
-      return {true, "User data: migrating legacy data to " + portable + " failed (" + selection.detail +
-                        "); using legacy path for this run: " + system};
+      return {true, "User data: migrating legacy data into user_data failed (" + selection.detail +
+                        "); using the legacy folder for this run"};
     case UserDataOutcome::kPortableUnavailable:
-      return {true, "User data: portable path unavailable (" + portable +
-                        "), using legacy system path for this run: " + system};
+      return {true, "User data: portable path unavailable; using the legacy folder for this run"};
     case UserDataOutcome::kExplicit:
-      return {false, "User data: --user_data_root selected: " + root};
+      return {false, "User data: --user_data_root selected"};
   }
   return {};
 }

@@ -165,6 +165,10 @@ get_directory_property(GW2_TRG_VERSION DIRECTORY "${_trg_patched_dir}" DEFINITIO
 set(GW2_SOURCES
     src/main.cpp
     src/active_log.cpp
+    src/diagnostics.cpp
+    src/guest_functions.cpp
+    src/input_summary.cpp
+    src/system_info.cpp
     src/profile_fix.cpp
     src/live_fix.cpp
     src/achievements_overlay.cpp
@@ -236,7 +240,7 @@ endif()
 rexglue_setup_target(geometry_wars_retro_evolved_2 GPU_PLUGINS xenos)
 target_link_libraries(geometry_wars_retro_evolved_2 PRIVATE trg::launcher)
 if(WIN32)
-    target_link_libraries(geometry_wars_retro_evolved_2 PRIVATE bcrypt dxgi shcore synchronization shell32)
+    target_link_libraries(geometry_wars_retro_evolved_2 PRIVATE advapi32 bcrypt dxgi shcore synchronization shell32)
 else()
     # The SDK stages the runtime beside the program only on Windows and macOS; the RPATH is $ORIGIN.
     add_custom_command(TARGET geometry_wars_retro_evolved_2 POST_BUILD
@@ -316,6 +320,7 @@ endif()
 
 target_compile_definitions(geometry_wars_retro_evolved_2 PRIVATE
     GW2_PORT_VERSION="${PROJECT_VERSION}${GW2_VERSION_SUFFIX}"
+    GW2_BUILD_CONFIG="$<CONFIG>"
     GW2_TRG_LAUNCHER_VERSION="${GW2_TRG_VERSION}")
 
 # The runtime reads its cvars from <exe dir>/geometry_wars_retro_evolved_2.toml.
@@ -386,6 +391,7 @@ set_target_properties(gw2_trg_test_support PROPERTIES CXX_STANDARD 17)
 target_compile_definitions(gw2_trg_test_support PRIVATE _CRT_SECURE_NO_WARNINGS)
 gw2_add_test(launcher_settings_tests src/launcher_settings.cpp src/launcher_options.cpp)
 gw2_add_test(graphics_adapter_tests src/graphics_adapters.cpp)
+gw2_add_test(diagnostics_tests src/diagnostics.cpp)
 gw2_add_test(aspect_ratio_tests)
 target_compile_definitions(aspect_ratio_tests PRIVATE GW2_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src")
 gw2_add_test(update_tests
@@ -405,7 +411,7 @@ target_link_libraries(launcher_settings_tests PRIVATE gw2_trg_test_support)
 target_compile_definitions(launcher_settings_tests PRIVATE GW2_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src")
 if(WIN32)
     target_link_libraries(launcher_tests PRIVATE bcrypt)
-    target_link_libraries(graphics_adapter_tests PRIVATE dxgi d3d12)
+    target_link_libraries(graphics_adapter_tests PRIVATE advapi32 dxgi d3d12)
     target_link_libraries(update_tests PRIVATE shell32)
     target_link_libraries(gw2_trg_test_support PUBLIC shell32 ole32 comdlg32 winmm user32)
 else()
@@ -416,13 +422,14 @@ endif()
 add_executable(gw2_physical_heap_stress EXCLUDE_FROM_ALL tests/physical_heap_stress.cpp)
 target_link_libraries(gw2_physical_heap_stress PRIVATE rex::runtime)
 add_executable(gw2_restart_state_tests EXCLUDE_FROM_ALL tests/restart_state_tests.cpp src/launcher_cvars.cpp
-    src/launcher_settings.cpp src/launcher_options.cpp src/graphics_adapters.cpp)
+    src/launcher_settings.cpp src/launcher_options.cpp src/graphics_adapters.cpp src/diagnostics.cpp
+    src/system_info.cpp src/game_files.cpp src/stfs.cpp src/crash_report.cpp)
 target_include_directories(gw2_restart_state_tests PRIVATE src)
 target_compile_options(gw2_restart_state_tests PRIVATE -Wall -Wextra)
 target_compile_definitions(gw2_restart_state_tests PRIVATE GW2_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(gw2_restart_state_tests PRIVATE rex::runtime gw2_trg_test_support)
 if(WIN32)
-    target_link_libraries(gw2_restart_state_tests PRIVATE dxgi)
+    target_link_libraries(gw2_restart_state_tests PRIVATE advapi32 bcrypt dxgi)
 endif()
 add_executable(gw2_title_thread_shutdown_tests EXCLUDE_FROM_ALL tests/title_thread_shutdown_tests.cpp)
 target_link_libraries(gw2_title_thread_shutdown_tests PRIVATE rex::runtime)

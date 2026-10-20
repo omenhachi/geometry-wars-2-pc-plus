@@ -11,6 +11,16 @@
 #include <unordered_map>
 #include <utility>
 
+#if defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif
+
 #include <imgui.h>
 
 #include <rex/cvar.h>
@@ -247,6 +257,25 @@ class CursorSync final : public rex::ui::ImGuiDialog {
 };
 
 }  // namespace
+
+WindowSize CurrentDrawableSize(rex::ui::Window* window) {
+  if (window == nullptr) {
+    return {};
+  }
+#if defined(_WIN32)
+  if (const HWND handle = static_cast<HWND>(window->GetNativeWindowHandle()); handle != nullptr) {
+    RECT rect{};
+    if (GetClientRect(handle, &rect)) {
+      const int width = rect.right - rect.left;
+      const int height = rect.bottom - rect.top;
+      if (width > 0 && height > 0) {
+        return {width, height};
+      }
+    }
+  }
+#endif
+  return {int(window->GetActualPhysicalWidth()), int(window->GetActualPhysicalHeight())};
+}
 
 void AttachWindowHost(rex::ui::Window* window, rex::ui::WindowedAppContext& app_context,
                       std::function<void()> toggle_window_mode, std::function<bool()> gameplay_active,

@@ -79,6 +79,10 @@ void AttachWindowHost(rex::ui::Window* window, rex::ui::WindowedAppContext& app_
                       std::function<bool()> ui_active);
 void DetachWindowHost();
 
+// The current native client area in physical pixels: the extent the presenter draws into now, not the last size
+// event cached by the window.
+WindowSize CurrentDrawableSize(rex::ui::Window* window);
+
 // Keeps the cursor in step with ImGui UI that captures the mouse.
 void CreateCursorSync(rex::ui::ImGuiDrawer* drawer);
 

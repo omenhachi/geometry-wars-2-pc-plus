@@ -31,6 +31,7 @@
 #include "trg/platform.h"
 
 #include "cheats.h"
+#include "diagnostics.h"
 #include "dpi.h"
 #include "frame_limiter.h"
 #include "game_files.h"
@@ -107,7 +108,7 @@ std::unique_ptr<rex::ui::ImmediateTexture> LoadHeaderArt(rex::ui::ImmediateDrawe
   int height = 0;
   const std::vector<uint8_t> pixels = rex::ui::DecodeImageRGBA(encoded.data(), encoded.size(), width, height);
   if (pixels.empty() || width <= 0 || height <= 0) {
-    REXLOG_WARN("Launcher header art could not be decoded: {}", Utf8(path));
+    REXLOG_WARN("Launcher header art could not be decoded: header-art.png");
     return nullptr;
   }
   return drawer->CreateTexture(uint32_t(width), uint32_t(height), rex::ui::ImmediateTextureFilter::kLinear, false,
@@ -139,8 +140,8 @@ const char* StateName(GameFileState state) {
 
 GameFileState CheckAndLogGameFiles(const std::filesystem::path& game_dir) {
   const GameCheck check = CheckGameFiles(game_dir);
-  REXLOG_INFO("Game files in {}: {} (default.xex {} bytes, SHA-256 {})", Utf8(game_dir), StateName(check.state),
-              check.xex_size, check.xex_sha256.empty() ? std::string("not read") : check.xex_sha256);
+  REXLOG_INFO("Game files: {} (default.xex {} bytes, SHA-256 {})", StateName(check.state), check.xex_size,
+              check.xex_sha256.empty() ? std::string("not read") : check.xex_sha256);
   return check.state;
 }
 
@@ -777,7 +778,7 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
     std::filesystem::path folder = paths_.logs_dir;
     std::filesystem::create_directories(folder, ec);
     if (!std::filesystem::is_directory(folder, ec)) {
-      REXLOG_WARN("Could not create the logs folder {}: {}", Utf8(folder), ec.message());
+      REXLOG_WARN("Could not create the logs folder: {}", ec.message());
       folder = folder.parent_path();
     }
     trg::OpenInFileManager(Utf8(folder));

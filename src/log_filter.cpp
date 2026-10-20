@@ -15,19 +15,25 @@ REXCVAR_DEFINE_BOOL(detailed_logging, true, "Geometry Wars",
     .allowed({"true", "false"});
 
 namespace gw2 {
+
+spdlog::sink_ptr UnwrapLogSink(const spdlog::sink_ptr& sink);
+
 namespace {
 
 // Informational lines kept in Minimal mode: the first-line facts a failure report needs.
 constexpr std::string_view kEssentialInfo[] = {
     "Geometry Wars: Retro Evolved 2 port ",
+    "Build:",
+    "Runtime ",
+    "Visual interpolation ",
     "User data:",
     "Player settings:",
+    "Game files:",
     "Graphics card:",
     "Internal render resolution:",
     "Aspect ratio:",
     "Guest back buffer:",
     "Multisampling:",
-    "Game settings:",
     "DXGI adapter:",
     "Vulkan device:",
     "Vulkan instance API version",
@@ -39,7 +45,7 @@ constexpr std::string_view kEssentialInfo[] = {
     "Restarted in a new window",
 };
 
-// Forwards the messages Minimal mode keeps to the file sink. `spdlog` locks the wrapper and the target separately,
+// Forwards the messages Minimal mode keeps to the next sink. `spdlog` locks the wrapper and the target separately,
 // so it stays safe once the game's threads log.
 class MinimalLogSink final : public spdlog::sinks::base_sink<std::mutex> {
  public:
@@ -66,8 +72,34 @@ class MinimalLogSink final : public spdlog::sinks::base_sink<std::mutex> {
   spdlog::sink_ptr target_;
 };
 
+// The SDK logs bare "Execution complete" when the guest thread ends; the port writes the final line with uptime.
+class ExitMessageSink final : public spdlog::sinks::base_sink<std::mutex> {
+ public:
+  explicit ExitMessageSink(spdlog::sink_ptr target) : target_(std::move(target)) {}
+
+  const spdlog::sink_ptr& target() const { return target_; }
+
+ protected:
+  void sink_it_(const spdlog::details::log_msg& msg) override {
+    const std::string_view category(msg.logger_name.data(), msg.logger_name.size());
+    const std::string_view message(msg.payload.data(), msg.payload.size());
+    if (category == "core" && message == "Execution complete") {
+      return;
+    }
+    target_->log(msg);
+  }
+
+  void flush_() override { target_->flush(); }
+  void set_pattern_(const std::string& pattern) override { target_->set_pattern(pattern); }
+  void set_formatter_(std::unique_ptr<spdlog::formatter> formatter) override {
+    target_->set_formatter(std::move(formatter));
+  }
+
+ private:
+  spdlog::sink_ptr target_;
+};
+
 spdlog::sink_ptr g_filter;
-spdlog::sink_ptr g_filtered_sink;
 
 // The GPU plugin registers its category on first use; do it here so its logger takes the filter.
 void RegisterBuiltInCategories() {
@@ -86,60 +118,67 @@ spdlog::sink_ptr FindFileSink() {
       continue;
     }
     for (const spdlog::sink_ptr& sink : entry.logger->sinks()) {
-      if (dynamic_cast<spdlog::sinks::rotating_file_sink_mt*>(sink.get()) != nullptr) {
-        return sink;
+      const spdlog::sink_ptr file = UnwrapLogSink(sink);
+      if (dynamic_cast<spdlog::sinks::rotating_file_sink_mt*>(file.get()) != nullptr) {
+        return file;
       }
     }
   }
   if (spdlog::logger* core = rex::GetLoggerRaw(rex::log::core()); core != nullptr) {
     for (const spdlog::sink_ptr& sink : core->sinks()) {
-      if (dynamic_cast<spdlog::sinks::rotating_file_sink_mt*>(sink.get()) != nullptr) {
-        return sink;
+      const spdlog::sink_ptr file = UnwrapLogSink(sink);
+      if (dynamic_cast<spdlog::sinks::rotating_file_sink_mt*>(file.get()) != nullptr) {
+        return file;
       }
     }
   }
   return {};
 }
 
-void ReplaceSink(const spdlog::sink_ptr& from, const spdlog::sink_ptr& to) {
+void ReplaceFileChain(const spdlog::sink_ptr& file, const spdlog::sink_ptr& top) {
   for (const rex::LogCategoryEntry& entry : rex::GetAllCategories()) {
     if (!entry.logger) {
       continue;
     }
     for (spdlog::sink_ptr& sink : entry.logger->sinks()) {
-      if (sink == from) {
-        sink = to;
+      if (UnwrapLogSink(sink) == file) {
+        sink = top;
       }
     }
   }
 }
 
-void InstallMinimalFilter() {
-  if (g_filter) {
-    return;
-  }
+void RebuildFileFilter() {
   RegisterBuiltInCategories();
   const spdlog::sink_ptr file = FindFileSink();
+  g_filter.reset();
   if (!file) {
     return;
   }
-  auto filter = std::make_shared<MinimalLogSink>(file);
-  filter->set_level(file->level());
-  g_filtered_sink = file;
-  g_filter = filter;
-  ReplaceSink(file, filter);
-}
 
-void RemoveMinimalFilter() {
-  if (!g_filter) {
-    return;
+  auto exit_filter = std::make_shared<ExitMessageSink>(file);
+  exit_filter->set_level(file->level());
+  spdlog::sink_ptr top = exit_filter;
+  if (!DetailedLoggingEnabled()) {
+    auto minimal = std::make_shared<MinimalLogSink>(exit_filter);
+    minimal->set_level(file->level());
+    top = minimal;
+    g_filter = minimal;
   }
-  ReplaceSink(g_filter, g_filtered_sink);
-  g_filter.reset();
-  g_filtered_sink.reset();
+  ReplaceFileChain(file, top);
 }
 
 }  // namespace
+
+spdlog::sink_ptr UnwrapLogSink(const spdlog::sink_ptr& sink) {
+  if (const auto* filter = dynamic_cast<MinimalLogSink*>(sink.get()); filter != nullptr) {
+    return UnwrapLogSink(filter->target());
+  }
+  if (const auto* filter = dynamic_cast<ExitMessageSink*>(sink.get()); filter != nullptr) {
+    return UnwrapLogSink(filter->target());
+  }
+  return sink;
+}
 
 bool ShouldLogInMinimalMode(spdlog::level::level_enum level, std::string_view category,
                             std::string_view message) {
@@ -165,11 +204,7 @@ bool DetailedLoggingEnabled() {
 }
 
 void ApplyDetailedLogging() {
-  if (DetailedLoggingEnabled()) {
-    RemoveMinimalFilter();
-  } else {
-    InstallMinimalFilter();
-  }
+  RebuildFileFilter();
 }
 
 bool MinimalLogFilterInstalled() {
@@ -177,14 +212,11 @@ bool MinimalLogFilterInstalled() {
 }
 
 void ReleaseMinimalLogFilter() {
-  RemoveMinimalFilter();
-}
-
-spdlog::sink_ptr UnwrapLogSink(const spdlog::sink_ptr& sink) {
-  if (const auto* filter = dynamic_cast<MinimalLogSink*>(sink.get()); filter != nullptr) {
-    return filter->target();
+  const spdlog::sink_ptr file = FindFileSink();
+  if (file) {
+    ReplaceFileChain(file, file);
   }
-  return sink;
+  g_filter.reset();
 }
 
 }  // namespace gw2
