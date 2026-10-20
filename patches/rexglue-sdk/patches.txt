@@ -45,3 +45,4 @@
 0044-d3d12-async-submission.windows.patch                windows         rexgpu-xenos
 0045-imgui-mouse-cursors.patch                           windows,linux   rexruntime
 0046-sdl-video-failure-guidance.linux.patch              linux           rexruntime
+0047-input-activity-callback.patch                       windows,linux   rexruntime

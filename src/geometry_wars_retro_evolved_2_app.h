@@ -127,7 +127,7 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
   void OnCreateDialogs(rex::ui::ImGuiDrawer* drawer) override {
     if (drawer) {
       gw2::CreateFrameCounter(drawer);
-      gw2::CreateCursorTick(drawer);
+      gw2::CreateCursorSync(drawer);
     }
   }
 

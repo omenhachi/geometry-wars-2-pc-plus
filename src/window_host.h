@@ -3,7 +3,6 @@
 #include <charconv>
 #include <chrono>
 #include <cstdint>
-#include <cstdlib>
 #include <functional>
 #include <optional>
 #include <string>
@@ -73,73 +72,6 @@ inline std::string WindowTitle(bool show_resolution, WindowSize render, bool sho
   return title;
 }
 
-// XInput's published stick dead zone and trigger threshold, the latter scaled to SDL's 0..32767 axes.
-inline constexpr int kControllerStickDeadzone = 7849;
-inline constexpr int kControllerTriggerThreshold = 30 * 128;
-
-inline bool ControllerStickMoved(int x, int y) {
-  return std::abs(x) >= kControllerStickDeadzone || std::abs(y) >= kControllerStickDeadzone;
-}
-
-inline bool ControllerTriggerPressed(int value) { return value >= kControllerTriggerThreshold; }
-
-struct ControllerActivity {
-  uint32_t buttons = 0;
-  uint32_t dpad = 0;
-  bool left_trigger = false;
-  bool right_trigger = false;
-  bool left_stick = false;
-  bool right_stick = false;
-
-  bool HasNewInput(const ControllerActivity& previous) const {
-    return (buttons & ~previous.buttons) != 0 || (dpad & ~previous.dpad) != 0 ||
-           (left_trigger && !previous.left_trigger) || (right_trigger && !previous.right_trigger) ||
-           (left_stick && !previous.left_stick) || (right_stick && !previous.right_stick);
-  }
-};
-
-// Mouse activity shows the cursor; keyboard or controller activity hides it.
-class CursorHider {
- public:
-  bool visible() const { return visible_; }
-
-  void MouseMoved() { SetDevice(Device::kMouse); }
-  void MouseButtonPressed() { SetDevice(Device::kMouse); }
-  void MouseWheelMoved() { SetDevice(Device::kMouse); }
-  void KeyboardInput() { SetDevice(Device::kKeyboard); }
-  void ControllerInput() { SetDevice(Device::kController); }
-
-  // Returns the new visibility when it changes, otherwise nullopt.
-  std::optional<bool> Update(bool gameplay, bool focused, bool ui_active) {
-    if (!gameplay) {
-      device_ = Device::kMouse;
-      device_before_ui_ = Device::kMouse;
-    } else if (ui_active && !ui_active_) {
-      device_before_ui_ = device_;
-    } else if (!ui_active && ui_active_) {
-      device_ = device_before_ui_;
-    }
-    ui_active_ = gameplay && ui_active;
-    const bool active = gameplay && focused && !ui_active;
-    const bool visible = !active || device_ == Device::kMouse;
-    if (visible == visible_) {
-      return std::nullopt;
-    }
-    visible_ = visible;
-    return visible;
-  }
-
- private:
-  enum class Device { kMouse, kKeyboard, kController };
-
-  void SetDevice(Device device) { device_ = device; }
-
-  Device device_ = Device::kMouse;
-  Device device_before_ui_ = Device::kMouse;
-  bool ui_active_ = false;
-  bool visible_ = true;
-};
-
 // F11 calls `toggle_window_mode`. The key does not reach the game.
 // `gameplay_active` is false while the launcher is shown; `ui_active` is true while a mouse-driven overlay is up.
 void AttachWindowHost(rex::ui::Window* window, rex::ui::WindowedAppContext& app_context,
@@ -147,8 +79,8 @@ void AttachWindowHost(rex::ui::Window* window, rex::ui::WindowedAppContext& app_
                       std::function<bool()> ui_active);
 void DetachWindowHost();
 
-// Polls controller activity and UI capture on every UI frame.
-void CreateCursorTick(rex::ui::ImGuiDrawer* drawer);
+// Keeps the cursor in step with ImGui UI that captures the mouse.
+void CreateCursorSync(rex::ui::ImGuiDrawer* drawer);
 
 // The latest sample; all zero until the first one is measured.
 GuestFrameStats GetGuestFrameStats();

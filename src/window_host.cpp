@@ -1,15 +1,16 @@
 #include "window_host.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cstddef>
+#include <cstdint>
 #include <cstdlib>
 #include <mutex>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <utility>
-#include <vector>
 
-#include <SDL3/SDL.h>
 #include <imgui.h>
 
 #include <rex/cvar.h>
@@ -22,7 +23,9 @@
 #include <rex/ui/window_listener.h>
 #include <rex/ui/windowed_app_context.h>
 
+#include "cursor_input.h"
 #include "frame_limiter.h"
+#include "input_activity.h"
 #include "launcher_cvars.h"
 #include "launcher_settings.h"
 #include "rumble.h"
@@ -42,114 +45,8 @@ namespace {
 // Above the app's own input listener (z-order 0), so F11 never reaches the game.
 constexpr std::size_t kWindowHostZOrder = 1000;
 
-// Observes the SDL gamepads in the host's own SDL instance without polling the game's input system.
-class GamepadWatcher {
- public:
-  ~GamepadWatcher() { Stop(); }
-
-  void Start() {
-    if (started_ || !SDL_InitSubSystem(SDL_INIT_GAMEPAD)) {
-      return;
-    }
-    started_ = true;
-    SDL_UpdateJoysticks();
-    RefreshPads();
-  }
-
-  void Stop() {
-    for (Pad& pad : pads_) {
-      SDL_CloseGamepad(pad.handle);
-    }
-    pads_.clear();
-    if (started_) {
-      SDL_QuitSubSystem(SDL_INIT_GAMEPAD);
-      started_ = false;
-    }
-  }
-
-  bool Poll() {
-    if (!started_) {
-      return false;
-    }
-    SDL_UpdateJoysticks();
-    RefreshPads();
-    bool activity = false;
-    for (Pad& pad : pads_) {
-      const ControllerActivity current = Read(pad.handle);
-      activity = current.HasNewInput(pad.previous) || activity;
-      pad.previous = current;
-    }
-    return activity;
-  }
-
- private:
-  struct Pad {
-    SDL_Gamepad* handle = nullptr;
-    ControllerActivity previous;
-  };
-
-  static ControllerActivity Read(SDL_Gamepad* pad) {
-    static_assert(SDL_GAMEPAD_BUTTON_COUNT <= 32);
-    ControllerActivity activity;
-    for (int button = 0; button < SDL_GAMEPAD_BUTTON_COUNT; ++button) {
-      if (!SDL_GetGamepadButton(pad, SDL_GamepadButton(button))) {
-        continue;
-      }
-      if (button >= SDL_GAMEPAD_BUTTON_DPAD_UP && button <= SDL_GAMEPAD_BUTTON_DPAD_RIGHT) {
-        activity.dpad |= 1u << (button - SDL_GAMEPAD_BUTTON_DPAD_UP);
-      } else {
-        activity.buttons |= 1u << button;
-      }
-    }
-    activity.left_trigger =
-        ControllerTriggerPressed(SDL_GetGamepadAxis(pad, SDL_GAMEPAD_AXIS_LEFT_TRIGGER));
-    activity.right_trigger =
-        ControllerTriggerPressed(SDL_GetGamepadAxis(pad, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER));
-    activity.left_stick = ControllerStickMoved(SDL_GetGamepadAxis(pad, SDL_GAMEPAD_AXIS_LEFTX),
-                                               SDL_GetGamepadAxis(pad, SDL_GAMEPAD_AXIS_LEFTY));
-    activity.right_stick = ControllerStickMoved(SDL_GetGamepadAxis(pad, SDL_GAMEPAD_AXIS_RIGHTX),
-                                                SDL_GetGamepadAxis(pad, SDL_GAMEPAD_AXIS_RIGHTY));
-    return activity;
-  }
-
-  void RefreshPads() {
-    int count = 0;
-    SDL_JoystickID* ids = SDL_GetGamepads(&count);
-    if (!ids) {
-      return;
-    }
-    std::vector<SDL_JoystickID> present(ids, ids + count);
-    SDL_free(ids);
-
-    pads_.erase(std::remove_if(pads_.begin(), pads_.end(),
-                               [&](const Pad& pad) {
-                                 const bool connected =
-                                     std::find(present.begin(), present.end(),
-                                               SDL_GetGamepadID(pad.handle)) != present.end();
-                                 if (!connected) {
-                                   SDL_CloseGamepad(pad.handle);
-                                 }
-                                 return !connected;
-                               }),
-                pads_.end());
-
-    for (SDL_JoystickID id : present) {
-      const bool tracked = std::any_of(pads_.begin(), pads_.end(), [&](const Pad& pad) {
-        return SDL_GetGamepadID(pad.handle) == id;
-      });
-      if (!tracked) {
-        if (SDL_Gamepad* handle = SDL_OpenGamepad(id)) {
-          pads_.push_back({handle, Read(handle)});
-        }
-      }
-    }
-  }
-
-  std::vector<Pad> pads_;
-  bool started_ = false;
-};
-
 std::mutex g_mutex;
+std::atomic<bool> g_active{false};
 rex::ui::Window* g_window = nullptr;
 rex::ui::WindowedAppContext* g_app_context = nullptr;
 std::function<void()> g_toggle_window_mode;
@@ -160,7 +57,8 @@ std::function<bool()> g_gameplay_active;
 std::function<bool()> g_ui_active;
 // UI thread only.
 CursorHider g_cursor;
-GamepadWatcher g_gamepads;
+// Input polling thread only; cleared after the callback is unregistered.
+std::unordered_map<uint64_t, ControllerActivityFilter> g_controller_filters;
 bool g_pointer_over_ui = false;
 
 WindowSize RenderResolution() {
@@ -209,6 +107,9 @@ void ApplyCursor(rex::ui::Window* window, bool gameplay, bool ui_active) {
 }
 
 void UpdateCursor() {
+  if (!g_active.load(std::memory_order_relaxed)) {
+    return;
+  }
   std::function<bool()> gameplay_active;
   std::function<bool()> ui_active;
   rex::ui::Window* window = nullptr;
@@ -229,6 +130,31 @@ void RestoreCursor() {
   if (rex::ui::Window* window = CurrentWindow()) {
     ApplyCursor(window, false, false);
   }
+}
+
+void OnControllerActivity(rex::input::DeviceId device,
+                          const rex::input::X_INPUT_GAMEPAD& gamepad) {
+  if (!g_active.load(std::memory_order_relaxed)) {
+    return;
+  }
+  if (!g_controller_filters[static_cast<uint64_t>(device)].Update(gamepad)) {
+    return;
+  }
+  rex::ui::WindowedAppContext* app_context = nullptr;
+  {
+    std::lock_guard lock(g_mutex);
+    app_context = g_app_context;
+  }
+  if (!app_context) {
+    return;
+  }
+  app_context->CallInUIThread([] {
+    if (!g_active.load(std::memory_order_relaxed)) {
+      return;
+    }
+    g_cursor.ControllerInput();
+    UpdateCursor();
+  });
 }
 
 bool IsMeaningfulKey(const rex::ui::KeyEvent& e) {
@@ -295,22 +221,27 @@ class WindowHost final : public rex::ui::WindowInputListener, public rex::ui::Wi
 
   void OnGotFocus(rex::ui::UISetupEvent&) override { UpdateCursor(); }
   void OnLostFocus(rex::ui::UISetupEvent&) override { UpdateCursor(); }
-  void OnClosing(rex::ui::UIEvent&) override { RestoreCursor(); }
+
+  void OnClosing(rex::ui::UIEvent&) override {
+    rex::input::SetInputActivityCallback(nullptr);
+    RestoreCursor();
+    g_active.store(false, std::memory_order_relaxed);
+  }
 };
 
 WindowHost g_window_host;
 
-// Dialogs are drawn on the UI thread every frame, which gives controller input a periodic check.
-class CursorTick final : public rex::ui::ImGuiDialog {
+// ImGui overlays that do not go through the app's ui_active callback still capture the mouse.
+class CursorSync final : public rex::ui::ImGuiDialog {
  public:
-  explicit CursorTick(rex::ui::ImGuiDrawer* drawer) : ImGuiDialog(drawer) {}
+  explicit CursorSync(rex::ui::ImGuiDrawer* drawer) : ImGuiDialog(drawer) {}
 
  protected:
   void OnDraw(ImGuiIO& io) override {
-    g_pointer_over_ui = io.WantCaptureMouse;
-    if (g_gamepads.Poll()) {
-      g_cursor.ControllerInput();
+    if (!g_active.load(std::memory_order_relaxed)) {
+      return;
     }
+    g_pointer_over_ui = io.WantCaptureMouse;
     UpdateCursor();
   }
 };
@@ -332,19 +263,25 @@ void AttachWindowHost(rex::ui::Window* window, rex::ui::WindowedAppContext& app_
   }
   window->AddInputListener(&g_window_host, kWindowHostZOrder);
   window->AddListener(&g_window_host);
-  g_gamepads.Start();
+  rex::input::SetInputActivityCallback(nullptr);
+  g_cursor = CursorHider{};
+  g_controller_filters.clear();
+  g_active.store(true, std::memory_order_relaxed);
+  rex::input::SetInputActivityCallback(OnControllerActivity);
   UpdateCursor();
 }
 
-void CreateCursorTick(rex::ui::ImGuiDrawer* drawer) {
-  new CursorTick(drawer);  // retained by the drawer for the session
+void CreateCursorSync(rex::ui::ImGuiDrawer* drawer) {
+  new CursorSync(drawer);  // retained by the drawer for the session
 }
 
 // The guest can end without the window closing, so the listeners stay.
 // The cursor is restored, then only the pointers are cleared.
 void DetachWindowHost() {
+  rex::input::SetInputActivityCallback(nullptr);
   RestoreCursor();
-  g_gamepads.Stop();
+  g_active.store(false, std::memory_order_relaxed);
+  g_controller_filters.clear();
   std::lock_guard lock(g_mutex);
   g_window = nullptr;
   g_app_context = nullptr;

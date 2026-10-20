@@ -60,6 +60,7 @@ class the game's code or `share/rexglue/rex_app.cpp` uses (`Window`, the public 
 | [0044-d3d12-async-submission](../patches/rexglue-sdk/0044-d3d12-async-submission.windows.patch) | Windows | GPU plugin | 0044 | a dedicated thread replays, executes and fences the recorded command list of a submission (`d3d12_async_submission`) |
 | [0045-imgui-mouse-cursors](../patches/rexglue-sdk/0045-imgui-mouse-cursors.patch) | both | runtime | 0045 | the ImGui drawer applies the cursor shape ImGui asked for through `SDL_SetCursor` |
 | [0046-sdl-video-failure-guidance](../patches/rexglue-sdk/0046-sdl-video-failure-guidance.linux.patch) | Linux | runtime | 0046 | a failed `SDL_InitSubSystem(SDL_INIT_VIDEO)` also writes the SDL error and the DISPLAY/WAYLAND_DISPLAY hint to stderr |
+| [0047-input-activity-callback](../patches/rexglue-sdk/0047-input-activity-callback.patch) | both | runtime | 0047 | a passive per-device callback reports gamepad state changes after the input system reads them, without altering input |
 | Pins | | | | [patches/rexglue-sdk/baseline.env](../patches/rexglue-sdk/baseline.env): tag, commit and the stock runtime and plugin hashes |
 
 There is no 0034: Hard Corps' 0034 is this project's 0002. 0036 to 0038 are Hard Corps' patches with the cvar renamed

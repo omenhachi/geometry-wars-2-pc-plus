@@ -71,6 +71,8 @@ try {
         -lbcrypt -o $LauncherExe
     if ($LASTEXITCODE) { throw "Test build failed ($LASTEXITCODE)" }
     & $ClangXX -std=c++23 -O1 -Wall -Wextra -I (Join-Path $Root 'src') `
+        -isystem (Join-Path $Root 'tools\rexglue\win-amd64\include') `
+        ('-DGW2_SRC_DIR="' + ((Join-Path $Root 'src') -replace '\\', '/') + '"') `
         (Join-Path $Root 'tests\window_host_tests.cpp') -o $WindowHostExe
     if ($LASTEXITCODE) { throw "Test build failed ($LASTEXITCODE)" }
     & $ClangXX -std=c++23 -O1 -Wall -Wextra -I (Join-Path $Root 'src') `
