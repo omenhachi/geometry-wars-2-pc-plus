@@ -24,6 +24,9 @@ namespace {
 constexpr std::string_view kEssentialInfo[] = {
     "Geometry Wars: Retro Evolved 2 port ",
     "Build:",
+    "Launcher Display:",
+    "Launcher Gameplay:",
+    "Launcher Graphics:",
     "Runtime ",
     "Visual interpolation ",
     "User data:",

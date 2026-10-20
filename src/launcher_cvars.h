@@ -70,6 +70,8 @@ struct StartupWindowInfo {
   int output_height = 0;
   bool fullscreen = false;
   std::string controller;
+  int selected_width = -1;
+  int selected_height = -1;
 };
 
 // Logs the effective runtime configuration, game fingerprint and graphics settings the game starts with.

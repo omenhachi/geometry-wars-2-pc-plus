@@ -53,11 +53,34 @@ struct GameIdentity {
   std::string fingerprint;
 };
 
-struct GameplayIdentity {
+struct LauncherDisplayIdentity {
+  std::string mode;
+  std::string resolution;
+  std::string aspect_ratio;
+  std::string monitor;
+};
+
+struct LauncherGameplayIdentity {
   std::string frame_rate;
+  std::string vsync;
+  std::string frame_rate_in_title;
+  std::string render_resolution_in_title;
+  std::string frame_counter;
+};
+
+struct LauncherGraphicsIdentity {
+  std::string graphics_card;
+  std::string render_resolution;
+  std::string internal_render_resolution;
+  std::string msaa;
+  std::string anti_aliasing;
+  std::string texture_filtering;
+  std::string bloom;
+};
+
+struct GameplayIdentity {
   std::string simulation;
   std::string interpolation;
-  std::string vsync;
   std::string present;
 };
 
@@ -70,9 +93,6 @@ struct GraphicsIdentity {
   int host_quarters = 0;
   int resolve_scale = 0;
   std::string msaa;
-  std::string anti_aliasing;
-  std::string filtering;
-  std::string bloom;
 };
 
 struct InputIdentity {
@@ -81,6 +101,9 @@ struct InputIdentity {
 };
 
 struct StartupDiagnostics {
+  LauncherDisplayIdentity launcher_display;
+  LauncherGameplayIdentity launcher_gameplay;
+  LauncherGraphicsIdentity launcher_graphics;
   SystemIdentity system;
   GraphicsAdapterIdentity gpu;
   DisplayIdentity display;
@@ -101,5 +124,6 @@ std::string FrameRateText(int fps);
 std::string SimulationRateText(int fps);
 std::string InterpolationPolicyText(int fps);
 std::string PresentModeText(int fps);
+std::string PresentationText(int fps, bool vsync_off);
 
 }  // namespace gw2

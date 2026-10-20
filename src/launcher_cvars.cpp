@@ -83,22 +83,43 @@ std::string TextureFilteringName(std::string_view value) {
   return std::string(value);
 }
 
-std::string GraphicsCardName() {
-  std::string setting = REXCVAR_GET(gw2_graphics_adapter);
-  std::optional<int> index = ParseGraphicsAdapter(setting);
-  if (!index) {
-    setting = rex::cvar::GetFlagByName(kD3D12AdapterKey);
-    index = ParseGraphicsAdapter(setting);
-  }
+std::string SelectedGraphicsCardLabel() {
+  const std::string setting = REXCVAR_GET(gw2_graphics_adapter);
+  const std::optional<int> index = ParseGraphicsAdapter(setting);
   if (!index) {
     return "Automatic";
   }
-  for (const GraphicsAdapter& adapter : ListGraphicsAdapters()) {
-    if (adapter.index == *index) {
-      return adapter.name + " (adapter " + std::to_string(adapter.index) + ")";
+  const std::vector<GraphicsAdapter> adapters = ListGraphicsAdapters();
+  for (const GraphicsAdapter& adapter : adapters) {
+    if (adapter.index != *index) {
+      continue;
+    }
+    const auto same_name = std::count_if(adapters.begin(), adapters.end(), [&](const GraphicsAdapter& other) {
+      return other.name == adapter.name;
+    });
+    return same_name > 1 ? adapter.name + " (" + std::to_string(adapter.index) + ")" : adapter.name;
+  }
+  return "Graphics card " + setting + " (not found)";
+}
+
+std::string ChoiceLabel(const std::vector<SettingChoice>& choices, std::string_view value,
+                        std::string_view fallback) {
+  for (const SettingChoice& choice : choices) {
+    if (choice.value == value) {
+      return choice.label;
     }
   }
-  return "adapter " + setting + " (not found)";
+  return std::string(fallback);
+}
+
+std::string OnOff(bool value) {
+  return value ? "On" : "Off";
+}
+
+std::string RenderResolutionLabel(int scale, AspectRatio aspect) {
+  const WindowSize size = RenderSize(aspect, scale);
+  return (scale == 1 ? std::string("Original") : std::to_string(scale) + "x") + " (" +
+         std::to_string(size.width) + "x" + std::to_string(size.height) + ")";
 }
 
 std::string CvarOr(std::string_view name, std::string_view fallback) {
@@ -218,14 +239,41 @@ void LogStartupDiagnostics(const MonitorInfo& display, int monitor, const std::f
   const int percent = NormalizeInternalRenderScale(IntCvar(kInternalRenderScaleKey));
   const InternalRenderSplit split = SplitInternalRenderScale(scale, percent);
   const int fps = ConfiguredFrameRate();
-  const bool vsync = rex::cvar::GetFlagByName(kVSyncKey) != "true";
+  const bool vsync_off = rex::cvar::GetFlagByName(kVSyncKey) == "true";
+  const bool selected_fullscreen = rex::cvar::GetFlagByName(kFullscreenKey) == "true";
+  const std::string selected_card = SelectedGraphicsCardLabel();
 
   StartupDiagnostics diagnostics;
+  diagnostics.launcher_display.mode = selected_fullscreen ? "Borderless Fullscreen" : "Windowed";
+  const int selected_width = window.selected_width >= 0 ? window.selected_width : window.configured_width;
+  const int selected_height = window.selected_height >= 0 ? window.selected_height : window.configured_height;
+  diagnostics.launcher_display.resolution =
+      selected_width > 0 && selected_height > 0
+          ? std::to_string(selected_width) + "x" + std::to_string(selected_height)
+          : "Default";
+  diagnostics.launcher_display.aspect_ratio = InfoFor(aspect).label;
+  diagnostics.launcher_display.monitor = monitor > 0 ? std::to_string(monitor) : "Default (primary)";
+
+  diagnostics.launcher_gameplay.frame_rate = FrameRateText(fps);
+  diagnostics.launcher_gameplay.vsync = vsync_off ? "Off" : "On";
+  diagnostics.launcher_gameplay.frame_rate_in_title = OnOff(REXCVAR_GET(gw2_show_fps));
+  diagnostics.launcher_gameplay.render_resolution_in_title = OnOff(REXCVAR_GET(gw2_show_render_resolution));
+  diagnostics.launcher_gameplay.frame_counter = REXCVAR_GET(gw2_show_frame_counter) ? "Shown" : "Hidden";
+
+  diagnostics.launcher_graphics.graphics_card = selected_card;
+  diagnostics.launcher_graphics.render_resolution = RenderResolutionLabel(scale, aspect);
+  diagnostics.launcher_graphics.internal_render_resolution = std::to_string(percent) + "%";
+  diagnostics.launcher_graphics.msaa = REXCVAR_GET(gw2_msaa_compatibility) ? "4x (Compatibility)" : "2x";
+  diagnostics.launcher_graphics.anti_aliasing =
+      ChoiceLabel(AntiAliasingChoices(), CvarOr(kAntiAliasingKey, "none"), "Off");
+  diagnostics.launcher_graphics.texture_filtering = TextureFilteringName(CvarOr(kTextureFilteringKey, "-1"));
+  diagnostics.launcher_graphics.bloom = ChoiceLabel(BloomChoices(), CvarOr(kBloomKey, "original"), "Original");
+
   diagnostics.system.os = OsDescription();
   diagnostics.system.cpu = CpuDescription();
   diagnostics.system.logical_processors = LogicalProcessorCount();
 
-  diagnostics.gpu.selected = GraphicsCardName();
+  diagnostics.gpu.selected = selected_card;
   const GraphicsAdapterDetails adapter =
       EffectiveGraphicsAdapter(std::atoi(CvarOr(kD3D12AdapterKey, "-1").c_str()));
   diagnostics.gpu.resolved = adapter.name;
@@ -253,11 +301,9 @@ void LogStartupDiagnostics(const MonitorInfo& display, int monitor, const std::f
   diagnostics.game.sha256 = game.xex_sha256;
   diagnostics.game.fingerprint = GameStateName(game.state);
 
-  diagnostics.gameplay.frame_rate = FrameRateText(fps);
   diagnostics.gameplay.simulation = SimulationRateText(fps);
   diagnostics.gameplay.interpolation = InterpolationPolicyText(fps);
-  diagnostics.gameplay.vsync = vsync ? "On" : "Off";
-  diagnostics.gameplay.present = PresentModeText(fps);
+  diagnostics.gameplay.present = PresentationText(fps, vsync_off);
 
   diagnostics.graphics.render_percent = percent;
   diagnostics.graphics.render_width = InternalRenderSize(CanvasWidth(aspect), scale, percent);
@@ -267,9 +313,6 @@ void LogStartupDiagnostics(const MonitorInfo& display, int monitor, const std::f
   diagnostics.graphics.host_quarters = split.host_quarters;
   diagnostics.graphics.resolve_scale = split.resolve_scale;
   diagnostics.graphics.msaa = REXCVAR_GET(gw2_msaa_compatibility) ? "4x compatibility" : "2x native";
-  diagnostics.graphics.anti_aliasing = CvarOr(kAntiAliasingKey, "none");
-  diagnostics.graphics.filtering = TextureFilteringName(CvarOr(kTextureFilteringKey, "-1"));
-  diagnostics.graphics.bloom = CvarOr(kBloomKey, "original");
 
   diagnostics.input.keyboard_mode = CvarOr("mnk_mode", "false") == "true" ? "On" : "Off";
   diagnostics.input.controller = window.controller;
@@ -277,7 +320,7 @@ void LogStartupDiagnostics(const MonitorInfo& display, int monitor, const std::f
   for (const std::string& line : FormatStartupDiagnostics(diagnostics)) {
     REXLOG_INFO("{}", line);
   }
-  SetCrashRuntimeState(diagnostics.gameplay.frame_rate.c_str(), diagnostics.gameplay.simulation.c_str(),
+  SetCrashRuntimeState(diagnostics.launcher_gameplay.frame_rate.c_str(), diagnostics.gameplay.simulation.c_str(),
                        diagnostics.gameplay.interpolation.c_str(), diagnostics.gameplay.present.c_str(),
                        diagnostics.gpu.resolved_known ? diagnostics.gpu.resolved.c_str() : "unknown");
 }

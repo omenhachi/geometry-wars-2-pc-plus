@@ -45,15 +45,6 @@ std::string GraphicsText(const GraphicsIdentity& graphics) {
   if (!graphics.msaa.empty()) {
     text += " | msaa=" + graphics.msaa;
   }
-  if (!graphics.anti_aliasing.empty()) {
-    text += " | aa=" + graphics.anti_aliasing;
-  }
-  if (!graphics.filtering.empty()) {
-    text += " | filtering=" + graphics.filtering;
-  }
-  if (!graphics.bloom.empty()) {
-    text += " | bloom=" + graphics.bloom;
-  }
   return text;
 }
 
@@ -71,6 +62,22 @@ std::string FormatBuildIdentity(const ApplicationIdentity& identity) {
 std::vector<std::string> FormatStartupDiagnostics(const StartupDiagnostics& diagnostics) {
   std::vector<std::string> lines;
   lines.push_back("Runtime configuration:");
+  lines.push_back("Launcher Display: Mode=" + diagnostics.launcher_display.mode +
+                  " | Resolution=" + diagnostics.launcher_display.resolution +
+                  " | Aspect Ratio=" + diagnostics.launcher_display.aspect_ratio +
+                  " | Monitor=" + diagnostics.launcher_display.monitor);
+  lines.push_back("Launcher Gameplay: Frame Rate=" + diagnostics.launcher_gameplay.frame_rate +
+                  " | VSync=" + diagnostics.launcher_gameplay.vsync +
+                  " | Frame rate in title=" + diagnostics.launcher_gameplay.frame_rate_in_title +
+                  " | Render resolution in title=" + diagnostics.launcher_gameplay.render_resolution_in_title +
+                  " | Frame counter=" + diagnostics.launcher_gameplay.frame_counter);
+  lines.push_back("Launcher Graphics: Graphics Card=" + diagnostics.launcher_graphics.graphics_card +
+                  " | Render Resolution=" + diagnostics.launcher_graphics.render_resolution +
+                  " | Internal Render Resolution=" + diagnostics.launcher_graphics.internal_render_resolution +
+                  " | MSAA=" + diagnostics.launcher_graphics.msaa +
+                  " | Anti-aliasing=" + diagnostics.launcher_graphics.anti_aliasing +
+                  " | Texture Filtering=" + diagnostics.launcher_graphics.texture_filtering +
+                  " | Bloom=" + diagnostics.launcher_graphics.bloom);
   lines.push_back("Runtime OS: " + diagnostics.system.os);
   lines.push_back("Runtime CPU: " + diagnostics.system.cpu +
                   " | logical processors=" + std::to_string(diagnostics.system.logical_processors));
@@ -105,13 +112,12 @@ std::vector<std::string> FormatStartupDiagnostics(const StartupDiagnostics& diag
     lines.push_back("Runtime game sha256: " + diagnostics.game.sha256);
   }
 
-  std::string gameplay = "Runtime gameplay: frame_rate=" + diagnostics.gameplay.frame_rate +
-                         " | simulation=" + diagnostics.gameplay.simulation +
-                         " | interpolation=" + diagnostics.gameplay.interpolation +
-                         " | vsync=" + diagnostics.gameplay.vsync + " | present=" + diagnostics.gameplay.present;
-  lines.push_back(std::move(gameplay));
+  std::string timing = "Runtime timing: simulation=" + diagnostics.gameplay.simulation +
+                       " | interpolation=" + diagnostics.gameplay.interpolation +
+                       " | present=" + diagnostics.gameplay.present;
+  lines.push_back(std::move(timing));
 
-  lines.push_back("Runtime graphics: " + GraphicsText(diagnostics.graphics));
+  lines.push_back("Runtime renderer: " + GraphicsText(diagnostics.graphics));
 
   std::string input = "Runtime input: keyboard_mode=" + diagnostics.input.keyboard_mode;
   if (!diagnostics.input.controller.empty()) {
@@ -150,6 +156,12 @@ std::string InterpolationPolicyText(int fps) {
 
 std::string PresentModeText(int fps) {
   return PresentModeFor(fps) == PresentMode::kImmediate ? "Immediate" : "VBlank";
+}
+
+std::string PresentationText(int fps, bool vsync_off) {
+  std::string text = PresentModeFor(fps) == PresentMode::kImmediate ? "guest Immediate" : "guest VBlank";
+  text += vsync_off ? " | host Immediate (tearing allowed)" : " | host VBlank (VSync On)";
+  return text;
 }
 
 }  // namespace gw2

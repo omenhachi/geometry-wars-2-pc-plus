@@ -302,6 +302,8 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
     startup_window.fullscreen = window() != nullptr && window()->IsFullscreen();
     const int window_width = std::atoi(rex::cvar::GetFlagByName(gw2::kWindowWidthKey).c_str());
     const int window_height = std::atoi(rex::cvar::GetFlagByName(gw2::kWindowHeightKey).c_str());
+    startup_window.selected_width = settings_ ? settings_->GetInt(gw2::kWindowWidthKey, window_width) : window_width;
+    startup_window.selected_height = settings_ ? settings_->GetInt(gw2::kWindowHeightKey, window_height) : window_height;
     startup_window.configured_width = window() != nullptr ? int(window()->GetDesiredLogicalWidth()) : window_width;
     startup_window.configured_height = window() != nullptr ? int(window()->GetDesiredLogicalHeight()) : window_height;
     const gw2::WindowSize drawable = gw2::CurrentDrawableSize(window());

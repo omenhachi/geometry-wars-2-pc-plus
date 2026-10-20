@@ -3,9 +3,12 @@
 
 #include <cstdio>
 #include <filesystem>
+#include <fstream>
+#include <iterator>
 #include <string>
 
 #include <rex/cvar.h>
+#include <rex/logging.h>
 
 #include "aspect_ratio.h"
 #include "launcher_cvars.h"
@@ -39,6 +42,82 @@ MonitorInfo g_display;
 MonitorInfo gw2::MonitorForSetting(int) {
   return g_display;
 }
+
+namespace {
+
+bool Has(const std::string& text, const char* needle) {
+  return text.find(needle) != std::string::npos;
+}
+
+std::string ReadText(const std::filesystem::path& file) {
+  std::ifstream in(file, std::ios::binary);
+  return std::string(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+}
+
+void TestStartupDiagnostics(const std::filesystem::path& shipped) {
+  Section("startup diagnostics mirror launcher selections");
+  const std::filesystem::path dir =
+      std::filesystem::temp_directory_path() / "gw2_restart_state_tests" / "diagnostics";
+  std::error_code ec;
+  std::filesystem::remove_all(dir, ec);
+  std::filesystem::create_directories(dir, ec);
+
+  rex::LogConfig config;
+  config.app_name = "gw2_startup_diagnostics";
+  config.log_dir = dir.string();
+  rex::InitLogging(config);
+
+  rex::cvar::LoadConfig(shipped);
+  rex::cvar::SetFlagByName(kFullscreenKey, "false");
+  rex::cvar::SetFlagByName(kAspectKey, "21:9");
+  rex::cvar::SetFlagByName(kGraphicsAdapterKey, "auto");
+  rex::cvar::SetFlagByName(kMultisamplingKey, "true");
+  rex::cvar::SetFlagByName(kFrameRateKey, "0");
+  rex::cvar::SetFlagByName(kVSyncKey, "false");
+  rex::cvar::SetFlagByName(kShowFpsKey, "true");
+  rex::cvar::SetFlagByName(kShowResolutionKey, "false");
+  rex::cvar::SetFlagByName(kShowFrameCounterKey, "true");
+
+  const MonitorInfo display{1920, 1080, 1920, 1046, 1.5f, true, 60};
+  StartupWindowInfo window;
+  window.selected_width = 1260;
+  window.selected_height = 540;
+  window.configured_width = 1152;
+  window.configured_height = 493;
+  window.output_width = 1728;
+  window.output_height = 740;
+  window.controller = "Test Controller";
+  LogStartupDiagnostics(display, 1, {}, window);
+  rex::FlushLogging();
+
+  std::filesystem::path log;
+  for (const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator(dir, ec)) {
+    if (entry.is_regular_file() && entry.path().extension() == ".log") {
+      log = entry.path();
+      break;
+    }
+  }
+  CHECK(!log.empty());
+  const std::string text = log.empty() ? std::string() : ReadText(log);
+  CHECK(Has(text, "Launcher Display: Mode=Windowed | Resolution=1260x540 | "
+                  "Aspect Ratio=21:9 Ultrawide | Monitor=1"));
+  CHECK(Has(text, "Launcher Gameplay: Frame Rate=Unlimited | VSync=On | Frame rate in title=On | "
+                  "Render resolution in title=Off | Frame counter=Shown"));
+  CHECK(Has(text, "Launcher Graphics: Graphics Card=Automatic | Render Resolution=Original (1680x720) | "
+                  "Internal Render Resolution=100% | MSAA=4x (Compatibility) | Anti-aliasing=Off | "
+                  "Texture Filtering=Game | Bloom=Original"));
+  CHECK(!Has(text, "Launcher Graphics: Graphics Card=NVIDIA"));
+  CHECK(Has(text, "Runtime GPU: selected=Automatic | resolved="));
+  CHECK(Has(text, "Runtime display: 1920x1080@60Hz | scale=150% | monitor=1 | windowed | "
+                  "window=1152x493 | output=1728x740 | aspect=21:9"));
+  CHECK(Has(text, "Runtime timing: simulation=60Hz | interpolation=Automatic, pending measurement | "
+                  "present=guest Immediate | host VBlank (VSync On)"));
+
+  rex::ShutdownLogging();
+  std::filesystem::remove_all(dir, ec);
+}
+
+}  // namespace
 
 int main() {
   const std::filesystem::path shipped = std::filesystem::path(GW2_SOURCE_DIR) / "config" / "geometry_wars_retro_evolved_2.toml";
@@ -112,6 +191,8 @@ int main() {
     CHECK(cvars.Value(kAspectKey) == info.key);
     CHECK(cvars.Value("video_mode_width") == std::to_string(mode.width));
   }
+
+  TestStartupDiagnostics(shipped);
 
   std::printf("%d checks, %d failures\n", g_checks, g_failures);
   return g_failures == 0 ? 0 : 1;

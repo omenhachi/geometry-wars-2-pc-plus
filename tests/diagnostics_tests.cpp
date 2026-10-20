@@ -36,6 +36,22 @@ std::string Join(const std::vector<std::string>& lines) {
 
 gw2::StartupDiagnostics Sample() {
   gw2::StartupDiagnostics diagnostics;
+  diagnostics.launcher_display.mode = "Borderless Fullscreen";
+  diagnostics.launcher_display.resolution = "1280x720";
+  diagnostics.launcher_display.aspect_ratio = "16:9 Original";
+  diagnostics.launcher_display.monitor = "1";
+  diagnostics.launcher_gameplay.frame_rate = "240";
+  diagnostics.launcher_gameplay.vsync = "Off";
+  diagnostics.launcher_gameplay.frame_rate_in_title = "On";
+  diagnostics.launcher_gameplay.render_resolution_in_title = "Off";
+  diagnostics.launcher_gameplay.frame_counter = "Hidden";
+  diagnostics.launcher_graphics.graphics_card = "Automatic";
+  diagnostics.launcher_graphics.render_resolution = "2x (2560x1440)";
+  diagnostics.launcher_graphics.internal_render_resolution = "100%";
+  diagnostics.launcher_graphics.msaa = "2x";
+  diagnostics.launcher_graphics.anti_aliasing = "Off";
+  diagnostics.launcher_graphics.texture_filtering = "Game";
+  diagnostics.launcher_graphics.bloom = "Original";
   diagnostics.system.os = "Windows 11 64-bit (build 22631)";
   diagnostics.system.cpu = "Test CPU";
   diagnostics.system.logical_processors = 16;
@@ -61,11 +77,9 @@ gw2::StartupDiagnostics Sample() {
   diagnostics.game.size = 704512;
   diagnostics.game.sha256 = "ABCDEF";
   diagnostics.game.fingerprint = "verified";
-  diagnostics.gameplay.frame_rate = "144";
   diagnostics.gameplay.simulation = "60Hz";
   diagnostics.gameplay.interpolation = "Automatic, pending measurement";
-  diagnostics.gameplay.vsync = "Off";
-  diagnostics.gameplay.present = "Immediate";
+  diagnostics.gameplay.present = "guest Immediate | host VBlank (VSync On)";
   diagnostics.graphics.render_percent = 100;
   diagnostics.graphics.render_width = 1280;
   diagnostics.graphics.render_height = 720;
@@ -74,9 +88,6 @@ gw2::StartupDiagnostics Sample() {
   diagnostics.graphics.host_quarters = 4;
   diagnostics.graphics.resolve_scale = 1;
   diagnostics.graphics.msaa = "2x native";
-  diagnostics.graphics.anti_aliasing = "none";
-  diagnostics.graphics.filtering = "16x";
-  diagnostics.graphics.bloom = "original";
   diagnostics.input.keyboard_mode = "Off";
   diagnostics.input.controller = "Xbox One S Controller";
   return diagnostics;
@@ -103,6 +114,13 @@ void TestStartupBlock() {
   std::printf("startup snapshot carries runtime fields\n");
   const std::string text = Join(gw2::FormatStartupDiagnostics(Sample()));
   CHECK(Has(text, "Runtime configuration:"));
+  CHECK(Has(text, "Launcher Display: Mode=Borderless Fullscreen | Resolution=1280x720 | "
+                  "Aspect Ratio=16:9 Original | Monitor=1"));
+  CHECK(Has(text, "Launcher Gameplay: Frame Rate=240 | VSync=Off | Frame rate in title=On | "
+                  "Render resolution in title=Off | Frame counter=Hidden"));
+  CHECK(Has(text, "Launcher Graphics: Graphics Card=Automatic | Render Resolution=2x (2560x1440) | "
+                  "Internal Render Resolution=100% | MSAA=2x | Anti-aliasing=Off | Texture Filtering=Game | "
+                  "Bloom=Original"));
   CHECK(Has(text, "Runtime OS: Windows 11 64-bit (build 22631)"));
   CHECK(Has(text, "Runtime CPU: Test CPU | logical processors=16"));
   CHECK(Has(text, "Runtime GPU: selected=Automatic | resolved=NVIDIA GeForce RTX 4070 | adapter=0 | "
@@ -111,24 +129,54 @@ void TestStartupBlock() {
                   "output=2560x1440 | aspect=16:9"));
   CHECK(Has(text, "Runtime game: title_id=584108FF | default.xex | size=704512 | fingerprint=verified"));
   CHECK(Has(text, "Runtime game sha256: ABCDEF"));
-  CHECK(Has(text, "Runtime gameplay: frame_rate=144 | simulation=60Hz | "
-                  "interpolation=Automatic, pending measurement | vsync=Off | present=Immediate"));
-  CHECK(Has(text, "Runtime graphics: render=100% 1280x720 | guest=1280x720 | host_targets=4/4 | resolve=1x | "
-                  "msaa=2x native | aa=none | filtering=16x | bloom=original"));
+  CHECK(Has(text, "Runtime timing: simulation=60Hz | interpolation=Automatic, pending measurement | "
+                  "present=guest Immediate | host VBlank (VSync On)"));
+  CHECK(Has(text, "Runtime renderer: render=100% 1280x720 | guest=1280x720 | host_targets=4/4 | resolve=1x | "
+                  "msaa=2x native"));
+  CHECK(!Has(text, "Runtime timing: frame_rate="));
   CHECK(Has(text, "Runtime input: keyboard_mode=Off | controller=Xbox One S Controller"));
+}
+
+void TestSelectedWindowResolution() {
+  std::printf("selected window resolution differs from the adjusted window\n");
+  gw2::StartupDiagnostics diagnostics = Sample();
+  diagnostics.launcher_display.mode = "Windowed";
+  diagnostics.launcher_display.resolution = "1260x540";
+  diagnostics.launcher_display.aspect_ratio = "21:9 Ultrawide";
+  diagnostics.display.fullscreen = false;
+  diagnostics.display.configured_width = 1152;
+  diagnostics.display.configured_height = 493;
+  diagnostics.display.output_width = 1728;
+  diagnostics.display.output_height = 740;
+  diagnostics.display.aspect = "21:9";
+  const std::string text = Join(gw2::FormatStartupDiagnostics(diagnostics));
+  CHECK(Has(text, "Launcher Display: Mode=Windowed | Resolution=1260x540 | "
+                  "Aspect Ratio=21:9 Ultrawide | Monitor=1"));
+  CHECK(Has(text, "Runtime display: 2560x1440@144Hz | scale=225% | monitor=1 | windowed | "
+                  "window=1152x493 | output=1728x740 | aspect=21:9"));
 }
 
 void TestSelectedAndResolvedDiffer() {
   std::printf("selected and resolved GPU stay distinguishable\n");
   gw2::StartupDiagnostics diagnostics = Sample();
-  diagnostics.gpu.selected = "Intel UHD 730 (adapter 1)";
+  diagnostics.launcher_graphics.graphics_card = "Intel UHD 730";
+  diagnostics.gpu.selected = "Intel UHD 730";
   diagnostics.gpu.resolved = "NVIDIA GeForce RTX 4070";
   const std::string text = Join(gw2::FormatStartupDiagnostics(diagnostics));
-  CHECK(Has(text, "selected=Intel UHD 730 (adapter 1)"));
+  CHECK(Has(text, "Launcher Graphics: Graphics Card=Intel UHD 730"));
+  CHECK(Has(text, "Runtime GPU: selected=Intel UHD 730"));
   CHECK(Has(text, "resolved=NVIDIA GeForce RTX 4070"));
 
   diagnostics.gpu.resolved_known = false;
   CHECK(Has(Join(gw2::FormatStartupDiagnostics(diagnostics)), "resolved=unknown"));
+
+  gw2::StartupDiagnostics automatic = Sample();
+  automatic.launcher_graphics.graphics_card = "Automatic";
+  automatic.gpu.selected = "Automatic";
+  automatic.gpu.resolved = "NVIDIA GeForce RTX 4070";
+  const std::string automatic_text = Join(gw2::FormatStartupDiagnostics(automatic));
+  CHECK(Has(automatic_text, "Launcher Graphics: Graphics Card=Automatic"));
+  CHECK(Has(automatic_text, "Runtime GPU: selected=Automatic | resolved=NVIDIA GeForce RTX 4070"));
 }
 
 void TestFrameRatePolicy() {
@@ -145,6 +193,11 @@ void TestFrameRatePolicy() {
   CHECK(gw2::InterpolationPolicyText(0) == "Automatic, pending measurement");
   CHECK(gw2::PresentModeText(60) == "VBlank");
   CHECK(gw2::PresentModeText(144) == "Immediate");
+  CHECK(gw2::PresentationText(0, false) == "guest Immediate | host VBlank (VSync On)");
+  CHECK(gw2::PresentationText(0, true) == "guest Immediate | host Immediate (tearing allowed)");
+  CHECK(gw2::PresentationText(240, false) == "guest Immediate | host VBlank (VSync On)");
+  CHECK(gw2::PresentationText(60, false) == "guest VBlank | host VBlank (VSync On)");
+  CHECK(gw2::PresentationText(60, true) == "guest VBlank | host Immediate (tearing allowed)");
 }
 
 void TestPrivacy() {
@@ -167,6 +220,7 @@ void TestPrivacy() {
 int main() {
   TestIdentity();
   TestStartupBlock();
+  TestSelectedWindowResolution();
   TestSelectedAndResolvedDiffer();
   TestFrameRatePolicy();
   TestPrivacy();

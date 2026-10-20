@@ -90,8 +90,12 @@ void TestClassification() {
 
   CHECK(gw2::ShouldLogInMinimalMode(info, "core", "Geometry Wars: Retro Evolved 2 port 0.4.0"));
   CHECK(gw2::ShouldLogInMinimalMode(info, "core", "Build: Release x86-64 | ReXGlue SDK 0.10.0 | Direct3D 12"));
+  CHECK(gw2::ShouldLogInMinimalMode(info, "core", "Launcher Display: Mode=Windowed | Resolution=1280x720"));
+  CHECK(gw2::ShouldLogInMinimalMode(info, "core", "Launcher Gameplay: Frame Rate=240 | VSync=Off"));
+  CHECK(gw2::ShouldLogInMinimalMode(info, "core", "Launcher Graphics: Graphics Card=Automatic"));
   CHECK(gw2::ShouldLogInMinimalMode(info, "core", "Runtime OS: Windows 11 64-bit (build 22631)"));
   CHECK(gw2::ShouldLogInMinimalMode(info, "core", "Runtime GPU: selected=Automatic | resolved=Test GPU"));
+  CHECK(gw2::ShouldLogInMinimalMode(info, "core", "Runtime timing: simulation=60Hz | present=Immediate"));
   CHECK(gw2::ShouldLogInMinimalMode(info, "core", "Visual interpolation enabled: measured presentation 143.9 Hz"));
   CHECK(gw2::ShouldLogInMinimalMode(info, "core", "User data: portable path selected: user_data"));
   CHECK(gw2::ShouldLogInMinimalMode(info, "core", "Player settings: settings.toml"));
