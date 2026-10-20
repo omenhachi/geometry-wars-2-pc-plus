@@ -185,6 +185,7 @@ set(GW2_SOURCES
     src/imgui_gamepad.cpp
     src/live_stats.cpp
     src/local_stats.cpp
+    src/main_menu_exit_game.cpp
     src/game_files.cpp
     src/stfs.cpp
     src/frame_counter.cpp
