@@ -29,7 +29,7 @@ The full list is in the [v0.4.0 release notes](https://github.com/saulob/geometr
 - Controller vibration for gameplay events, off by default (Controls > Vibration). It is a PC-port addition, not a restored original feature
 - Native static recompilation for Windows, plus an experimental native Linux / Steam Deck AppImage
 - TRG launcher that installs the game from your own package and remembers its window position, size, maximized and fullscreen state
-- High frame rate support: 30, 60 (the original), 90, 120, 144, 165, 240 or Unlimited, without speeding up the game
+- High frame rate support: 30, 60 (the original), 90, 120, 144, 165, 240 or Unlimited, with gameplay updates capped at 60 Hz so enemy behavior and animations keep the original timing
 - Render resolution up to 4x (5120×2880), internal render resolution (100%, 75% or 50%), graphics card choice on Windows, FXAA, 2x or 4x (Compatibility) multisampling, texture filtering up to 16x, VSync and native aspect ratios (16:9, 16:10, 21:9, 32:9, 4:3, 5:4)
 - Improved frame pacing and performance, with less unnecessary GPU and CPU work, especially at higher render resolutions
 - Automatic discrete-GPU preference on hybrid systems, and a more reliable Exit Game
@@ -116,7 +116,7 @@ Window size, monitor, VSync, Aspect Ratio and graphics card take effect when you
 - **Bloom**: Original (the game's own glow), Reduced (lower glow) or Off (no glow). The bright geometry and colors are kept
 
 ### Gameplay
-- **Frame rate**: 30, 60, 90, 120, 144, 165, 240 or Unlimited. 60 is the original game and the default. The game's speed stays the same at every rate; a slower graphics card or heavier graphics settings lower the frame rate without changing the speed.
+- **Frame rate**: 30, 60, 90, 120, 144, 165, 240 or Unlimited. 60 is the original game and the default. Above 60, presentation runs at the selected rate while the game simulation stays at 60 updates per second; intermediate frames repeat the latest state because rendering is not interpolated. A slower graphics card or heavier graphics settings lower the frame rate without changing the speed.
 - **Frame rate in title**: shows the frame rate in the window title, for example `Geometry Wars: Retro Evolved 2 | FPS: 60.00`
 - **Render resolution in title**: shows the render resolution in the window title, for example `Geometry Wars: Retro Evolved 2 | 2560x1440` at 2x on 16:9. It is off by default; with both title options on, the resolution comes before the frame rate.
 - **Frame counter**: shows the frame rate in the corner of the window. Press **F2** while playing to show or hide it.

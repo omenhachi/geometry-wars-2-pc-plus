@@ -28,7 +28,7 @@ namespace gw2 {
 namespace {
 
 BOOL CALLBACK AddMonitor(HMONITOR monitor, HDC, LPRECT, LPARAM user) {
-  MONITORINFO info{};
+  MONITORINFOEXW info{};
   info.cbSize = sizeof(info);
   if (!GetMonitorInfoW(monitor, &info)) {
     return TRUE;
@@ -39,6 +39,11 @@ BOOL CALLBACK AddMonitor(HMONITOR monitor, HDC, LPRECT, LPARAM user) {
   found.work_width = info.rcWork.right - info.rcWork.left;
   found.work_height = info.rcWork.bottom - info.rcWork.top;
   found.primary = (info.dwFlags & MONITORINFOF_PRIMARY) != 0;
+  DEVMODEW mode{};
+  mode.dmSize = sizeof(mode);
+  if (EnumDisplaySettingsW(info.szDevice, ENUM_CURRENT_SETTINGS, &mode) && mode.dmDisplayFrequency > 1) {
+    found.refresh_hz = int(mode.dmDisplayFrequency);
+  }
   UINT dpi_x = 0;
   UINT dpi_y = 0;
   if (SUCCEEDED(GetDpiForMonitor(monitor, MDT_EFFECTIVE_DPI, &dpi_x, &dpi_y))) {

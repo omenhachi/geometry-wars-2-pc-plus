@@ -1,8 +1,11 @@
 #include "launcher_cvars.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdlib>
+#include <optional>
 #include <string>
+#include <string_view>
 #include <system_error>
 #include <vector>
 
@@ -52,6 +55,55 @@ namespace {
 
 int IntCvar(std::string_view name) {
   return std::atoi(rex::cvar::GetFlagByName(name).c_str());
+}
+
+std::string FrameRateName(int fps) {
+  return fps == kFrameRateUnlimited ? "Unlimited" : std::to_string(fps);
+}
+
+std::string TextureFilteringName(std::string_view value) {
+  if (value == "-1") {
+    return "Game";
+  }
+  if (value == "0") {
+    return "Off";
+  }
+  if (value == "2") {
+    return "2x";
+  }
+  if (value == "3") {
+    return "4x";
+  }
+  if (value == "4") {
+    return "8x";
+  }
+  if (value == "5") {
+    return "16x";
+  }
+  return std::string(value);
+}
+
+std::string GraphicsCardName() {
+  std::string setting = REXCVAR_GET(gw2_graphics_adapter);
+  std::optional<int> index = ParseGraphicsAdapter(setting);
+  if (!index) {
+    setting = rex::cvar::GetFlagByName(kD3D12AdapterKey);
+    index = ParseGraphicsAdapter(setting);
+  }
+  if (!index) {
+    return "Automatic";
+  }
+  for (const GraphicsAdapter& adapter : ListGraphicsAdapters()) {
+    if (adapter.index == *index) {
+      return adapter.name + " (adapter " + std::to_string(adapter.index) + ")";
+    }
+  }
+  return "adapter " + setting + " (not found)";
+}
+
+std::string CvarOr(std::string_view name, std::string_view fallback) {
+  const std::string value = rex::cvar::GetFlagByName(name);
+  return value.empty() ? std::string(fallback) : value;
 }
 
 }  // namespace
@@ -144,23 +196,31 @@ int ConfiguredFrameRate() {
   return IsFrameRateChoice(fps) ? fps : kFrameRateDefault;
 }
 
-void LogGameSettings() {
+void LogGameSettings(const MonitorInfo& display, int monitor) {
   const AspectRatio aspect = ParseAspectRatio(REXCVAR_GET(gw2_aspect_ratio));
   const int scale = std::max(1, IntCvar(kRenderScaleKey));
   const int percent = NormalizeInternalRenderScale(IntCvar(kInternalRenderScaleKey));
   const InternalRenderSplit split = SplitInternalRenderScale(scale, percent);
-  REXLOG_INFO("Internal render resolution: {}% {}x{} -> {}x{} (host render targets {}/4, resolves {}x)", percent,
-              InternalRenderSize(CanvasWidth(aspect), scale, percent),
-              InternalRenderSize(kCanvasHeight, scale, percent), CanvasWidth(aspect) * scale,
-              kCanvasHeight * scale, split.host_quarters, split.resolve_scale);
   const int fps = ConfiguredFrameRate();
+  const bool fullscreen = rex::cvar::GetFlagByName(kFullscreenKey) == "true";
+  const bool vsync = rex::cvar::GetFlagByName(kVSyncKey) != "true";
+  const std::string refresh = display.refresh_hz > 0 ? "@" + std::to_string(display.refresh_hz) + "Hz" : "";
+  const std::string display_name = monitor > 0 ? "monitor " + std::to_string(monitor) : "primary monitor";
   REXLOG_INFO(
-      "Game settings: render resolution {}x ({}x{}), window {}x{}{}, frame rate {}, VSync {}, multisampling {}",
-      scale, CanvasWidth(aspect) * scale, kCanvasHeight * scale, IntCvar(kWindowWidthKey), IntCvar(kWindowHeightKey),
-      rex::cvar::GetFlagByName(kFullscreenKey) == "true" ? " fullscreen" : "",
-      fps == kFrameRateUnlimited ? std::string("Unlimited") : std::to_string(fps),
-      rex::cvar::GetFlagByName(kVSyncKey) == "true" ? "Off" : "On",
-      REXCVAR_GET(gw2_msaa_compatibility) ? "4x" : "2x");
+      "Game settings: display={}x{}{} (scale {}%, {}), window={}x{} {}, aspect={}, frame_rate={} (selected), vsync={}, "
+      "present={}",
+      display.width, display.height, refresh, int(std::lround(display.scale * 100.0f)), display_name,
+      IntCvar(kWindowWidthKey), IntCvar(kWindowHeightKey), fullscreen ? "fullscreen" : "windowed",
+      InfoFor(aspect).key, FrameRateName(fps), vsync ? "On" : "Off",
+      PresentModeFor(fps) == PresentMode::kImmediate ? "immediate" : "vblank");
+  REXLOG_INFO(
+      "Graphics settings: gpu={}, adapter={}, render={}% {}x{} (guest {}x{}, host targets {}/4, resolve {}x), msaa={}, "
+      "aa={}, filtering={}, bloom={}",
+      GraphicsCardName(), CvarOr(kD3D12AdapterKey, "n/a"), percent,
+      InternalRenderSize(CanvasWidth(aspect), scale, percent), InternalRenderSize(kCanvasHeight, scale, percent),
+      CanvasWidth(aspect), kCanvasHeight, split.host_quarters, split.resolve_scale,
+      REXCVAR_GET(gw2_msaa_compatibility) ? "4x compatibility" : "2x native", CvarOr(kAntiAliasingKey, "none"),
+      TextureFilteringName(CvarOr(kTextureFilteringKey, "-1")), CvarOr(kBloomKey, "original"));
 }
 
 }  // namespace gw2

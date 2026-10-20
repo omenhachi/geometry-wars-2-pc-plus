@@ -27,6 +27,8 @@ REXCVAR_DECLARE(bool, gw2_launcher_fullscreen);
 
 namespace gw2 {
 
+struct MonitorInfo;
+
 // The running game's cvars, through the SDK's registry.
 class RexCvars final : public CvarAccess {
  public:
@@ -62,6 +64,6 @@ void ApplyGraphicsAdapter();
 void ApplyAspectRatio();
 
 // Logs the graphics and frame-rate settings the game starts with.
-void LogGameSettings();
+void LogGameSettings(const MonitorInfo& display, int monitor);
 
 }  // namespace gw2

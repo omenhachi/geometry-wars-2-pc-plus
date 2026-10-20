@@ -32,6 +32,7 @@ struct MonitorInfo {
   int work_height = 0;
   float scale = 1.0f;   // display scaling
   bool primary = false;
+  int refresh_hz = 0;   // current mode, 0 when unavailable
 };
 
 // In the order ReXGlue's `monitor` setting numbers them: the primary display first on Windows, SDL's order on Linux.

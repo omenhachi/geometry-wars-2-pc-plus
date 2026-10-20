@@ -64,8 +64,8 @@ failure rules.
   default size for a moment. Under Wayland the compositor decides the position, so only the size and the maximized
   state are restored.
 - **Frame limiter.** Rates below Unlimited are paced with `std::chrono::steady_clock`, a sleep until shortly before
-  the deadline, and a brief yield loop; Windows uses a high-resolution waitable timer. The rates, the game's time step
-  and the high-frame-rate present change are the same code on both systems.
+  the deadline, and a brief yield loop; Windows uses a high-resolution waitable timer. The rates, the game's time step,
+  the simulation gate and the high-frame-rate present change are the same code on both systems.
 - **VSync.** The setting controls Vulkan's present mode (`vulkan_allow_present_mode_immediate`): **Off** allows
   immediate presentation (tearing), **On** uses mailbox or FIFO. Windows controls D3D12 tearing instead.
 - **Window icon.** The program sets its window icon from the AppImage's own icon file, so it does not depend on the

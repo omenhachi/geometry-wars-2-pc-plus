@@ -457,6 +457,9 @@ std::vector<MonitorInfo> ListMonitors() {
     if (const float scale = SDL_GetDisplayContentScale(displays[i]); scale > 0.0f) {
       found.scale = scale;
     }
+    if (const SDL_DisplayMode* mode = SDL_GetCurrentDisplayMode(displays[i])) {
+      found.refresh_hz = int(mode->refresh_rate + 0.5f);
+    }
     found.primary = displays[i] == primary;
     monitors.push_back(found);
   }

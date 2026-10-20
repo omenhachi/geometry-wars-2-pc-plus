@@ -323,5 +323,6 @@ REX_HOOK_RAW(__imp__VdSwap) {
     return;
   }
   gw2::SyncGameDelta(base, gw2::LimiterClock::now());
+  gw2::DebugSauloTimingPresent(base);
   gw2::CountGuestFrame();
 }
