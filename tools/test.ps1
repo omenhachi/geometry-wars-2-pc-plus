@@ -32,6 +32,7 @@ $UserDataExe = Join-Path $OutDir 'user_data_tests.exe'
 $CheatsExe = Join-Path $OutDir 'cheats_tests.exe'
 $AdapterExe = Join-Path $OutDir 'graphics_adapter_tests.exe'
 $AspectExe = Join-Path $OutDir 'aspect_ratio_tests.exe'
+$UpdateExe = Join-Path $OutDir 'update_tests.exe'
 
 $TrgDir = Join-Path $Root 'third_party\trg-launcher'
 if (-not (Test-Path (Join-Path $TrgDir 'src\settings.cpp'))) {
@@ -44,7 +45,8 @@ $VsRoot = & $Vswhere -latest -products '*' -requires Microsoft.VisualStudio.Comp
 if (-not $VsRoot) { throw 'Visual Studio with the C++ x64 tools and C++ Clang tools is required' }
 $VsDevCmd = Join-Path $VsRoot 'Common7\Tools\VsDevCmd.bat'
 $ClangXX = Join-Path $VsRoot 'VC\Tools\Llvm\x64\bin\clang++.exe'
-foreach ($tool in @($VsDevCmd, $ClangXX)) {
+$Clang = Join-Path $VsRoot 'VC\Tools\Llvm\x64\bin\clang.exe'
+foreach ($tool in @($VsDevCmd, $ClangXX, $Clang)) {
     if (-not (Test-Path $tool)) { throw "Required tool not found: $tool" }
 }
 
@@ -72,7 +74,7 @@ try {
     if ($LASTEXITCODE) { throw "Test build failed ($LASTEXITCODE)" }
     & $ClangXX -std=c++23 -O1 -Wall -Wextra -I (Join-Path $Root 'src') `
         -isystem (Join-Path $Root 'tools\rexglue\win-amd64\include') `
-        ('-DGW2_SRC_DIR="' + ((Join-Path $Root 'src') -replace '\\', '/') + '"') `
+        ('-DGW2_SRC_DIR=\"' + ((Join-Path $Root 'src') -replace '\\', '/') + '\"') `
         (Join-Path $Root 'tests\window_host_tests.cpp') -o $WindowHostExe
     if ($LASTEXITCODE) { throw "Test build failed ($LASTEXITCODE)" }
     & $ClangXX -std=c++23 -O1 -Wall -Wextra -I (Join-Path $Root 'src') `
@@ -106,6 +108,18 @@ try {
     & $ClangXX -std=c++23 -O1 -Wall -Wextra -I (Join-Path $Root 'src') `
         (Join-Path $Root 'tests\aspect_ratio_tests.cpp') -o $AspectExe
     if ($LASTEXITCODE) { throw "Test build failed ($LASTEXITCODE)" }
+    & $Clang -std=c11 -O1 -c (Join-Path $Root 'src\updater\third_party\miniz\miniz.c') -o (Join-Path $OutDir 'miniz.obj')
+    if ($LASTEXITCODE) { throw "Test build failed ($LASTEXITCODE)" }
+    & $ClangXX -std=c++23 -O1 -Wall -Wextra -I (Join-Path $Root 'src') `
+        ('-DGW2_SRC_DIR=\"' + ((Join-Path $Root 'src') -replace '\\', '/') + '\"') `
+        (Join-Path $Root 'tests\update_tests.cpp') `
+        (Join-Path $Root 'src\updater\github_release.cpp') (Join-Path $Root 'src\updater\install_transaction.cpp') `
+        (Join-Path $Root 'src\updater\json.cpp') (Join-Path $Root 'src\updater\sha256.cpp') `
+        (Join-Path $Root 'src\updater\update_job.cpp') (Join-Path $Root 'src\updater\update_paths.cpp') `
+        (Join-Path $Root 'src\updater\update_platform.cpp') (Join-Path $Root 'src\updater\update_zip.cpp') `
+        (Join-Path $Root 'src\updater\version.cpp') (Join-Path $OutDir 'miniz.obj') `
+        -lshell32 -o $UpdateExe
+    if ($LASTEXITCODE) { throw "Test build failed ($LASTEXITCODE)" }
 } finally {
     foreach ($name in @([Environment]::GetEnvironmentVariables().Keys)) {
         if (-not $SavedEnv.Contains($name)) { Remove-Item "Env:$name" }
@@ -137,6 +151,8 @@ if ($LASTEXITCODE) { throw "Cheats tests failed ($LASTEXITCODE)" }
 if ($LASTEXITCODE) { throw "Graphics card tests failed ($LASTEXITCODE)" }
 & $AspectExe
 if ($LASTEXITCODE) { throw "Aspect ratio tests failed ($LASTEXITCODE)" }
+& $UpdateExe
+if ($LASTEXITCODE) { throw "Updater tests failed ($LASTEXITCODE)" }
 
 # The release check accepts a fresh extraction and refuses user data, migration leftovers, saves, logs and game files.
 $ReleaseCheck = Join-Path $PSScriptRoot 'package-release.ps1'
@@ -158,9 +174,11 @@ $releaseFailures = 0
 foreach ($case in $ReleaseCases.Keys) {
     $stage = Join-Path $StageRoot ($case -replace '\W', '_')
     New-Item -ItemType Directory -Force (Join-Path $stage 'licenses') | Out-Null
-    foreach ($leaf in 'geometry_wars_retro_evolved_2.exe', 'rexruntime.dll', 'rexgpu-xenos.dll', 'geometry_wars_retro_evolved_2.toml', 'README.txt', 'LICENSE',
-        'licenses\ReXGlue-LICENSE.txt', 'licenses\THIRD-PARTY-LICENSES.txt') {
-        Set-Content -LiteralPath (Join-Path $stage $leaf) -Value 'placeholder'
+    foreach ($leaf in 'geometry_wars_retro_evolved_2.exe', 'trg-updater.exe', 'rexruntime.dll', 'rexgpu-xenos.dll', 'geometry_wars_retro_evolved_2.toml', 'README.txt', 'LICENSE',
+        'licenses\ReXGlue-LICENSE.txt', 'licenses\THIRD-PARTY-LICENSES.txt', 'assets\launcher\header-art.png') {
+        $file = Join-Path $stage $leaf
+        New-Item -ItemType Directory -Force (Split-Path $file) | Out-Null
+        Set-Content -LiteralPath $file -Value 'placeholder'
     }
     $extra = $ReleaseCases[$case]
     if ($extra) {

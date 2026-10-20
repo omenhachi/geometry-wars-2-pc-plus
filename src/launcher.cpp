@@ -44,6 +44,8 @@
 #include "launcher_quit.h"
 #include "launcher_settings.h"
 #include "log_filter.h"
+#include "update_config.h"
+#include "updater/update_ui.h"
 
 namespace gw2 {
 namespace {
@@ -226,6 +228,8 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
       SelectWindowSizeForAspect();
     }
     launcher_ = std::make_unique<trg::Launcher>(MakeConfig());
+    updater_ = std::make_unique<trg::update::UpdateController>(MakeUpdateConfig(PortFolder()));
+    updater_->StartCheck();
     RestorePlacement();
     REXLOG_INFO("Launcher shown {} the runtime", game_.runtime ? "after" : "before");
   }
@@ -236,6 +240,7 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
       return;
     }
     PollInstall();
+    PollUpdate();
     TrackPlacement();
     if (!nav_taken_) {
       saved_nav_flags_ = io.ConfigFlags & kNavFlags;
@@ -255,6 +260,10 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
     ImGui::BeginDisabled(play_.starting());
     const trg::Result result = launcher_->Frame();
     ImGui::EndDisabled();
+    if (result == trg::Result::kNone && !play_.starting()) {
+      HandleUpdateAction(
+          trg::update::DrawUpdateBanner(updater_->snapshot(), launcher_->config().theme, g_fonts));
+    }
     if (play_.starting()) {
       DrawStartingMessage();
     }
@@ -273,6 +282,12 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
   }
 
   void OnClose() override {
+    if (updater_) {
+      updater_->Cancel();
+      if (updater_->Busy()) {
+        updater_.release();
+      }
+    }
     ImGuiIO& io = GetIO();
     gamepad_.Release(io);
     io.ConfigFlags = (io.ConfigFlags & ~kNavFlags) | saved_nav_flags_;
@@ -282,7 +297,16 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
  private:
   void Finish(std::function<void()> action) {
     done_ = true;
-    SavePlacement(placement_.Flush());
+    if (updater_) {
+      updater_->Cancel();
+      if (updater_->Busy()) {
+        // Do not join a network call on the UI thread when the launcher leaves.
+        updater_.release();
+      }
+    }
+    if (!skip_finish_save_) {
+      SavePlacement(placement_.Flush());
+    }
     REXLOG_INFO("Launcher closed");
     Close();
     if (action) {
@@ -424,6 +448,7 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
     c.branding.title = "GEOMETRY WARS: RETRO EVOLVED 2";
     c.branding.subtitle_segments = {
         {"PC PORT   \xC2\xB7   ", ""},
+        {"v" GW2_PORT_VERSION "   \xC2\xB7   ", ""},
         {kAuthorText, kAuthorUrl},
     };
     c.branding.subtitle_color = kAccent;
@@ -799,6 +824,54 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
     }
   }
 
+  void PollUpdate() {
+    if (updater_) {
+      updater_->Poll();
+    }
+  }
+
+  void HandleUpdateAction(trg::update::UpdateUiAction action) {
+    switch (action) {
+      case trg::update::UpdateUiAction::kDownload:
+        updater_->StartDownload();
+        break;
+      case trg::update::UpdateUiAction::kRetry:
+        if (updater_->RetryNeedsInstall()) {
+          if (install_.running() || play_.starting()) {
+            launcher_->SetStatus("Wait for the current install to finish.", 5.0);
+            break;
+          }
+          if (!launcher_->Save()) {
+            break;
+          }
+          SavePlacement(placement_.Flush());
+          if (updater_->Retry()) {
+            skip_finish_save_ = true;
+            Finish(callbacks_.quit);
+          }
+        } else {
+          updater_->Retry();
+        }
+        break;
+      case trg::update::UpdateUiAction::kRestart:
+        if (install_.running() || play_.starting()) {
+          launcher_->SetStatus("Wait for the current install to finish.", 5.0);
+          break;
+        }
+        if (!launcher_->Save()) {
+          break;
+        }
+        SavePlacement(placement_.Flush());
+        if (updater_->BeginInstall()) {
+          skip_finish_save_ = true;
+          Finish(callbacks_.quit);
+        }
+        break;
+      case trg::update::UpdateUiAction::kNone:
+        break;
+    }
+  }
+
   // Runs every frame so a finished install is picked up whichever page is open.
   void PollInstall() {
     std::string error;
@@ -854,6 +927,8 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
   std::string install_failure_text_;
   std::shared_ptr<InstallOutcome> outcome_;
   trg::Task install_;
+  std::unique_ptr<trg::update::UpdateController> updater_;
+  bool skip_finish_save_ = false;
 };
 
 }  // namespace

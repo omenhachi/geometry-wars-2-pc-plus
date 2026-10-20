@@ -188,6 +188,18 @@ set(GW2_SOURCES
     src/main_menu_exit_game.cpp
     src/game_files.cpp
     src/stfs.cpp
+    src/update_config.cpp
+    src/updater/github_release.cpp
+    src/updater/json.cpp
+    src/updater/sha256.cpp
+    src/updater/third_party/miniz/miniz.c
+    src/updater/update_controller.cpp
+    src/updater/update_job.cpp
+    src/updater/update_paths.cpp
+    src/updater/update_platform.cpp
+    src/updater/update_ui.cpp
+    src/updater/update_zip.cpp
+    src/updater/version.cpp
     src/frame_counter.cpp
     src/frame_limiter.cpp
     src/frame_wait.cpp
@@ -204,6 +216,7 @@ set(GW2_SOURCES
     src/visual_interpolation.cpp
     src/window_host.cpp
 )
+set_source_files_properties(src/updater/third_party/miniz/miniz.c PROPERTIES COMPILE_OPTIONS "-w")
 if(WIN32)
     # Resource 1 is the first icon in the executable: Explorer, and SDL's window class, use it.
     enable_language(RC)
@@ -223,7 +236,7 @@ endif()
 rexglue_setup_target(geometry_wars_retro_evolved_2 GPU_PLUGINS xenos)
 target_link_libraries(geometry_wars_retro_evolved_2 PRIVATE trg::launcher)
 if(WIN32)
-    target_link_libraries(geometry_wars_retro_evolved_2 PRIVATE bcrypt dxgi shcore synchronization)
+    target_link_libraries(geometry_wars_retro_evolved_2 PRIVATE bcrypt dxgi shcore synchronization shell32)
 else()
     # The SDK stages the runtime beside the program only on Windows and macOS; the RPATH is $ORIGIN.
     add_custom_command(TARGET geometry_wars_retro_evolved_2 POST_BUILD
@@ -284,6 +297,21 @@ endfunction()
 gw2_enable_thinlto(geometry_wars_retro_evolved_2)
 if(TARGET geometry_wars_retro_evolved_2_recomp)
     gw2_enable_thinlto(geometry_wars_retro_evolved_2_recomp)
+endif()
+
+if(WIN32)
+    add_executable(trg-updater WIN32
+        src/updater/helper_main.cpp
+        src/updater/install_transaction.cpp
+        src/updater/sha256.cpp
+        src/updater/update_job.cpp
+        src/updater/update_paths.cpp
+        src/updater/update_platform.cpp
+    )
+    target_include_directories(trg-updater PRIVATE src)
+    target_link_libraries(trg-updater PRIVATE shell32)
+    set_target_properties(trg-updater PROPERTIES OUTPUT_NAME "trg-updater")
+    gw2_enable_thinlto(trg-updater)
 endif()
 
 target_compile_definitions(geometry_wars_retro_evolved_2 PRIVATE
@@ -360,11 +388,25 @@ gw2_add_test(launcher_settings_tests src/launcher_settings.cpp src/launcher_opti
 gw2_add_test(graphics_adapter_tests src/graphics_adapters.cpp)
 gw2_add_test(aspect_ratio_tests)
 target_compile_definitions(aspect_ratio_tests PRIVATE GW2_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src")
+gw2_add_test(update_tests
+    src/updater/github_release.cpp
+    src/updater/install_transaction.cpp
+    src/updater/json.cpp
+    src/updater/sha256.cpp
+    src/updater/update_job.cpp
+    src/updater/update_paths.cpp
+    src/updater/update_platform.cpp
+    src/updater/update_zip.cpp
+    src/updater/version.cpp
+    src/updater/third_party/miniz/miniz.c
+)
+target_compile_definitions(update_tests PRIVATE GW2_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_link_libraries(launcher_settings_tests PRIVATE gw2_trg_test_support)
 target_compile_definitions(launcher_settings_tests PRIVATE GW2_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src")
 if(WIN32)
     target_link_libraries(launcher_tests PRIVATE bcrypt)
     target_link_libraries(graphics_adapter_tests PRIVATE dxgi d3d12)
+    target_link_libraries(update_tests PRIVATE shell32)
     target_link_libraries(gw2_trg_test_support PUBLIC shell32 ole32 comdlg32 winmm user32)
 else()
     target_link_libraries(gw2_trg_test_support PUBLIC Threads::Threads)
