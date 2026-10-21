@@ -18,7 +18,7 @@ A window restart skips the launcher once. The launcher is the only way to instal
 - **Save** writes the pending settings to the player file and keeps the launcher open. **Quit** closes without saving or applying.
 - **PLAY** runs `RequestPlay`: it rejects the request while an install runs or the files are not valid; otherwise it saves the pending settings once. A failed save keeps the launcher open and nothing starts.
 - After the save the launcher shows "Settings saved. Starting game..." for 0.4 s with its controls disabled. Then the pending settings are applied and the game starts.
-- The footer reads Enter Play, Esc Quit and Ctrl+S Save; Quit, Save and PLAY sit at the bottom right.
+- The footer reads `Enter  Play     Alt+F4  Quit     Ctrl+S  Save`, and below it `Play applies the changes. Save keeps them without starting.`; Quit, Save and PLAY sit at the bottom right. **Escape does not quit the launcher**; it only closes a pop-up or cancels a keyboard capture.
 
 ## Settings
 
@@ -117,9 +117,9 @@ Frame rate is the game's frame-rate limit and applies on PLAY without a restart.
   exactly that many original steps; the difference carries to the next frame, so the game time follows the clock.
 - **30** adds a limiter (`steady_clock`, a high-resolution timer, then a short spin).
 - **90 and above** also make the game's present callback swap at once instead of at the next vblank. Unlimited does not wait.
-- Every rate other than 60 gives the game's update the real frame interval as its time step. The game reads one time step, a float set once at startup to 1 / refresh rate (1/60); it is replaced each frame with the measured interval (limited to 1 ms to 50 ms), so game speed follows the wall clock.
+- **90, 120, 144, 165, 240 and Unlimited** present at the selected rate while the game's update stays at 60 Hz. Intermediate frames interpolate gameplay object transforms between the last two completed simulation states, so enemy AI, gameplay animations and timers keep the original timing. The game's time step is written only on the 60 Hz updates.
 
-Presenter VSync can still cap the rate. Frame counts the game keeps, such as the last-seconds tick of Deadline, are not adjusted.
+When rendering falls below 60, the update uses the same `GameDeltaClock` policy as the 60 setting, so game time remains synchronized with real time. Presenter VSync can still cap the presentation rate.
 
 ## Cheats
 
@@ -137,14 +137,14 @@ The game side of each cheat is in [cheats.md](cheats.md).
 - **F10** opens and closes the in-game cheat menu: CHEATS, the three rows, a separator, then `F10 Close` and `Not saved to the launcher`. Up and Down (D-pad, left stick or arrow keys) move, A or Enter toggles a row, and B, Escape or F10 close it. The menu exists only after the game has started, so F10 does nothing over the launcher or the installer. The ReXGlue overlays use other keys.
 - Menu changes are for the running session only and are never written to `settings.toml`; the next start uses the launcher's values.
 - While the menu is open the game reads no keyboard or controller input (`InputSystem::SetActiveCallback`), and input returns once what was pressed in the menu is released, so closing with B or Escape never also presses it in the game. F10 and Escape are consumed by a window input listener above the ImGui drawer. The achievements overlay does not open while the menu is open, and the menu does not open over it.
-- The menu is a `rex::ui::ImGuiDialog` on the drawer ReXApp already owns; the controller reaches ImGui through the same `LauncherGamepad` the launcher uses.
+- The menu is a `rex::ui::ImGuiDialog` on the drawer ReXApp already owns; any controller SDL recognizes (Xbox, DualSense, Steam Controller) reaches ImGui through the same `ImGuiGamepad` the launcher uses.
 
 ## Controls
 
-- Controller: automatic, with no setup.
-- Keyboard: Enabled or Disabled, the `mnk_mode` cvar ("Enable keyboard/mouse controller emulation").
+- Controller: automatic, with no setup. Any controller SDL recognizes navigates the launcher.
+- Keyboard: On or Off (default Off), the `mnk_mode` cvar ("Use the keyboard for gameplay controls together with the controller").
 - Vibration: Off or On (default Off), the `gw2_vibration` cvar ("Controller rumble"). Off sends no rumble to the controller, and turning it Off while playing stops any rumble in progress. There is no strength setting. When On, the controller vibrates for bombs, deaths, respawns, game over, extra lives, extra bombs, shield hits, the King zone, Gravity Well explosions and overloads, and gate crossings. Rumble goes through ReXGlue's input system on Windows and Linux; it has been tested on a physical controller on Windows only.
-- Keyboard keys: the registry's `Input/Keybinds/Controller` entries, read-only, with multiple keys listed as "A or B".
+- Keyboard controls: one row per Xbox pad action, each showing the current binding and a **Reset to defaults** row. Click a row, press the new key, and Esc cancels; a key the port already uses (F2, F3, F4, F7, F10, F11, F12, Escape, Backtick) is refused. Edits stay pending until Save or PLAY, like every other setting. Multiple keys are listed as "A or B".
 
 ## Achievements
 
@@ -152,7 +152,7 @@ Read-only, unchanged: the same `AchievementManager` and icon cache as the in-gam
 
 ## About
 
-Rows: Game files (Open game folder, when it exists), Saves and settings (Open data folder: the folder in use, and the row says whether that is the portable `user_data`, the system folder after a fallback, or the `--user_data_root` folder), Settings file, Reset all settings, Port version (the `project()` VERSION in `CMakeLists.txt`, passed in as `GW2_PORT_VERSION`), Libraries (ReXGlue SDK 0.10.0, TRG Launcher 1.1.0), Game (title 584108FF, game version 0.0.1.2), and the repository as a line of text.
+Rows: Game files (Open game folder, when it exists), Saves and settings (Open data folder: the folder in use, and the row says whether that is the portable `user_data`, the system folder after a fallback, or the `--user_data_root` folder), Settings file, Reset all settings, **Detailed logging** (on by default), **Logs folder**, Port version (the `project()` VERSION in `CMakeLists.txt`, passed in as `GW2_PORT_VERSION`), Libraries (ReXGlue SDK 0.10.0, TRG Launcher 1.1.0), Game (title 584108FF, game version 0.0.1.2), and the repository as a link. The launcher and the game share one log for the whole application session, including the relaunch that creates the game window. A session writes exactly one log: crash details are appended to that same file, so no dump, `crash.txt` or secondary diagnostic file is created. The startup diagnostics cover the port build, OS and CPU, selected and resolved GPU, display settings, game fingerprint, timing/interpolation policy and graphics settings, without usernames, hostnames, account names, addresses or absolute user-profile paths; user data, settings and game paths are reduced to `user_data`, `settings.toml` and `default.xex`. With Detailed logging Off, the run still writes warnings, errors and the startup diagnostics while it runs, but a clean exit discards that session's log (after a window close on Windows, at the next start); a crash keeps it, on Windows with the `CRASH REPORT`. The author and repository links open in the browser with the hand cursor.
 
 ## Launcher window
 
@@ -164,7 +164,7 @@ Windows hooks the window's first show to place it before anything is visible. Li
 
 ## Window and display scaling
 
-- The window is 1280×720 logical, reduced to 90% of the selected display's work area when needed, per Windows scaling. ReXGlue converts logical sizes; the launcher does not multiply by the scale itself.
+- The window is 1280×720 logical, reduced to 90% of the selected display's work area when needed, per Windows scaling. The executable declares PerMonitorV2 DPI awareness, so moving the window to a display with another scale re-rasterizes the launcher fonts and sizes against that monitor's DPI. ReXGlue converts logical sizes; the launcher does not multiply by the scale itself.
 - The Display page offers a size only when it fits the selected display at its scale; the current size is always listed.
 
 ## Game files and install
@@ -178,7 +178,7 @@ TRG Launcher is the `third_party/trg-launcher` submodule pinned to `b384a28` (ve
 ## Limits
 
 - ReXGlue's own overlays (F3 debug, Backtick console, F4 settings) can still open over the launcher. F7 does not open the in-game achievements overlay while the launcher is open.
-- Above 60 FPS the last-seconds tick of Deadline may sound more than once, because the game counts it per update.
+- High-refresh frames interpolate gameplay object transforms. Particles, trails and other effects are not interpolated in this pass.
 - The graphics base size is derived, not measured here (see Graphics).
 
 ## Tests
@@ -188,12 +188,12 @@ TRG Launcher is the `third_party/trg-launcher` submodule pinned to `b384a28` (ve
 ## Manual test
 
 1. Start the executable with no arguments. Check the launcher opens on Play; install from your package (`584108FF\000D0000\`) and confirm "Ready to play".
-2. Open About and check the rows.
+2. Open About and check the rows, the Detailed logging toggle, Open logs folder and the author/repository links.
 3. Change a Display setting and press Save. Restart the executable and confirm the value persisted.
 4. Check the Display page: window size list, monitor, aspect ratio and VSync. Choose another Aspect Ratio and check that Window size changes to a size of that shape and that Render resolution shows its sizes; press PLAY and check that the game restarts once and that the log shows the format and `Guest back buffer`.
 5. Check the Graphics page: render resolution labels, anti-aliasing, multisampling (2x MSAA by default), texture filtering and Bloom (Original by default). On the Gameplay page, check that Frame rate in title is On and Frame counter is Hidden by default.
 5a. Bloom: compare Original, Reduced and Off in a level with many enemies and projectiles (choose each on the Graphics page and press PLAY). Reduced shows less glow than Original and Off shows none. In every mode the geometry, colors and HUD stay intact.
-6. Check the Controls page: keyboard toggle and the keybind list. Check the Cheats page: Invincible, Infinite Shield and Infinite Bombs, all Off. Turn one On, press Save, restart the executable and confirm it persisted.
+6. Check the Controls page: keyboard toggle, remapping rows and Keyboard defaults; remap one key, Save, restart and confirm it persisted. Check the Cheats page: Invincible, Infinite Shield and Infinite Bombs, all Off. Turn one On, press Save, restart the executable and confirm it persisted.
 7. Check Achievements: 12 entries, 200G, icons and earned state.
 8. Change one setting and press PLAY. Confirm "Settings saved. Starting game..." and that the game starts.
 9. Press F11 in the game and confirm the window toggles between Windowed and Borderless Fullscreen, with the title unchanged. With Frame rate in title On, the title reads `Geometry Wars: Retro Evolved 2 | FPS: XX.XX` after about a second; with Off it reads `Geometry Wars: Retro Evolved 2`. With Frame counter Shown, press F2 to show `XX FPS  X.X ms` in the top-right corner and F2 again to hide it.

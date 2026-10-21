@@ -52,6 +52,15 @@ class the game's code or `share/rexglue/rex_app.cpp` uses (`Window`, the public 
 | [0036-internal-render-scale](../patches/rexglue-sdk/0036-internal-render-scale.patch) | both | GPU plugin | 0036 | the `gw2_internal_render_scale` cvar and the split of the render resolution into the host render target scale and the whole scale of the EDRAM, resolves and textures; sizes, viewport, scissor and the pixel position of the shader translators (render target cache base, `draw.cpp`, texture cache base, DXBC and SPIR-V translators) |
 | [0037-d3d12-internal-render-scale](../patches/rexglue-sdk/0037-d3d12-internal-render-scale.windows.patch) | Windows | GPU plugin | 0037 | host render target sizes, transfers, clears and viewport at the host scale, and the EDRAM dump sampling the smaller render targets (D3D12) |
 | [0038-vulkan-internal-render-scale](../patches/rexglue-sdk/0038-vulkan-internal-render-scale.linux.patch) | Linux | GPU plugin | 0038 | the same for the Vulkan render target cache and command processor |
+| [0039-lock-free-guest-clock](../patches/rexglue-sdk/0039-lock-free-guest-clock.patch) | both | runtime | 0039 | guest clock reads take an atomic clock segment instead of a mutex (`src/core/clock.cpp`) |
+| [0040-d3d12-transfer-short-circuit](../patches/rexglue-sdk/0040-d3d12-transfer-short-circuit.windows.patch) | Windows | GPU plugin | 0040 | a draw with no render target transfers and no resolve clear skips the D3D12 transfer pass (`gw2_d3d12_transfer_short_circuit`) |
+| [0041-d3d12-sampler-memo](../patches/rexglue-sdk/0041-d3d12-sampler-memo.windows.patch) | Windows | GPU plugin | 0041 | sampler parameters are recomputed only when their inputs change (`gw2_d3d12_sampler_memo`) |
+| [0042-shared-memory-fast-path](../patches/rexglue-sdk/0042-shared-memory-fast-path.patch) | both | GPU plugin | 0042 | `SharedMemory::RequestRanges` returns without the global critical region when every requested page is valid and allocated |
+| [0043-gpu-draw-state-memo](../patches/rexglue-sdk/0043-gpu-draw-state-memo.patch) | both | GPU plugin | 0043 | the common render target cache skips an ownership claim that repeats the previous draw's ranges (`gpu_draw_state_memo`) |
+| [0044-d3d12-async-submission](../patches/rexglue-sdk/0044-d3d12-async-submission.windows.patch) | Windows | GPU plugin | 0044 | a dedicated thread replays, executes and fences the recorded command list of a submission (`d3d12_async_submission`) |
+| [0045-imgui-mouse-cursors](../patches/rexglue-sdk/0045-imgui-mouse-cursors.patch) | both | runtime | 0045 | the ImGui drawer applies the cursor shape ImGui asked for through `SDL_SetCursor` |
+| [0046-sdl-video-failure-guidance](../patches/rexglue-sdk/0046-sdl-video-failure-guidance.linux.patch) | Linux | runtime | 0046 | a failed `SDL_InitSubSystem(SDL_INIT_VIDEO)` also writes the SDL error and the DISPLAY/WAYLAND_DISPLAY hint to stderr |
+| [0047-input-activity-callback](../patches/rexglue-sdk/0047-input-activity-callback.patch) | both | runtime | 0047 | a passive per-device callback reports gamepad state changes after the input system reads them, without altering input |
 | Pins | | | | [patches/rexglue-sdk/baseline.env](../patches/rexglue-sdk/baseline.env): tag, commit and the stock runtime and plugin hashes |
 
 There is no 0034: Hard Corps' 0034 is this project's 0002. 0036 to 0038 are Hard Corps' patches with the cvar renamed
@@ -307,7 +316,7 @@ MSAA; whether it creates any 2x MSAA render target is not known.
 
 ## Why 0029
 
-While any ImGui dialog exists (the game keeps its frame counter and cursor timer as dialogs), the presenter paints from
+While any ImGui dialog exists (the game keeps its frame counter and cursor sync as dialogs), the presenter paints from
 the UI thread, and the ImGui drawer asks for a repaint after every frame. Each guest frame was presented as it arrived,
 and the UI repaint presented it again at the next vertical blank: two presents for every guest frame. On Linux, with no
 vertical blank ticks, the repaint ran as fast as the GPU allowed. A repaint for the UI alone now waits for the next guest

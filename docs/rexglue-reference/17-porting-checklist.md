@@ -46,7 +46,7 @@ current change (see [19](19-cross-project-porting-guide.md#validation-policy)); 
 
 ## PHASE 6 - Input
 - [ ] Port `LauncherGamepad`, F11 window host, input z-order convention ([08](08-input-gamepad-mouse.md))
-- [ ] Cursor auto-hide (optional) with the pure `CursorHider`
+- [ ] Last-input cursor visibility (optional) with the pure `CursorHider`
 - [ ] Input gating for overlays with release gate
 - [ ] Gate: launcher fully usable with controller only; no key reaches the game while an overlay is open
 
@@ -54,10 +54,10 @@ current change (see [19](19-cross-project-porting-guide.md#validation-policy)); 
 - [ ] Measure first: CPU use idle/in game, frame times, GPU use ([12](12-performance.md))
 - [ ] Apply the patches in the groups of [19](19-cross-project-porting-guide.md#recommended-port-order) (waits and timers `0005`, `0008`, `0025`, `0016` Windows, `0020`/`0021` Linux; register and draw path `0004`, `0006`; render target and EDRAM `0007`, `0009`, `0010` with the D3D12/Vulkan halves; fence wake `0011`; then `0029`), re-measure after each group and run only the focused check for that group
 - [ ] Find the game's present callback, time-step variable, repeated-present path ([07](07-display-window-frame-pacing.md))
-- [ ] Only if the game needs extra frame-rate options: hook `VdSwap`; add limiter, sampler, title FPS, optional counter (`GAME_ADAPTATION`)
+- [ ] Only if the game needs extra frame-rate options: hook `VdSwap` and the simulation update; add limiter, fixed-rate simulation gate, sampler, title FPS, optional counter (`GAME_ADAPTATION`)
 - [ ] Optional: CRT `memcpy`/`memset`, fence wait hook ([12](12-performance.md))
 - [ ] Optional high-risk: `0022`-`0024`, `0030`-`0032` with the donor tests
-- [ ] Gate: frame rate options behave at 30/60/uncapped; game speed follows wall clock when the step is changed
+- [ ] Gate: frame rate options behave at 30/60/uncapped; game speed follows wall clock below 60 and simulation stays at the original rate above 60
 
 ## PHASE 8 - Crash hardening
 - [ ] Add `0033` and the `OnShutdown` input shutdown ([13](13-crash-hardening-threading-memory.md))

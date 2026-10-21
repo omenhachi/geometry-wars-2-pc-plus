@@ -18,6 +18,7 @@
 #include <rex/logging.h>
 
 #include "launcher_placement.h"
+#include "session_log.h"
 
 extern char** environ;
 
@@ -25,45 +26,6 @@ namespace gw2 {
 namespace {
 
 constexpr char kApplicationId[] = "io.github.saulob.geometry-wars-retro-evolved-2";
-
-struct ButtonKey {
-  ImGuiKey key;
-  SDL_GamepadButton button;
-};
-constexpr ButtonKey kButtonKeys[] = {
-    {ImGuiKey_GamepadStart, SDL_GAMEPAD_BUTTON_START},
-    {ImGuiKey_GamepadBack, SDL_GAMEPAD_BUTTON_BACK},
-    {ImGuiKey_GamepadFaceDown, SDL_GAMEPAD_BUTTON_SOUTH},
-    {ImGuiKey_GamepadFaceRight, SDL_GAMEPAD_BUTTON_EAST},
-    {ImGuiKey_GamepadFaceLeft, SDL_GAMEPAD_BUTTON_WEST},
-    {ImGuiKey_GamepadFaceUp, SDL_GAMEPAD_BUTTON_NORTH},
-    {ImGuiKey_GamepadDpadLeft, SDL_GAMEPAD_BUTTON_DPAD_LEFT},
-    {ImGuiKey_GamepadDpadRight, SDL_GAMEPAD_BUTTON_DPAD_RIGHT},
-    {ImGuiKey_GamepadDpadUp, SDL_GAMEPAD_BUTTON_DPAD_UP},
-    {ImGuiKey_GamepadDpadDown, SDL_GAMEPAD_BUTTON_DPAD_DOWN},
-};
-
-// The left stick dead zone XInput uses. SDL's Y axis points down.
-constexpr int kStickDeadZone = 7849;
-struct StickKey {
-  ImGuiKey key;
-  SDL_GamepadAxis axis;
-  int direction;
-};
-constexpr StickKey kStickKeys[] = {
-    {ImGuiKey_GamepadLStickLeft, SDL_GAMEPAD_AXIS_LEFTX, -1},
-    {ImGuiKey_GamepadLStickRight, SDL_GAMEPAD_AXIS_LEFTX, 1},
-    {ImGuiKey_GamepadLStickUp, SDL_GAMEPAD_AXIS_LEFTY, -1},
-    {ImGuiKey_GamepadLStickDown, SDL_GAMEPAD_AXIS_LEFTY, 1},
-};
-
-SDL_Gamepad* OpenFirstGamepad() {
-  int count = 0;
-  SDL_JoystickID* ids = SDL_GetGamepads(&count);
-  SDL_Gamepad* pad = ids && count > 0 ? SDL_OpenGamepad(ids[0]) : nullptr;
-  SDL_free(ids);
-  return pad;
-}
 
 struct FontFamily {
   const char* regular;
@@ -370,8 +332,6 @@ void RunLauncherWithoutGraphics(const GraphicsFallbackInfo& info) {
         if (showing_failure) {
           showing_failure = false;
           redraw();
-        } else if (event.key.key == SDLK_ESCAPE) {
-          open = false;
         } else if (event.key.key == SDLK_RETURN || event.key.key == SDLK_KP_ENTER) {
           pressed = Button::kPlay;
         }
@@ -497,6 +457,9 @@ std::vector<MonitorInfo> ListMonitors() {
     if (const float scale = SDL_GetDisplayContentScale(displays[i]); scale > 0.0f) {
       found.scale = scale;
     }
+    if (const SDL_DisplayMode* mode = SDL_GetCurrentDisplayMode(displays[i])) {
+      found.refresh_hz = int(mode->refresh_rate + 0.5f);
+    }
     found.primary = displays[i] == primary;
     monitors.push_back(found);
   }
@@ -514,6 +477,7 @@ bool PackagePickerAvailable() {
 }
 
 bool RelaunchSelf(std::wstring_view extra_args) {
+  BeginSessionLogHandoff();
   std::vector<std::string> args;
   std::ifstream cmdline("/proc/self/cmdline", std::ios::binary);
   for (std::string arg; std::getline(cmdline, arg, '\0');) {
@@ -531,6 +495,7 @@ bool RelaunchSelf(std::wstring_view extra_args) {
       appimage && *appimage ? std::string(appimage) : std::filesystem::read_symlink("/proc/self/exe", ec).string();
   if (exe.empty() || args.size() < 2) {
     REXLOG_ERROR("Relaunch failed: cannot read this process's command line");
+    CancelSessionLogHandoff();
     return false;
   }
   args.front() = exe;
@@ -542,6 +507,7 @@ bool RelaunchSelf(std::wstring_view extra_args) {
   pid_t pid = 0;
   if (const int error = posix_spawn(&pid, exe.c_str(), nullptr, nullptr, argv.data(), environ); error != 0) {
     REXLOG_ERROR("Relaunch failed ({})", error);
+    CancelSessionLogHandoff();
     return false;
   }
   return true;
@@ -557,55 +523,20 @@ UiFontFiles FindUiFonts() {
   return {};
 }
 
-void LauncherGamepad::Update(ImGuiIO& io) {
-  SDL_Gamepad* pad = pad_ >= 0 ? SDL_GetGamepadFromID(SDL_JoystickID(pad_)) : nullptr;
-  if (!pad || !SDL_GamepadConnected(pad)) {
-    if (pad) {
-      SDL_CloseGamepad(pad);
-    }
-    pad_ = -1;
-    if (ImGui::GetTime() < next_scan_) {
-      return;
-    }
-    next_scan_ = ImGui::GetTime() + 1.0;
-    // Started here and quit in Release; SDL counts the starts, so the game's own input is unaffected.
-    if (!subsystem_ && !(subsystem_ = SDL_InitSubSystem(SDL_INIT_GAMEPAD))) {
-      return;
-    }
-    pad = OpenFirstGamepad();
-    if (!pad) {
-      return;
-    }
-    pad_ = int(SDL_GetGamepadID(pad));
-  }
-  io.BackendFlags |= ImGuiBackendFlags_HasGamepad;
-  for (const ButtonKey& b : kButtonKeys) {
-    io.AddKeyEvent(b.key, SDL_GetGamepadButton(pad, b.button));
-  }
-  for (const StickKey& s : kStickKeys) {
-    const int value = s.direction * int(SDL_GetGamepadAxis(pad, s.axis));
-    const float amount = std::clamp(float(value - kStickDeadZone) / float(32767 - kStickDeadZone), 0.0f, 1.0f);
-    io.AddKeyAnalogEvent(s.key, amount > 0.1f, amount);
-  }
+const char* ArchitectureName() {
+#if defined(_M_ARM64)
+  return "arm64";
+#elif defined(_M_X64) || defined(__x86_64__)
+  return "x86-64";
+#elif defined(_M_IX86) || defined(__i386__)
+  return "x86";
+#else
+  return "unknown";
+#endif
 }
 
-void LauncherGamepad::Release(ImGuiIO& io) {
-  for (const ButtonKey& b : kButtonKeys) {
-    io.AddKeyEvent(b.key, false);
-  }
-  for (const StickKey& s : kStickKeys) {
-    io.AddKeyAnalogEvent(s.key, false, 0.0f);
-  }
-  if (pad_ >= 0) {
-    if (SDL_Gamepad* pad = SDL_GetGamepadFromID(SDL_JoystickID(pad_))) {
-      SDL_CloseGamepad(pad);
-    }
-  }
-  pad_ = -1;
-  if (subsystem_) {
-    SDL_QuitSubSystem(SDL_INIT_GAMEPAD);
-    subsystem_ = false;
-  }
+const char* GraphicsBackendName() {
+  return "Vulkan";
 }
 
 }  // namespace gw2

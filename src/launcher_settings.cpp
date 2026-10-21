@@ -9,11 +9,13 @@
 #include <string>
 #include <system_error>
 #include <utility>
+#include <vector>
 
 #include <toml++/toml.hpp>
 
 #include "cheats.h"
 #include "internal_render_scale.h"
+#include "keybinds.h"
 #include "launcher_platform.h"
 #include "multisampling.h"
 #include "trg/settings.h"
@@ -21,37 +23,46 @@
 namespace gw2 {
 namespace {
 
-constexpr ManagedSetting kManagedSettings[] = {
-    {kShowLauncherKey, ValueKind::kBool},
-    {kFullscreenKey, ValueKind::kBool},
-    {kWindowWidthKey, ValueKind::kInt},
-    {kWindowHeightKey, ValueKind::kInt},
-    {kMonitorKey, ValueKind::kInt},
-    {kVSyncKey, ValueKind::kBool},
-    {kAspectKey, ValueKind::kString},
-    {kGraphicsAdapterKey, ValueKind::kString},
-    {kRenderScaleKey, ValueKind::kInt},
-    {kInternalRenderScaleKey, ValueKind::kInt},
-    {kAntiAliasingKey, ValueKind::kString},
-    {kMultisamplingKey, ValueKind::kBool},
-    {kTextureFilteringKey, ValueKind::kInt},
-    {kBloomKey, ValueKind::kString},
-    {kKeyboardKey, ValueKind::kBool},
-    {kVibrationKey, ValueKind::kBool},
-    {kFrameRateKey, ValueKind::kInt},
-    {kShowFpsKey, ValueKind::kBool},
-    {kShowResolutionKey, ValueKind::kBool},
-    {kShowFrameCounterKey, ValueKind::kBool},
-    {cheats::kInvincibleKey, ValueKind::kBool},
-    {cheats::kInfiniteShieldKey, ValueKind::kBool},
-    {cheats::kInfiniteBombsKey, ValueKind::kBool},
-    {kLauncherXKey, ValueKind::kInt},
-    {kLauncherYKey, ValueKind::kInt},
-    {kLauncherWidthKey, ValueKind::kInt},
-    {kLauncherHeightKey, ValueKind::kInt},
-    {kLauncherMaximizedKey, ValueKind::kBool},
-    {kLauncherFullscreenKey, ValueKind::kBool},
-};
+std::vector<ManagedSetting> BuildManagedSettings() {
+  std::vector<ManagedSetting> settings = {
+      {kShowLauncherKey, ValueKind::kBool},
+      {kFullscreenKey, ValueKind::kBool},
+      {kWindowWidthKey, ValueKind::kInt},
+      {kWindowHeightKey, ValueKind::kInt},
+      {kMonitorKey, ValueKind::kInt},
+      {kVSyncKey, ValueKind::kBool},
+      {kAspectKey, ValueKind::kString},
+      {kGraphicsAdapterKey, ValueKind::kString},
+      {kRenderScaleKey, ValueKind::kInt},
+      {kInternalRenderScaleKey, ValueKind::kInt},
+      {kAntiAliasingKey, ValueKind::kString},
+      {kMultisamplingKey, ValueKind::kBool},
+      {kTextureFilteringKey, ValueKind::kInt},
+      {kBloomKey, ValueKind::kString},
+      {kKeyboardKey, ValueKind::kBool},
+      {kVibrationKey, ValueKind::kBool},
+      {kFrameRateKey, ValueKind::kInt},
+      {kShowFpsKey, ValueKind::kBool},
+      {kShowResolutionKey, ValueKind::kBool},
+      {kShowFrameCounterKey, ValueKind::kBool},
+      {kDetailedLoggingKey, ValueKind::kBool},
+      {cheats::kInvincibleKey, ValueKind::kBool},
+      {cheats::kInfiniteShieldKey, ValueKind::kBool},
+      {cheats::kInfiniteBombsKey, ValueKind::kBool},
+      {kLauncherXKey, ValueKind::kInt},
+      {kLauncherYKey, ValueKind::kInt},
+      {kLauncherWidthKey, ValueKind::kInt},
+      {kLauncherHeightKey, ValueKind::kInt},
+      {kLauncherMaximizedKey, ValueKind::kBool},
+      {kLauncherFullscreenKey, ValueKind::kBool},
+  };
+  for (const KeyboardAction& action : kKeyboardActions) {
+    settings.push_back({action.key, ValueKind::kString});
+  }
+  return settings;
+}
+
+const std::vector<ManagedSetting> kManagedSettings = BuildManagedSettings();
 
 // The graphics card and the aspect ratio are applied while the process starts, before the launcher shows.
 constexpr std::string_view kWindowKeys[] = {kWindowWidthKey, kWindowHeightKey, kMonitorKey, kVSyncKey,

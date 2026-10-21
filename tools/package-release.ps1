@@ -30,8 +30,9 @@ $Sdk = Join-Path $SdkRoot 'bin'
 . (Join-Path $PSScriptRoot 'rexruntime-patch.ps1')
 
 $Utf8NoBom = New-Object System.Text.UTF8Encoding $false
-$RootFiles = @('geometry_wars_retro_evolved_2.exe', 'rexruntime.dll', 'rexgpu-xenos.dll', 'geometry_wars_retro_evolved_2.toml', 'README.txt', 'LICENSE')
+$RootFiles = @('geometry_wars_retro_evolved_2.exe', 'trg-updater.exe', 'rexruntime.dll', 'rexgpu-xenos.dll', 'geometry_wars_retro_evolved_2.toml', 'README.txt', 'LICENSE')
 $LicenseFiles = @('ReXGlue-LICENSE.txt', 'THIRD-PARTY-LICENSES.txt')
+$AssetFiles = @('assets\launcher\header-art.png')
 # Names that mean game data, a package, saves, settings, caches or logs.
 $ForbiddenNames = @('default.xex', 'Data.bin', 'game', 'game-install-temp', 'game-install-backup', 'user_data',
     'user_data.migrating', 'content', 'cache', 'logs', 'settings.toml', 'settings.toml.bak', 'ArcadeInfo.xml', 'nxeart', '584108FF')
@@ -71,8 +72,14 @@ function Test-ReleaseFolder([string]$Dir) {
         }
         $parts = $relative -split '\\'
         if ($parts.Count -eq 1) {
-            if ($item.PSIsContainer) { if ($item.Name -ne 'licenses') { $problems.Add("unexpected folder: $relative") } }
+            if ($item.PSIsContainer) { if ($item.Name -notin @('licenses', 'assets')) { $problems.Add("unexpected folder: $relative") } }
             elseif ($RootFiles -notcontains $item.Name) { $problems.Add("unexpected file: $relative") }
+        } elseif ($parts[0] -eq 'assets') {
+            if ($item.PSIsContainer) {
+                if ($relative -ne 'assets\launcher') { $problems.Add("unexpected folder: $relative") }
+            } elseif ($AssetFiles -notcontains $relative) {
+                $problems.Add("unexpected item: $relative")
+            }
         } elseif ($parts[0] -ne 'licenses' -or $parts.Count -gt 2 -or $item.PSIsContainer -or $LicenseFiles -notcontains $item.Name) {
             $problems.Add("unexpected item: $relative")
         }
@@ -82,6 +89,9 @@ function Test-ReleaseFolder([string]$Dir) {
     }
     foreach ($leaf in $LicenseFiles) {
         if (-not (Test-Path -LiteralPath (Join-Path $base "licenses\$leaf") -PathType Leaf)) { $problems.Add("missing: licenses\$leaf") }
+    }
+    foreach ($asset in $AssetFiles) {
+        if (-not (Test-Path -LiteralPath (Join-Path $base $asset) -PathType Leaf)) { $problems.Add("missing: $asset") }
     }
     return $problems
 }
@@ -122,7 +132,7 @@ if (-not $SkipBuild) {
 $runtimeProblems = @(Test-PatchedRuntime $SdkRoot 'Release') + @(Test-StagedRuntime $SdkRoot $ReleaseBuild 'Release')
 if ($runtimeProblems.Count) { Write-Problems $runtimeProblems; throw 'tools\rexglue or the release build does not hold the runtime and GPU plugin this branch needs (build without -SkipBuild)' }
 
-foreach ($leaf in @('geometry_wars_retro_evolved_2.exe', 'rexruntime.dll', 'rexgpu-xenos.dll', 'geometry_wars_retro_evolved_2.toml')) {
+foreach ($leaf in @('geometry_wars_retro_evolved_2.exe', 'trg-updater.exe', 'rexruntime.dll', 'rexgpu-xenos.dll', 'geometry_wars_retro_evolved_2.toml')) {
     if (-not (Test-Path (Join-Path $ReleaseBuild $leaf))) { throw "Release build output is missing $leaf (run without -SkipBuild)" }
 }
 
@@ -130,7 +140,7 @@ New-Item -ItemType Directory -Force $Dist | Out-Null
 if (Test-Path -LiteralPath $Stage) { Remove-Item -LiteralPath $Stage -Recurse -Force }
 New-Item -ItemType Directory $Stage, (Join-Path $Stage 'licenses') | Out-Null
 
-foreach ($leaf in @('geometry_wars_retro_evolved_2.exe', 'rexruntime.dll', 'rexgpu-xenos.dll', 'geometry_wars_retro_evolved_2.toml')) {
+foreach ($leaf in @('geometry_wars_retro_evolved_2.exe', 'trg-updater.exe', 'rexruntime.dll', 'rexgpu-xenos.dll', 'geometry_wars_retro_evolved_2.toml')) {
     Copy-Item (Join-Path $ReleaseBuild $leaf) $Stage
 }
 foreach ($leaf in @('rexruntime.dll', 'rexgpu-xenos.dll')) {
@@ -146,6 +156,9 @@ foreach ($leaf in $LicenseFiles) {
     if (-not (Test-Path -LiteralPath $source -PathType Leaf)) { throw "Missing license file: $source" }
     Copy-Item -LiteralPath $source (Join-Path $Stage 'licenses')
 }
+$asset_dir = Join-Path $Stage 'assets\launcher'
+New-Item -ItemType Directory -Force $asset_dir | Out-Null
+Copy-Item -LiteralPath (Join-Path $Root 'assets\launcher\header-art.png') $asset_dir
 $readme = (Get-Content (Join-Path $Packaging 'README.txt') -Raw).Replace('@VERSION@', $Version) -replace "\r?\n", "`r`n"
 [IO.File]::WriteAllText((Join-Path $Stage 'README.txt'), $readme, $Utf8NoBom)
 

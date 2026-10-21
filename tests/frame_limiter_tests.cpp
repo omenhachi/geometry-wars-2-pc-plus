@@ -1,5 +1,5 @@
 // Frame limiter tests: the period of each rate, the schedule with a synthetic clock, resynchronisation, the
-// high-frame-rate rules, the game time step at 60, and that the wait reaches its deadline.
+// high-frame-rate rules, the game time step, the simulation pacer, and that the wait reaches its deadline.
 
 #include <algorithm>
 #include <chrono>
@@ -245,6 +245,158 @@ void TestGameDeltaTransitions() {
   CHECK(steps.largest == 2 * kStep);
 }
 
+struct PacerRun {
+  int ticks = 0;
+  double real = 0.0;
+  double sim = 0.0;
+  double smallest = 1e9;
+  double largest = 0.0;
+};
+
+void AddTick(PacerRun& run, double delta) {
+  ++run.ticks;
+  run.sim += delta;
+  run.smallest = std::min(run.smallest, delta);
+  run.largest = std::max(run.largest, delta);
+}
+
+PacerRun SimulatePacer(SimulationPacer& pacer, int frames, double interval) {
+  PacerRun run;
+  double delta = kStep;
+  if (frames <= 0) {
+    return run;
+  }
+  AddTick(run, kStep);
+  for (int i = 1; i < frames; ++i) {
+    run.real += interval;
+    if (pacer.Tick(interval, kStep, delta)) {
+      AddTick(run, delta);
+    }
+  }
+  return run;
+}
+
+template <class Next>
+PacerRun SimulatePacer(double seconds, Next next) {
+  SimulationPacer pacer;
+  PacerRun run;
+  double delta = kStep;
+  AddTick(run, kStep);
+  while (run.real < seconds) {
+    const double interval = next();
+    run.real += interval;
+    if (pacer.Tick(interval, kStep, delta)) {
+      AddTick(run, delta);
+    }
+  }
+  return run;
+}
+
+void TestSimulationPacer() {
+  Section("simulation pacer at render rates");
+  for (const double fps : {60.0, 90.0, 120.0, 144.0, 165.0, 240.0, 1000.0}) {
+    SimulationPacer pacer;
+    const PacerRun run = SimulatePacer(pacer, int(10.0 * fps), 1.0 / fps);
+    CHECK(run.ticks == 600 || run.ticks == 601);
+    CHECK(run.sim >= run.real - kEps && run.sim <= run.real + (1.0 + kEarlyStepShare) * kStep + kEps);
+    CHECK(run.largest == kStep);
+  }
+
+  Section("simulation pacer with irregular frames");
+  const PacerRun jittered = SimulatePacer(10.0, AnchoredTicks(1.0 / 120.0, 0.002));
+  CHECK(jittered.ticks <= 601);
+  CHECK(jittered.sim <= jittered.real + kStep);
+  CHECK(jittered.smallest >= kStep);
+
+  const PacerRun mixed = SimulatePacer(10.0, Cycle({1.0 / 90.0, 1.0 / 165.0, 1.0 / 240.0, 1.0 / 120.0}));
+  CHECK(mixed.ticks <= 601);
+  CHECK(std::fabs(mixed.sim - mixed.real) <= kStep + kEps);
+
+  Section("simulation pacer at a jittered 60 Hz cadence");
+  SimulationPacer cadence;
+  int one_step_frames = 0;
+  for (int i = 0; i < 600; ++i) {
+    double step_delta = 0.0;
+    if (cadence.Tick(kStep + (i % 2 == 0 ? -0.00005 : 0.00005), kStep, step_delta) && Near(step_delta, kStep)) {
+      ++one_step_frames;
+    }
+  }
+  CHECK(one_step_frames == 600);
+
+  Section("simulation pacer below 60");
+  SimulationPacer slow;
+  const PacerRun thirty = SimulatePacer(slow, 300, 1.0 / 30.0);
+  CHECK(thirty.ticks == 300);
+  CHECK(std::fabs(thirty.sim - thirty.real) <= kStep + kEps);
+  CHECK(thirty.smallest == kStep);
+  CHECK(Near(thirty.largest, 2 * kStep));
+
+  SimulationPacer slipping;
+  const PacerRun forty_five = SimulatePacer(slipping, 450, 1.0 / 45.0);
+  CHECK(forty_five.ticks == 450);
+  CHECK(std::fabs(forty_five.sim - forty_five.real) <= kStep + kEps);
+  CHECK(Near(forty_five.largest, 1.0 / 45.0));
+
+  Section("simulation pacer bounds catch-up");
+  SimulationPacer stalled;
+  double delta = kStep;
+  stalled.Tick(kStep, kStep, delta);
+  CHECK(stalled.Tick(0.5, kStep, delta));
+  CHECK(Near(delta, 3 * kStep));
+  CHECK(stalled.Tick(kStep, kStep, delta));
+  CHECK(Near(delta, kStep));
+
+  Section("simulation pacer across mode changes");
+  SimulationPacer changing;
+  const PacerRun first = SimulatePacer(changing, 600, kStep);
+  changing.Reset();
+  const PacerRun high = SimulatePacer(changing, 1200, 1.0 / 120.0);
+  changing.Reset();
+  const PacerRun last = SimulatePacer(changing, 600, kStep);
+  CHECK(first.ticks + high.ticks + last.ticks == 1800);
+  CHECK(Near(first.sim + high.sim + last.sim, 30.0));
+}
+
+void TestFixedStepGate() {
+  Section("visual clock gate at render rates");
+  for (const double fps : {60.0, 120.0, 144.0, 240.0, 1000.0}) {
+    FixedStepGate gate;
+    int ticks = 0;
+    for (int i = 0; i < int(10.0 * fps); ++i) {
+      if (gate.Tick(1.0 / fps, kStep)) {
+        ++ticks;
+      }
+    }
+    CHECK(ticks == 600);
+  }
+
+  Section("visual clock gate at a jittered 60 Hz cadence");
+  FixedStepGate cadence;
+  int cadence_ticks = 0;
+  for (int i = 0; i < 600; ++i) {
+    if (cadence.Tick(kStep + (i % 2 == 0 ? -0.00005 : 0.00005), kStep)) {
+      ++cadence_ticks;
+    }
+  }
+  CHECK(cadence_ticks == 600);
+
+  Section("visual clock gate does not catch up");
+  FixedStepGate stalled;
+  CHECK(stalled.Tick(0.5, kStep));
+  CHECK(!stalled.Tick(0.001, kStep));
+  CHECK(!stalled.Tick(0.001, kStep));
+  CHECK(stalled.Tick(kStep, kStep));
+}
+
+void TestSimulationGatePolicy() {
+  Section("simulation gate policy");
+  CHECK(!GatesSimulation(30));
+  CHECK(!GatesSimulation(60));
+  for (const int fps : {90, 120, 144, 165, 240, kFrameRateUnlimited}) {
+    CHECK(GatesSimulation(fps));
+  }
+}
+
 void TestGameDeltaBursts() {
   Section("game delta with bursts");
   GameDeltaClock after_stall;
@@ -428,6 +580,9 @@ int main() {
   TestGameDeltaSteady();
   TestGameDeltaJitter();
   TestGameDeltaTransitions();
+  TestSimulationGatePolicy();
+  TestFixedStepGate();
+  TestSimulationPacer();
   TestGameDeltaBursts();
   TestGameDeltaCap();
   TestGameDeltaSnapBoundaries();

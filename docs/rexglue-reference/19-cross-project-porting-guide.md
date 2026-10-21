@@ -42,7 +42,7 @@ Same pinned ReXGlue (v0.10.0, commit `f5337cdc`) or you re-validate every patch 
 | Resolve copy / deferred writeback `0022`-`0024`, `0030`-`0032` | patches | Highest complexity; take only with measurement and per-game visual checks |
 | Fence wait hook | `src/gpu_fence_wait.cpp` | `GAME_ADAPTATION`; needs the game's fence loop |
 | CRT native `memcpy`/`memset` | `src/crt_native.cpp` | `GAME_ADAPTATION`; confirm ABI and stack side effects |
-| Cursor auto-hide | `src/window_host.*` | Pure state machine is portable |
+| Cursor visibility | `src/window_host.*` | Last-input state machine is portable |
 | ThinLTO | `CMakeLists.txt` `gw2_enable_thinlto` | Needs lld on Linux |
 | Offline Live services | `src/live_*.{h,cpp}`, `src/local_stats.*`, `src/achievements_overlay*` | Only if the game uses Xbox Live stats/achievements |
 | Icon pipeline | `tools/make-app-icon.py`, `packaging/icons` | |

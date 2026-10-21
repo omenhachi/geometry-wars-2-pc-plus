@@ -78,6 +78,16 @@ int CountInSources(const std::string& needle) {
   return count;
 }
 
+int CountInSourcesExcluding(const std::string& needle, const std::string& excluded) {
+  int count = 0;
+  for (const std::string& name : SourceNames()) {
+    if (name != excluded) {
+      count += Count(ReadSource(name), needle);
+    }
+  }
+  return count;
+}
+
 void TestCheatList() {
   Section("the three cheats");
   CHECK(kCheatCount == 3);
@@ -378,9 +388,9 @@ void TestHotkeys() {
   Section("host hotkeys");
   CHECK(CountInSources("kF10") == 1);
   CHECK(ReadSource("cheat_menu.cpp").find("rex::ui::VirtualKey::kF10") != std::string::npos);
-  CHECK(CountInSources("\"F10\"") == 0);
+  CHECK(CountInSourcesExcluding("\"F10\"", "keybinds.h") == 0);
 
-  CHECK(CountInSources("\"F2\"") == 1);
+  CHECK(CountInSourcesExcluding("\"F2\"", "keybinds.h") == 1);
   CHECK(CountInSources("kF2") == 0);
   CHECK(ReadSource("frame_counter.cpp").find("RegisterBind(\"bind_gw2_frame_counter\", \"F2\"") != std::string::npos);
 
@@ -388,7 +398,7 @@ void TestHotkeys() {
   CHECK(ReadSource("window_host.cpp").find("e.virtual_key() != rex::ui::VirtualKey::kF11") != std::string::npos);
 
   CHECK(CountInSources("kF7") == 0);
-  CHECK(CountInSources("\"F7\"") == 0);
+  CHECK(CountInSourcesExcluding("\"F7\"", "keybinds.h") == 0);
   CHECK(CountInSources("bind_achievements") == 0);
   CHECK(ReadSource("geometry_wars_retro_evolved_2_app.h").find("CreateAchievementsOverlay() override") !=
         std::string::npos);

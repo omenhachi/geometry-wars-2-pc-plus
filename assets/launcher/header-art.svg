@@ -1,0 +1,134 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 180" preserveAspectRatio="xMidYMid meet">
+  <style>
+    .accent { fill: #943CFF; }
+    .accent-line { fill: none; stroke: #943CFF; }
+    .violet { fill: #C77BFF; }
+    .violet-line { fill: none; stroke: #C77BFF; }
+    .magenta { fill: #FF2FA6; }
+    .magenta-line { fill: none; stroke: #FF2FA6; }
+    .blue { fill: #3D7BFF; }
+    .blue-line { fill: none; stroke: #3D7BFF; }
+    .cyan { fill: #38E1FF; }
+    .cyan-line { fill: none; stroke: #38E1FF; }
+    .lime { fill: #6BFF8F; }
+    .amber { fill: #FFD75E; }
+    .accent-stop { stop-color: #943CFF; }
+    .magenta-stop { stop-color: #FF2FA6; }
+    .blue-stop { stop-color: #3D7BFF; }
+    .violet-stop { stop-color: #C77BFF; }
+  </style>
+
+  <defs>
+    <radialGradient id="glow" cx="1330" cy="90" r="400" gradientUnits="userSpaceOnUse">
+      <stop offset="0" class="magenta-stop" stop-opacity=".07"/>
+      <stop offset=".5" class="accent-stop" stop-opacity=".028"/>
+      <stop offset="1" class="accent-stop" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="gridFade" x1="960" y1="0" x2="1320" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" class="accent-stop" stop-opacity="0"/>
+      <stop offset="1" class="violet-stop" stop-opacity=".14"/>
+    </linearGradient>
+    <linearGradient id="streakPurple" x1="540" y1="0" x2="920" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" class="accent-stop" stop-opacity="0"/>
+      <stop offset=".62" class="accent-stop" stop-opacity=".07"/>
+      <stop offset="1" class="accent-stop" stop-opacity=".52"/>
+    </linearGradient>
+    <linearGradient id="streakBlue" x1="620" y1="0" x2="900" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" class="blue-stop" stop-opacity="0"/>
+      <stop offset="1" class="blue-stop" stop-opacity=".34"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="1600" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset=".62" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="1" class="accent-stop" stop-opacity=".06"/>
+    </linearGradient>
+  </defs>
+
+  <g id="ambient">
+    <rect x="0" y="0" width="1600" height="180" fill="url(#glow)"/>
+    <g id="grid" stroke="url(#gridFade)" stroke-width="1">
+      <path d="M1012 0V180M1056 0V180M1100 0V180M1144 0V180M1188 0V180M1232 0V180M1276 0V180M1320 0V180M1364 0V180M1408 0V180M1452 0V180M1496 0V180M1540 0V180M1584 0V180"/>
+      <path d="M1000 30H1600M1000 60H1600M1000 90H1600M1000 120H1600M1000 150H1600"/>
+    </g>
+    <rect x="0" y="0" width="1600" height="180" fill="url(#edge)"/>
+  </g>
+
+  <g id="streaks">
+    <path d="M540 122H912" fill="none" stroke="url(#streakPurple)" stroke-width="1.4" stroke-linecap="round"/>
+    <path d="M620 130H884" fill="none" stroke="url(#streakPurple)" stroke-width="1" stroke-linecap="round"/>
+    <path d="M628 108H902" fill="none" stroke="url(#streakBlue)" stroke-width="1" stroke-linecap="round"/>
+    <path d="M700 138H856" fill="none" stroke="url(#streakPurple)" stroke-width="1" stroke-linecap="round"/>
+    <path d="M836 122H900" class="violet-line" stroke-opacity=".55" stroke-width="2.4" stroke-linecap="round"/>
+    <path d="M872 130H898" class="cyan-line" stroke-opacity=".5" stroke-width="2" stroke-linecap="round"/>
+  </g>
+
+  <g id="vectors">
+    <path d="M900 60L966 74H1010" class="violet-line" stroke-opacity=".3" stroke-width="1"/>
+    <path d="M934 60H986" class="violet-line" stroke-opacity=".18" stroke-width="1" stroke-dasharray="2 7"/>
+    <path d="M920 148L1002 136H1050" class="blue-line" stroke-opacity=".22" stroke-width="1"/>
+    <path d="M1150 44V58H1204" class="cyan-line" stroke-opacity=".16" stroke-width="1"/>
+    <path d="M1052 24L1076 8H1120" class="magenta-line" stroke-opacity=".2" stroke-width="1"/>
+    <path d="M948 118L900 118" class="cyan-line" stroke-opacity=".3" stroke-width="1"/>
+  </g>
+
+  <g id="shapes">
+    <path d="M944 100L990 118L944 136Z" class="cyan-line" stroke-opacity=".78" stroke-width="1.6"/>
+    <path d="M944 108L978 118L944 128Z" class="cyan" fill-opacity=".10"/>
+    <rect x="1006" y="60" width="13" height="13" class="cyan-line" stroke-opacity=".7" stroke-width="1.4"/>
+    <rect x="1049" y="39" width="6" height="6" class="cyan" fill-opacity=".85"/>
+    <rect x="1051" y="41" width="2" height="2" class="accent"/>
+    <rect x="1084" y="118" width="9" height="9" class="violet" fill-opacity=".55" transform="rotate(45 1088.5 122.5)"/>
+    <polygon points="1128,98 1147,109 1147,131 1128,142 1109,131 1109,109" class="blue-line" stroke-opacity=".7" stroke-width="1.5"/>
+    <circle cx="1128" cy="120" r="4" class="blue" fill-opacity=".18"/>
+    <polygon points="1232,30 1254,52 1232,74 1210,52" class="magenta-line" stroke-opacity=".82" stroke-width="1.6"/>
+    <circle cx="1232" cy="52" r="3" class="magenta" fill-opacity=".9"/>
+  </g>
+
+  <g id="star">
+    <circle cx="1432" cy="92" r="150" class="magenta-line" stroke-opacity=".22" stroke-width="1.2" stroke-dasharray="3 9"/>
+    <circle cx="1432" cy="92" r="96" class="blue-line" stroke-opacity=".3" stroke-width="1.3"/>
+    <path d="M1432 40L1444.9 74.2L1481.5 75.9L1452.9 98.8L1462.6 134.1L1432 114L1401.4 134.1L1411.1 98.8L1382.5 75.9L1419.1 74.2Z" class="blue-line" stroke-opacity=".8" stroke-width="1.5" stroke-linejoin="round"/>
+    <g class="cyan-line" stroke-opacity=".26" stroke-width="1">
+      <path d="M1432 92L1432 40M1432 92L1481.5 75.9M1432 92L1462.6 134.1M1432 92L1401.4 134.1M1432 92L1382.5 75.9"/>
+    </g>
+    <circle cx="1432" cy="92" r="14" class="magenta-line" stroke-opacity=".5" stroke-width="1.2"/>
+    <circle cx="1432" cy="92" r="1.8" class="cyan" fill-opacity=".95"/>
+  </g>
+
+  <g id="arcs">
+    <path d="M1520 14A120 120 0 0 1 1568 70" class="magenta-line" stroke-opacity=".5" stroke-width="1.4"/>
+    <path d="M1546 150A120 120 0 0 1 1490 176" class="violet-line" stroke-opacity=".34" stroke-width="1.2"/>
+    <path d="M1180 6A96 96 0 0 1 1218 40" class="cyan-line" stroke-opacity=".3" stroke-width="1.2"/>
+  </g>
+
+  <g id="trails">
+    <path d="M1080 32C1162 8 1300 20 1364 44" class="magenta-line" stroke-opacity=".34" stroke-width="1" stroke-dasharray="1 6"/>
+    <path d="M1120 160C1204 178 1332 170 1410 148" class="blue-line" stroke-opacity=".3" stroke-width="1" stroke-dasharray="1 6"/>
+    <path d="M1206 96C1258 82 1306 84 1352 96" class="violet-line" stroke-opacity=".28" stroke-width="1" stroke-dasharray="1 5"/>
+    <path d="M1160 118C1216 128 1276 128 1330 116" class="cyan-line" stroke-opacity=".2" stroke-width="1" stroke-dasharray="1 5"/>
+  </g>
+
+  <g id="nodes">
+    <rect x="1358" y="40" width="5" height="5" class="magenta" fill-opacity=".7"/>
+    <rect x="1406" y="144" width="5" height="5" class="blue" fill-opacity=".7"/>
+    <rect x="1047" y="20" width="5" height="5" class="cyan" fill-opacity=".6"/>
+    <rect x="1300" y="14" width="4" height="4" class="violet" fill-opacity=".6"/>
+    <rect x="1088" y="150" width="4" height="4" class="magenta" fill-opacity=".5"/>
+  </g>
+
+  <g id="particles">
+    <circle cx="990" cy="44" r="1.2" class="cyan" fill-opacity=".4"/>
+    <circle cx="1044" cy="150" r="1.1" class="violet" fill-opacity=".35"/>
+    <circle cx="1096" cy="72" r="1" class="lime" fill-opacity=".5"/>
+    <circle cx="1168" cy="20" r="1.3" class="magenta" fill-opacity=".45"/>
+    <circle cx="1214" cy="140" r="1" class="cyan" fill-opacity=".35"/>
+    <circle cx="1272" cy="64" r="1.2" class="violet" fill-opacity=".4"/>
+    <circle cx="1340" cy="22" r="1" class="amber" fill-opacity=".5"/>
+    <circle cx="1370" cy="166" r="1.1" class="blue" fill-opacity=".4"/>
+    <circle cx="1466" cy="26" r="1.2" class="cyan" fill-opacity=".45"/>
+    <circle cx="1512" cy="112" r="1" class="magenta" fill-opacity=".4"/>
+    <circle cx="1560" cy="60" r="1.3" class="violet" fill-opacity=".45"/>
+    <circle cx="1600" cy="120" r="1.1" class="blue" fill-opacity=".4"/>
+    <circle cx="928" cy="38" r="1" class="violet" fill-opacity=".3"/>
+    <circle cx="880" cy="146" r="1" class="blue" fill-opacity=".3"/>
+  </g>
+</svg>

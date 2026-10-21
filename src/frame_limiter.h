@@ -25,6 +25,10 @@ inline bool IsHighFrameRate(int fps) {
   return fps == kFrameRateUnlimited || fps > kFrameRateDefault;
 }
 
+inline bool GatesSimulation(int fps) {
+  return IsHighFrameRate(fps);
+}
+
 // Original: the game presents at its guest vblank, which always stays at the SDK's 60 Hz. Immediate: the game's
 // present callback swaps at once, so only the rates above 60 leave the vblank pacing.
 enum class PresentMode { kOriginal, kImmediate };
@@ -84,6 +88,66 @@ class GameDeltaClock {
   double owed_ = 0.0;
 };
 
+// A step that is due within this share of a step still runs, so a jittered ~60 Hz cadence does not alternate between
+// no step and two; the remainder goes negative and the steps still add up to real time.
+inline constexpr double kEarlyStepShare = GameDeltaClock::kSnapTolerance;
+
+// Runs the original fixed step while presentation is faster. Frames of one step or longer use the GameDeltaClock
+// correction; shorter frames accumulate until a step is due.
+class SimulationPacer {
+ public:
+  // Returns true when simulation should run; `delta` is the time step for that tick.
+  bool Tick(double interval, double step, double& delta) {
+    if (interval >= step) {
+      delta = clock_.Take(interval + remainder_, step);
+      remainder_ = clock_.owed();
+      clock_.Reset();
+      return true;
+    }
+    remainder_ += interval;
+    if (remainder_ < step * (1.0 - kEarlyStepShare)) {
+      return false;
+    }
+    remainder_ -= step;
+    delta = step;
+    return true;
+  }
+
+  void Reset() {
+    remainder_ = 0.0;
+    clock_.Reset();
+  }
+
+  // Real time accumulated past the last tick; the next tick is due after step - remainder().
+  double remainder() const { return remainder_; }
+
+ private:
+  double remainder_ = 0.0;
+  GameDeltaClock clock_;
+};
+
+// Runs a fixed-rate visual update while presentation is faster, without catch-up.
+class FixedStepGate {
+ public:
+  bool Tick(double interval, double step) {
+    if (interval >= step) {
+      remainder_ = 0.0;
+      return true;
+    }
+    remainder_ += interval;
+    if (remainder_ < step * (1.0 - kEarlyStepShare)) {
+      return false;
+    }
+    remainder_ -= step;
+    return true;
+  }
+
+  void Reset() { remainder_ = 0.0; }
+
+ private:
+  double remainder_ = 0.0;
+};
+
 inline LimiterClock::duration FramePeriod(int fps) {
   if (fps <= 0) {
     return LimiterClock::duration::zero();
@@ -130,7 +194,25 @@ int ConfiguredFrameRate();
 void PaceGuestFrame();
 
 // Sets the game's per-update time step for the next update: its own step while frames are on time at 60, otherwise the
-// real frame interval.
+// real frame interval. High-refresh rates leave the step to BeginSimulationTick.
 void SyncGameDelta(uint8_t* base, LimiterClock::time_point now);
+
+// Returns whether the game's update should run on this outer-loop frame, writing its time step when it should.
+bool BeginSimulationTick(uint8_t* base, LimiterClock::time_point now);
+
+// Time the simulation pacer has accumulated past its last tick.
+double SimulationRemainder();
+
+// Returns whether the effect clock should advance on this outer-loop frame.
+bool BeginVisualClockTick(LimiterClock::time_point now);
+
+struct VisualClockSnapshot {
+  uint32_t time;
+  uint32_t phase;
+  uint32_t pulse;
+};
+
+VisualClockSnapshot SaveVisualClock(uint8_t* base);
+void RestoreVisualClock(uint8_t* base, const VisualClockSnapshot& snapshot);
 
 }  // namespace gw2

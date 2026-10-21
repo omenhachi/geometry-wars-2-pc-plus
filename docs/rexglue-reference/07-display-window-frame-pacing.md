@@ -21,19 +21,21 @@ Mechanism, evolved over `ab4631e` -> `9e6f05b` -> `273dc0c`:
 1. **Present hook**: the game's present callback `sub_820A1FA0` takes the present interval in bits 8-11 of `r3`; for rates above 60 or Unlimited the hook clears them (`kPresentIntervalMask = 0xF00`) so the game swaps at once instead of waiting for the guest vblank (`PresentMode::kImmediate`). The guest vblank stays at the SDK's 60 Hz.
 2. **Limiter**: `__imp__VdSwap` hook (`src/window_host.cpp`) calls `PaceGuestFrame()` before the SDK's `VdSwap_entry`. `FrameLimiter::Next` keeps a schedule (target advances by one period; if more than one period late it resyncs from now). Rate 60 is held by the original pacing and Unlimited by nothing (`ProjectLimiterRate`).
 3. **Waiting**: `WaitUntil` (`src/frame_wait.cpp`) waits coarsely until 500 us before the deadline, then yield-spins. Windows uses a high-resolution waitable timer; Linux uses `sleep_until`. Before `9e6f05b` this lived in the Windows-only `frame_limiter.cpp`; moving it made the limiter portable.
-4. **Time step**: the game reads one float time step, set once at startup to 1/refresh (1/60) at `0x8219D280` (`kGameDeltaAddress`). For rates other than 60, `SyncGameDelta` after each swap overwrites it with the measured frame interval clamped to 1 ms-50 ms (`GameFrameDelta`), so game speed follows the wall clock. At 60 `GameDeltaClock` writes the original step, or two or three of it, for a frame within 0.2 step of that many, and the real interval for any other frame (the interval plus the carried difference, at least 1 ms and at most 3 steps; time past the cap is dropped, the carry stays within half a step), so a host that cannot hold 60 keeps the game's speed instead of halving it at 30 FPS. The earlier whole-step counter gave every frame at least one step, so frames shorter than a step (bursts after a stall) advanced more game time than real time. Interpolation is not implemented. Game-side frame counts (Deadline's last-seconds tick) are not adjusted, so above 60 FPS the tick may sound more than once (known limit).
-5. **Repeated presents excluded** (`273dc0c`): the game's Direct3D layer has a thread that presents the last frame again when the game has not swapped for 30 ms (`sub_820A25D8`). A hook sets a thread-local flag so that swap is not paced, not counted by the frame counter and not used for the time step. Without this, stalls looked like extra frames.
-6. **Frame counting**: `VdSwap` hook counts every game swap; `FrameRateSampler` samples about once a second; the same numbers feed the window title (`WindowTitle`, "| FPS: 60.00"), the F2 frame counter and the SDK's F3 overlay (`SetGuestFrameStats`). On a slow system this is the game's swap rate, not frames on screen.
+4. **Time step**: the game reads one float time step, set once at startup to 1/refresh (1/60) at `0x8219D280` (`kGameDeltaAddress`). For 30 and 60, `SyncGameDelta` after each swap overwrites it with the measured frame interval clamped to 1 ms-50 ms (`GameFrameDelta`) or with `GameDeltaClock`'s original step(s), so game speed follows the wall clock. At 60 `GameDeltaClock` writes the original step, or two or three of it, for a frame within 0.2 step of that many, and the real interval for any other frame (the interval plus the carried difference, at least 1 ms and at most 3 steps; time past the cap is dropped, the carry stays within half a step), so a host that cannot hold 60 keeps the game's speed instead of halving it at 30 FPS.
+5. **Simulation gate**: the game's update `sub_820366A0` is hooked. For rates above 60 and Unlimited, `SimulationPacer` accumulates real time and lets the update run only on the original 60 Hz step; intermediate outer-loop frames skip it and re-render the last simulation state. The time step is written only on simulation ticks, so skipped frames do not advance game time. Rendering, presentation and audio servicing still run every outer-loop frame. If rendering falls below 60, one update uses `GameDeltaClock` so game time still follows real time without unbounded catch-up.
+6. **Repeated presents excluded** (`273dc0c`): the game's Direct3D layer has a thread that presents the last frame again when the game has not swapped for 30 ms (`sub_820A25D8`). A hook sets a thread-local flag so that swap is not paced, not counted by the frame counter and not used for the time step. Without this, stalls looked like extra frames.
+7. **Frame counting**: `VdSwap` hook counts every game swap; `FrameRateSampler` samples about once a second; the same numbers feed the window title (`WindowTitle`, "| FPS: 60.00"), the F2 frame counter and the SDK's F3 overlay (`SetGuestFrameStats`). On a slow system this is the game's swap rate, not frames on screen.
 
-Class: the structure (hook the swap, limiter schedule, wall-clock time step) is `GAME_ADAPTATION`; the schedule, sampler and
-placement code are generic and tested. Addresses `0x820A1FA0`, `0x820A25D8`, `0x8219D280` are `GEOMETRY_WARS_SPECIFIC`.
-Port requirements: find the present callback, the time-step variable, and the game's idea of a fixed step (many games
-accumulate a fixed step; then wall-clock delta is wrong and the rate must be changed differently). `UNCERTAIN` for other
-engines.
-Validation: `tests/frame_limiter_tests.cpp` (periods, schedule, resync, policy, time step, game steps at 60, wait
-reaches deadline), `window_host_tests.cpp` (sampler, title). Real timing validated on Windows only; the game steps at 60
-are covered by the unit tests only, and the Linux reporter's slow motion (#1) is not yet confirmed fixed. The Linux
-reporter's low frame rate (about 30 FPS) has no known cause.
+Class: the structure (hook the swap, limiter schedule, wall-clock time step, simulation gate) is `GAME_ADAPTATION`; the
+schedule, pacer, sampler and placement code are generic and tested. Addresses `0x820A1FA0`, `0x820A25D8`, `0x8219D280`
+and `0x820366A0` are `GEOMETRY_WARS_SPECIFIC`.
+Port requirements: find the present callback, the time-step variable, the outer loop and the game's simulation update.
+If that update mixes delta and per-update state, gate it at the original rate instead of shrinking the delta. `UNCERTAIN`
+for other engines.
+Validation: `tests/frame_limiter_tests.cpp` (periods, schedule, resync, policy, time step, simulation pacer at 60-1000
+render FPS, irregular frames, below-60 fallback, catch-up bounds, mode changes, wait reaches deadline), `window_host_tests.cpp`
+(sampler, title). Real timing and visual repetition are covered by unit tests only; the Linux reporter's slow motion (#1)
+is not yet confirmed fixed. The Linux reporter's low frame rate (about 30 FPS) has no known cause.
 
 ## SDK pacing changes
 ### 0025 `WAIT_REG_MEM` woken by vblank
@@ -56,7 +58,10 @@ normal on Windows only.
 See [08](08-input-gamepad-mouse.md).
 
 ## High refresh rate
-Rates up to 240 and Unlimited exist; the presenter's VSync setting can still cap them (VSync Off allows tearing). The
+Rates up to 240 and Unlimited present at the selected rate while gameplay updates at 60 Hz. Intermediate frames
+interpolate the renderer's gameplay object transforms between the last two completed simulation states
+(`src/visual_interpolation.*`, hooked at the scene renderer `sub_82065E38` and object draw `sub_82045740`); manual
+runtime validation is pending. The presenter's VSync setting can still cap the rate (VSync Off allows tearing). The
 guest vblank is fixed at 60 Hz. Display refresh/monitor change handling is not implemented beyond SDK behavior
 (`UNCERTAIN`; no repository code reacts to display changes).
 

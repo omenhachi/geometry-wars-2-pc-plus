@@ -8,7 +8,7 @@ Evidence:
 - Shutdown: patch `0033` explicitly leaves runtime audio threads to their subsystems ("vblank, audio, kernel dispatch are not title threads"), see [13](13-crash-hardening-threading-memory.md).
 - Linux: the SDK build requires ALSA, PulseAudio and PipeWire dev packages ([02](02-build-system.md)); audio on Linux was not verified on real hardware (`docs/linux.md`, `UNCERTAIN`).
 
-Related, game-specific and not audio infrastructure: above 60 FPS the game's last-seconds tick in Deadline can sound more
-than once because the game counts it per update ([07](07-display-window-frame-pacing.md)).
+Related, game-specific and not audio infrastructure: the game's last-seconds tick in Deadline is counted per update, so
+high-refresh presentation gates the update at 60 Hz to avoid repeated ticks ([07](07-display-window-frame-pacing.md)).
 
 For another project: nothing to port. Check the new game's first boot log for the audio endpoint line and test audible output manually.

@@ -23,7 +23,7 @@ Evolved in two stages in one commit series: patch ported in `4067893`, app side 
 
 ## D. Lifetimes deliberately not freed
 - `g_services` in `src/live_fix.cpp` ("never freed: hooks may still run while the process exits").
-- `CursorTick` and frame counter dialogs created with `new` and retained by the ImGui drawer (`src/window_host.cpp`, `src/frame_counter.cpp`).
+- `CursorSync` and frame counter dialogs created with `new` and retained by the ImGui drawer (`src/window_host.cpp`, `src/frame_counter.cpp`).
 - `WindowHost` listeners stay installed after `DetachWindowHost` because the guest can end without the window closing; only pointers are cleared and the cursor restored.
 Pattern: shared state used by guest-thread hooks should either be immortal or be gated by a flag that the hook checks first.
 
