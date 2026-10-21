@@ -103,7 +103,7 @@ try {
     if ($LASTEXITCODE) { throw "Test build failed ($LASTEXITCODE)" }
     & $ClangXX -std=c++23 -O1 -Wall -Wextra -I (Join-Path $Root 'src') `
         (Join-Path $Root 'tests\graphics_adapter_tests.cpp') (Join-Path $Root 'src\graphics_adapters.cpp') `
-        -ldxgi -ld3d12 -o $AdapterExe
+        -ladvapi32 -ldxgi -ld3d12 -o $AdapterExe
     if ($LASTEXITCODE) { throw "Test build failed ($LASTEXITCODE)" }
     & $ClangXX -std=c++23 -O1 -Wall -Wextra -I (Join-Path $Root 'src') `
         (Join-Path $Root 'tests\aspect_ratio_tests.cpp') -o $AspectExe

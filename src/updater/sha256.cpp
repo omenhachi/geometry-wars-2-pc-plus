@@ -6,6 +6,8 @@
 #include <fstream>
 #include <vector>
 
+#include "updater/update_paths.h"
+
 namespace trg::update {
 namespace {
 
@@ -145,7 +147,7 @@ std::string Sha256Hex(std::string_view data) {
 std::string Sha256FileHex(const std::filesystem::path& path, std::string& error) {
   std::ifstream file(path, std::ios::binary);
   if (!file) {
-    error = "Cannot read " + path.string() + ".";
+    error = "Cannot read " + Utf8Path(path) + ".";
     return {};
   }
   Sha256 hash;
@@ -158,7 +160,7 @@ std::string Sha256FileHex(const std::filesystem::path& path, std::string& error)
     }
   }
   if (file.bad()) {
-    error = "Cannot read " + path.string() + ".";
+    error = "Cannot read " + Utf8Path(path) + ".";
     return {};
   }
   const std::array<std::uint8_t, 32> digest = hash.Final();

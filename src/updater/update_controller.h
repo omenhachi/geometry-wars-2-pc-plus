@@ -96,6 +96,7 @@ class UpdateController {
   void FinishCheck(trg::Task::State state, const std::string& error);
   void FinishDownload(trg::Task::State state, const std::string& error);
   void Fail(std::string error, RetryKind retry, bool check_failure);
+  void FailCheck(std::string error, bool manual);
   bool MakeWorkspace(std::string& error);
   void CleanupWorkspace();
 

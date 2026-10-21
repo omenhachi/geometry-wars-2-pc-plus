@@ -233,19 +233,31 @@ void UpdateController::StartCheck(bool manual) {
   });
   if (!started) {
     task_kind_ = TaskKind::kNone;
-    Fail("The update check could not start.", RetryKind::kCheck, true);
+    snapshot_.manual_check = false;
+    FailCheck("The update check could not start.", manual);
   }
 }
 
+// The startup check fails quietly (offline, rate limited, assets not uploaded yet); only a requested one shows it.
+void UpdateController::FailCheck(std::string error, bool manual) {
+  if (manual) {
+    Fail(std::move(error), RetryKind::kCheck, true);
+    return;
+  }
+  snapshot_.state = UpdateState::kIdle;
+  Log(config_, "Update check failed: " + error);
+}
+
 void UpdateController::FinishCheck(trg::Task::State state, const std::string& error) {
+  const bool manual = snapshot_.manual_check;
   snapshot_.manual_check = false;
   const std::shared_ptr<CheckOutcome> outcome = std::move(check_outcome_);
   if (state == trg::Task::State::kFailed || state == trg::Task::State::kCancelled || !outcome) {
-    Fail(error.empty() ? "The update check failed." : error, RetryKind::kCheck, true);
+    FailCheck(error.empty() ? "The update check failed." : error, manual);
     return;
   }
   if (!outcome->release) {
-    Fail("The update check failed.", RetryKind::kCheck, true);
+    FailCheck("The update check failed.", manual);
     return;
   }
 

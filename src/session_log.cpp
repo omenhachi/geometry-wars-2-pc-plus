@@ -34,6 +34,8 @@ constexpr char kSessionLogVariable[] = "GW2_SESSION_LOG";
 constexpr char kSessionParentVariable[] = "GW2_SESSION_PARENT";
 #endif
 
+constexpr char kDiscardSuffix[] = ".discard";
+
 std::atomic<bool> g_handed_off{false};
 
 bool LogContainsCrashReport(const std::filesystem::path& file) {
@@ -88,6 +90,28 @@ void ClearInheritedSession() {
 #endif
 }
 
+std::filesystem::path DiscardableSessionLog() {
+  if (g_handed_off.load(std::memory_order_acquire) || DetailedLoggingEnabled()) {
+    return {};
+  }
+  const std::filesystem::path file = ActiveLogFile();
+  if (file.empty()) {
+    return {};
+  }
+  rex::FlushLogging();
+  std::error_code ec;
+  if (!std::filesystem::exists(file, ec) || ec || LogContainsCrashReport(file)) {
+    return {};
+  }
+  return file;
+}
+
+std::filesystem::path DiscardMarker(const std::filesystem::path& file) {
+  std::filesystem::path marker = file;
+  marker += kDiscardSuffix;
+  return marker;
+}
+
 }  // namespace
 
 void InstallSessionLogCleanup() {
@@ -100,29 +124,48 @@ void InstallSessionLogCleanup() {
 }
 
 void FinalizeSessionLog() {
-  if (g_handed_off.load(std::memory_order_acquire)) {
-    return;
-  }
-  if (DetailedLoggingEnabled()) {
-    return;
-  }
-  const std::filesystem::path file = ActiveLogFile();
+  const std::filesystem::path file = DiscardableSessionLog();
   if (file.empty()) {
     return;
   }
-
-  rex::FlushLogging();
-  std::error_code ec;
-  if (!std::filesystem::exists(file, ec) || ec) {
-    return;
-  }
-  if (LogContainsCrashReport(file)) {
-    return;
-  }
-
   ReleaseMinimalLogFilter();
   rex::ShutdownLogging();
+  std::error_code ec;
   std::filesystem::remove(file, ec);
+}
+
+void DiscardSessionLogBeforeHardExit() {
+  const std::filesystem::path file = DiscardableSessionLog();
+  if (file.empty()) {
+    return;
+  }
+#if defined(_WIN32)
+  std::ofstream(DiscardMarker(file), std::ios::binary | std::ios::trunc);
+#else
+  std::error_code ec;
+  std::filesystem::remove(file, ec);
+#endif
+}
+
+void RemoveDiscardedSessionLogs() {
+  const std::filesystem::path active = ActiveLogFile();
+  if (active.empty()) {
+    return;
+  }
+  std::error_code ec;
+  for (std::filesystem::directory_iterator it(active.parent_path(), ec), end; !ec && it != end; it.increment(ec)) {
+    const std::filesystem::path marker = it->path();
+    if (marker.extension() != kDiscardSuffix) {
+      continue;
+    }
+    std::filesystem::path file = marker;
+    file.replace_extension();
+    std::error_code remove_ec;
+    if (file != active && !LogContainsCrashReport(file)) {
+      std::filesystem::remove(file, remove_ec);
+    }
+    std::filesystem::remove(marker, remove_ec);
+  }
 }
 
 void BeginSessionLogHandoff() {

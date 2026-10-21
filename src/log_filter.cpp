@@ -15,9 +15,6 @@ REXCVAR_DEFINE_BOOL(detailed_logging, true, "Geometry Wars",
     .allowed({"true", "false"});
 
 namespace gw2 {
-
-spdlog::sink_ptr UnwrapLogSink(const spdlog::sink_ptr& sink);
-
 namespace {
 
 // Informational lines kept in Minimal mode: the first-line facts a failure report needs.
@@ -48,8 +45,7 @@ constexpr std::string_view kEssentialInfo[] = {
     "Restarted in a new window",
 };
 
-// Forwards the messages Minimal mode keeps to the next sink. `spdlog` locks the wrapper and the target separately,
-// so it stays safe once the game's threads log.
+// Forwards the messages Minimal mode keeps to the next sink.
 class MinimalLogSink final : public spdlog::sinks::base_sink<std::mutex> {
  public:
   explicit MinimalLogSink(spdlog::sink_ptr target) : target_(std::move(target)) {}

@@ -88,7 +88,11 @@ class GameDeltaClock {
   double owed_ = 0.0;
 };
 
-// Runs the original fixed step while presentation is faster. Frames at or below the step use the GameDeltaClock
+// A step that is due within this share of a step still runs, so a jittered ~60 Hz cadence does not alternate between
+// no step and two; the remainder goes negative and the steps still add up to real time.
+inline constexpr double kEarlyStepShare = GameDeltaClock::kSnapTolerance;
+
+// Runs the original fixed step while presentation is faster. Frames of one step or longer use the GameDeltaClock
 // correction; shorter frames accumulate until a step is due.
 class SimulationPacer {
  public:
@@ -101,7 +105,7 @@ class SimulationPacer {
       return true;
     }
     remainder_ += interval;
-    if (remainder_ + kTickTolerance < step) {
+    if (remainder_ < step * (1.0 - kEarlyStepShare)) {
       return false;
     }
     remainder_ -= step;
@@ -118,8 +122,6 @@ class SimulationPacer {
   double remainder() const { return remainder_; }
 
  private:
-  static constexpr double kTickTolerance = 1e-9;
-
   double remainder_ = 0.0;
   GameDeltaClock clock_;
 };
@@ -133,7 +135,7 @@ class FixedStepGate {
       return true;
     }
     remainder_ += interval;
-    if (remainder_ + kTickTolerance < step) {
+    if (remainder_ < step * (1.0 - kEarlyStepShare)) {
       return false;
     }
     remainder_ -= step;
@@ -143,8 +145,6 @@ class FixedStepGate {
   void Reset() { remainder_ = 0.0; }
 
  private:
-  static constexpr double kTickTolerance = 1e-9;
-
   double remainder_ = 0.0;
 };
 
@@ -214,13 +214,5 @@ struct VisualClockSnapshot {
 
 VisualClockSnapshot SaveVisualClock(uint8_t* base);
 void RestoreVisualClock(uint8_t* base, const VisualClockSnapshot& snapshot);
-
-// DEBUG_SAULO: temporary fixed-rate timing counters; remove with the diagnostics.
-void DebugSauloTimingLoopFrame();
-void DebugSauloTimingSimulationTick();
-void DebugSauloTimingSkipped();
-void DebugSauloTimingPresent(uint8_t* base);
-void DebugSauloTimingVisualClock(bool advanced);
-void DebugSauloTimingEnemyUpdate();
 
 }  // namespace gw2

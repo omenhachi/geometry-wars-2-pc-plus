@@ -363,6 +363,8 @@ LONG WINAPI HandleUnhandledException(EXCEPTION_POINTERS* info) {
   if (g_log_path[0] != L'\0') {
     WriteReport(info);
   }
+  // Ends the process here: the default handler's ExitProcess would run DLL detach code in a faulted process.
+  TerminateProcess(GetCurrentProcess(), info->ExceptionRecord->ExceptionCode);
   return EXCEPTION_EXECUTE_HANDLER;
 }
 
@@ -643,8 +645,8 @@ void SetCrashRuntimeState(const char* frame_rate, const char* simulation, const 
   CopyText(g_runtime_gpu, sizeof(g_runtime_gpu), gpu);
 }
 
-void SetCrashInterpolationState(bool active, double measured_hz) {
-  g_interpolation_hz_centi.store(measured_hz > 0.0 ? uint32_t(measured_hz * 100.0 + 0.5) : 0,
+void SetCrashInterpolationState(bool active, double render_hz) {
+  g_interpolation_hz_centi.store(render_hz > 0.0 ? uint32_t(render_hz * 100.0 + 0.5) : 0,
                                  std::memory_order_relaxed);
   g_interpolation_effective.store(active ? 1 : 2, std::memory_order_relaxed);
 }

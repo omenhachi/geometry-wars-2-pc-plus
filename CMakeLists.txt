@@ -1,7 +1,7 @@
 # SDK boilerplate lives in generated/rexglue.cmake.
 
 cmake_minimum_required(VERSION 3.25)
-project(geometry_wars_retro_evolved_2 VERSION 0.4.0 LANGUAGES C CXX)
+project(geometry_wars_retro_evolved_2 VERSION 0.5.0 LANGUAGES C CXX)
 set(GW2_VERSION_SUFFIX "")
 
 set(CMAKE_CXX_STANDARD 23)
@@ -29,10 +29,13 @@ set(GW2_TRG_LAUNCHER_DIR "$ENV{GW2_TRG_LAUNCHER_DIR}" CACHE PATH
 # binary directory; the submodule checkout must stay at the pinned revision.
 set(GW2_TRG_LAUNCHER_REVISION "b384a28c712c9320eea8f9d50639dec49981b6c1")
 set(GW2_TRG_LAUNCHER_PATCH_DIR "${CMAKE_CURRENT_SOURCE_DIR}/patches/trg-launcher")
-set(GW2_TRG_LAUNCHER_PATCH_STAMP_VERSION 1)
+set(GW2_TRG_LAUNCHER_PATCH_STAMP_VERSION 2)
 file(GLOB _trg_patch_names CONFIGURE_DEPENDS RELATIVE "${GW2_TRG_LAUNCHER_PATCH_DIR}"
     "${GW2_TRG_LAUNCHER_PATCH_DIR}/*.patch")
 list(SORT _trg_patch_names)
+if(NOT _trg_patch_names)
+    message(FATAL_ERROR "TRG Launcher: no patches found in ${GW2_TRG_LAUNCHER_PATCH_DIR}")
+endif()
 foreach(_trg_patch_name IN LISTS _trg_patch_names)
     set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
         "${GW2_TRG_LAUNCHER_PATCH_DIR}/${_trg_patch_name}")
@@ -102,17 +105,18 @@ function(gw2_prepare_patched_trg_launcher source_dir output_dir require_pinned)
     file(MAKE_DIRECTORY "${output_dir}")
     file(COPY "${source_dir}/" DESTINATION "${output_dir}" PATTERN ".git" EXCLUDE)
 
+    # --ignore-whitespace: the submodule may be checked out with CRLF (core.autocrlf) while a patch has LF.
     get_filename_component(_ceiling "${output_dir}" DIRECTORY)
     foreach(_patch_name IN LISTS _trg_patch_names)
         set(_patch "${GW2_TRG_LAUNCHER_PATCH_DIR}/${_patch_name}")
         execute_process(COMMAND "${CMAKE_COMMAND}" -E env "GIT_CEILING_DIRECTORIES=${_ceiling}"
-                        "${GIT_EXECUTABLE}" -C "${output_dir}" apply --check "${_patch}"
+                        "${GIT_EXECUTABLE}" -C "${output_dir}" apply --check --ignore-whitespace "${_patch}"
                         RESULT_VARIABLE _can_apply ERROR_VARIABLE _apply_error)
         if(NOT _can_apply EQUAL 0)
             message(FATAL_ERROR "TRG Launcher: ${_patch} does not apply to ${source_dir} (${_apply_error}); the patch and the source revision are out of sync.")
         endif()
         execute_process(COMMAND "${CMAKE_COMMAND}" -E env "GIT_CEILING_DIRECTORIES=${_ceiling}"
-                        "${GIT_EXECUTABLE}" -C "${output_dir}" apply "${_patch}"
+                        "${GIT_EXECUTABLE}" -C "${output_dir}" apply --ignore-whitespace "${_patch}"
                         RESULT_VARIABLE _apply_result)
         if(NOT _apply_result EQUAL 0)
             message(FATAL_ERROR "TRG Launcher: failed to apply ${_patch}")
@@ -254,7 +258,13 @@ endif()
 # Every build checks that tools/rexglue holds the runtime and GPU plugin this branch's patches need, and that the
 # copies next to the program are those; tools/build.ps1 and tools/build.sh prepare them when they are not.
 if(WIN32)
-    find_program(GW2_POWERSHELL NAMES pwsh powershell REQUIRED)
+    # Not cached, stable locations first: the versioned Microsoft Store PowerShell folder that PowerShell puts on PATH
+    # is removed when the Store updates it.
+    file(TO_CMAKE_PATH "$ENV{LOCALAPPDATA}/Microsoft/WindowsApps" _gw2_store_aliases)
+    file(TO_CMAKE_PATH "$ENV{ProgramFiles}/PowerShell/7" _gw2_pwsh_install)
+    unset(GW2_POWERSHELL CACHE)
+    find_program(GW2_POWERSHELL NAMES pwsh powershell HINTS "${_gw2_store_aliases}" "${_gw2_pwsh_install}"
+        NO_CACHE REQUIRED)
     set(GW2_REXGLUE_CHECK "${GW2_POWERSHELL}" -NoProfile -ExecutionPolicy Bypass
         -File "${CMAKE_CURRENT_SOURCE_DIR}/tools/build-patched-rexruntime.ps1" -Check -Config $<CONFIG>)
     set(GW2_REXGLUE_STAGED -Staged)

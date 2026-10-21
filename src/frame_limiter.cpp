@@ -49,30 +49,14 @@ struct VisualClockState {
 
 VisualClockState g_visual_clock;
 
-struct DebugSauloTimingState {
-  std::atomic<uint64_t> loop_frames{0};
-  std::atomic<uint64_t> presents{0};
-  std::atomic<uint64_t> sim_ticks{0};
-  std::atomic<uint64_t> skipped{0};
-  std::atomic<uint64_t> visual_calls{0};
-  std::atomic<uint64_t> visual_updates{0};
-  std::atomic<uint64_t> enemy_updates{0};
-  std::atomic<int64_t> last_report_ms{0};
-};
-
-DebugSauloTimingState g_debug_saulo;
-
-int64_t DebugSauloNowMs() {
-  return std::chrono::duration_cast<std::chrono::milliseconds>(LimiterClock::now().time_since_epoch()).count();
-}
-
 double SecondsSinceEpoch(LimiterClock::time_point now) {
   return std::chrono::duration<double>(now.time_since_epoch()).count();
 }
 
-double InterpolationStep(uint8_t* base) {
-  const uint32_t bits = LoadBE32(base, kGameDeltaAddress);
-  const float step = bits != 0 ? std::bit_cast<float>(bits) : float(kVisualStep);
+// The game's own step, not the delta written for the last tick, which can span several steps.
+double InterpolationStep() {
+  std::lock_guard lock(g_delta_mutex);
+  const float step = g_delta.original_bits ? std::bit_cast<float>(*g_delta.original_bits) : float(kVisualStep);
   if (!(step > 0.0f)) {
     return kVisualStep;
   }
@@ -218,66 +202,6 @@ void RestoreVisualClock(uint8_t* base, const VisualClockSnapshot& snapshot) {
   StoreBE32(base, kVisualPulseAddress, snapshot.pulse);
 }
 
-void DebugSauloTimingLoopFrame() {
-  g_debug_saulo.loop_frames.fetch_add(1, std::memory_order_relaxed);
-}
-
-void DebugSauloTimingVisualClock(bool advanced) {
-  g_debug_saulo.visual_calls.fetch_add(1, std::memory_order_relaxed);
-  if (advanced) {
-    g_debug_saulo.visual_updates.fetch_add(1, std::memory_order_relaxed);
-  }
-}
-
-void DebugSauloTimingEnemyUpdate() {
-  g_debug_saulo.enemy_updates.fetch_add(1, std::memory_order_relaxed);
-}
-
-void DebugSauloTimingSimulationTick() {
-  g_debug_saulo.sim_ticks.fetch_add(1, std::memory_order_relaxed);
-}
-
-void DebugSauloTimingSkipped() {
-  g_debug_saulo.skipped.fetch_add(1, std::memory_order_relaxed);
-}
-
-void DebugSauloTimingPresent(uint8_t* base) {
-  g_debug_saulo.presents.fetch_add(1, std::memory_order_relaxed);
-  const int64_t now = DebugSauloNowMs();
-  int64_t last = g_debug_saulo.last_report_ms.load(std::memory_order_relaxed);
-  if (last == 0) {
-    g_debug_saulo.last_report_ms.store(now, std::memory_order_relaxed);
-    return;
-  }
-  if (now - last < 1000) {
-    return;
-  }
-  if (!g_debug_saulo.last_report_ms.compare_exchange_strong(last, now, std::memory_order_relaxed)) {
-    return;
-  }
-  const double seconds = double(now - last) / 1000.0;
-  if (seconds <= 0.0) {
-    return;
-  }
-  const uint64_t loop_frames = g_debug_saulo.loop_frames.exchange(0, std::memory_order_relaxed);
-  const uint64_t presents = g_debug_saulo.presents.exchange(0, std::memory_order_relaxed);
-  const uint64_t sim_ticks = g_debug_saulo.sim_ticks.exchange(0, std::memory_order_relaxed);
-  const uint64_t skipped = g_debug_saulo.skipped.exchange(0, std::memory_order_relaxed);
-  const uint64_t visual_calls = g_debug_saulo.visual_calls.exchange(0, std::memory_order_relaxed);
-  const uint64_t visual_updates = g_debug_saulo.visual_updates.exchange(0, std::memory_order_relaxed);
-  const uint64_t enemy_updates = g_debug_saulo.enemy_updates.exchange(0, std::memory_order_relaxed);
-  const InterpolationStats interpolation = TakeInterpolationStats();
-  const uint32_t delta_bits = LoadBE32(base, kGameDeltaAddress);
-  const float delta = delta_bits != 0 ? std::bit_cast<float>(delta_bits) : 0.0f;
-  REXLOG_INFO(
-      "DEBUG_SAULO timing selected={} render_fps={:.1f} present_fps={:.1f} presents={} sim_tps={:.1f} sim_ticks={} "
-      "skipped={} visual_calls={} visual_updates={} enemy_updates={} interp_frames={} interp_objects={} "
-      "interp_snaps={} interp_alpha={:.3f} delta_ms={:.3f}",
-      ConfiguredFrameRate(), double(loop_frames) / seconds, double(presents) / seconds, presents,
-      double(sim_ticks) / seconds, sim_ticks, skipped, visual_calls, visual_updates, enemy_updates,
-      interpolation.frames, interpolation.objects, interpolation.snaps, interpolation.alpha, delta * 1000.0f);
-}
-
 }  // namespace gw2
 
 // The game's present callback. Its argument carries the present interval in bits 8-11: zero swaps at once instead of
@@ -293,14 +217,10 @@ REX_HOOK_RAW(sub_820A1FA0) {
 // The game's simulation update; input sampling and the render/present path stay on the outer loop.
 REX_EXTERN(__imp__sub_820366A0);
 REX_HOOK_RAW(sub_820366A0) {
-  gw2::DebugSauloTimingLoopFrame();
   if (gw2::BeginSimulationTick(base, gw2::LimiterClock::now())) {
-    gw2::DebugSauloTimingSimulationTick();
     __imp__sub_820366A0(ctx, base);
     gw2::VisualInterpolationSimulationTick(gw2::SecondsSinceEpoch(gw2::LimiterClock::now()),
                                            gw2::SimulationRemainder());
-  } else {
-    gw2::DebugSauloTimingSkipped();
   }
 }
 
@@ -310,17 +230,17 @@ REX_HOOK_RAW(sub_82065E38) {
   const int fps = gw2::ConfiguredFrameRate();
   const gw2::InterpolationScheduler::Frame interpolation =
       gw2::VisualInterpolationBeginFrame(gw2::SecondsSinceEpoch(gw2::LimiterClock::now()),
-                                         gw2::GatesSimulation(fps), gw2::InterpolationStep(base),
+                                         gw2::InterpolationPolicyFor(fps), gw2::InterpolationStep(),
                                          gw2::InterpolationInitialInterval(fps));
   static bool reported = false;
   static bool reported_active = false;
-  if (gw2::GatesSimulation(fps) && interpolation.frame_count >= 8 && interpolation.measured_hz > 0.0 &&
-      (!reported || interpolation.interpolating != reported_active)) {
+  if (gw2::GatesSimulation(fps) && interpolation.render_hz > 0.0 &&
+      (!reported || interpolation.wanted != reported_active)) {
     reported = true;
-    reported_active = interpolation.interpolating;
-    REXLOG_INFO("Visual interpolation {}: measured presentation {:.1f} Hz",
-                reported_active ? "enabled" : "inactive", interpolation.measured_hz);
-    gw2::SetCrashInterpolationState(reported_active, interpolation.measured_hz);
+    reported_active = interpolation.wanted;
+    REXLOG_INFO("Visual interpolation {}: guest render rate {:.1f} Hz", reported_active ? "enabled" : "inactive",
+                interpolation.render_hz);
+    gw2::SetCrashInterpolationState(reported_active, interpolation.render_hz);
   }
   __imp__sub_82065E38(ctx, base);
 }
@@ -336,31 +256,11 @@ REX_HOOK_RAW(sub_82045740) {
 // The effect clock is advanced by sub_82090CD8; keep its state frozen on render-only frames.
 REX_EXTERN(__imp__sub_82090CD8);
 REX_HOOK_RAW(sub_82090CD8) {
-  const bool advance = gw2::BeginVisualClockTick(gw2::LimiterClock::now());
-  gw2::DebugSauloTimingVisualClock(advance);
-  if (advance) {
+  if (gw2::BeginVisualClockTick(gw2::LimiterClock::now())) {
     __imp__sub_82090CD8(ctx, base);
     return;
   }
   const gw2::VisualClockSnapshot snapshot = gw2::SaveVisualClock(base);
   __imp__sub_82090CD8(ctx, base);
   gw2::RestoreVisualClock(base, snapshot);
-}
-
-REX_EXTERN(__imp__sub_820435F0);
-REX_HOOK_RAW(sub_820435F0) {
-  gw2::DebugSauloTimingEnemyUpdate();
-  __imp__sub_820435F0(ctx, base);
-}
-
-REX_EXTERN(__imp__sub_82056A18);
-REX_HOOK_RAW(sub_82056A18) {
-  gw2::DebugSauloTimingEnemyUpdate();
-  __imp__sub_82056A18(ctx, base);
-}
-
-REX_EXTERN(__imp__sub_820453E0);
-REX_HOOK_RAW(sub_820453E0) {
-  gw2::DebugSauloTimingEnemyUpdate();
-  __imp__sub_820453E0(ctx, base);
 }

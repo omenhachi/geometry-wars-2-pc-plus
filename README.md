@@ -14,16 +14,16 @@
 
 <img width="1905" height="1071" alt="2026-10-11_18-47" src="https://github.com/user-attachments/assets/08b1ed2c-3244-41c1-94f1-e2ae4c1b76d1" />
 
-## What's new in v0.4.0
+## What's new in v0.5.0
 
-- **Controller vibration** for gameplay events (bombs, deaths, shield hits, gates and more). It is **Off by default**: turn it on under **Controls > Vibration**.
-- **Aspect Ratio** options, including 21:9 Ultrawide and 32:9 Super Ultrawide
-- **Internal render resolution** at 100%, 75% or 50%
-- **Graphics card** selection on Windows
-- optional **render resolution in the window title**
-- a Linux game-timing change for [Issue #1](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled/issues/1), and an AppImage that starts by itself when FUSE cannot mount it
+- **High frame rates keep the original game speed**: above 60 FPS the game still updates 60 times per second, and the frames in between are interpolated ([#5](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled/issues/5))
+- **Launcher self-update**: the launcher can download and install a newer release for you
+- **Keyboard remapping** on the Controls page, and controller navigation in the launcher and overlays
+- **Exit game** in the main menu
+- the mouse cursor hides while you play with a controller or the keyboard and returns when you use the mouse
+- Windows performance work in the Direct3D 12 renderer, and a crash report in the log if the game crashes
 
-The full list is in the [v0.4.0 release notes](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled/releases/tag/v0.4.0).
+The full list is in the [v0.5.0 release notes](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled/releases/tag/v0.5.0).
 ## Features
 
 - Controller vibration for gameplay events, off by default (Controls > Vibration). It is a PC-port addition, not a restored original feature
@@ -59,7 +59,7 @@ The launcher checks the Title ID and content type when you pick the package, and
 
 ## Installing
 
-1. Download **GeometryWarsRetroEvolved2-v0.4.0-windows-x64.zip** from the [latest release](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled/releases/latest) and extract it anywhere you can write to.
+1. Download **GeometryWarsRetroEvolved2-v0.5.0-windows-x64.zip** from the [latest release](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled/releases/latest) and extract it anywhere you can write to.
 2. Run **geometry_wars_retro_evolved_2.exe**. The launcher opens.
 3. On the **Play** page click **Install from package...** and pick your package. It is one file with a long hexadecimal name and no extension. On an Xbox 360 drive it is in `Content\0000000000000000\584108FF\000D0000\`.
 4. Wait until **Ready to play** appears. The game files are copied into the `game` folder next to the program. The package file itself is not copied there.
@@ -116,7 +116,7 @@ Window size, monitor, VSync, Aspect Ratio and graphics card take effect when you
 - **Bloom**: Original (the game's own glow), Reduced (lower glow) or Off (no glow). The bright geometry and colors are kept
 
 ### Gameplay
-- **Frame rate**: 30, 60, 90, 120, 144, 165, 240 or Unlimited. 60 is the original game and the default. Above 60, presentation runs at the selected rate while the game simulation stays at 60 updates per second; intermediate frames repeat the latest state because rendering is not interpolated. A slower graphics card or heavier graphics settings lower the frame rate without changing the speed.
+- **Frame rate**: 30, 60, 90, 120, 144, 165, 240 or Unlimited. 60 is the original game and the default. Above 60, presentation runs at the selected rate while the game simulation stays at 60 updates per second; frames between two updates show the moving gameplay objects interpolated between those updates, which adds one update (about 17 ms) of visual delay. A slower graphics card or heavier graphics settings lower the frame rate without changing the speed.
 - **Frame rate in title**: shows the frame rate in the window title, for example `Geometry Wars: Retro Evolved 2 | FPS: 60.00`
 - **Render resolution in title**: shows the render resolution in the window title, for example `Geometry Wars: Retro Evolved 2 | 2560x1440` at 2x on 16:9. It is off by default; with both title options on, the resolution comes before the frame rate.
 - **Frame counter**: shows the frame rate in the corner of the window. Press **F2** while playing to show or hide it.

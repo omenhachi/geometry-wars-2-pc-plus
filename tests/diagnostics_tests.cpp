@@ -78,7 +78,7 @@ gw2::StartupDiagnostics Sample() {
   diagnostics.game.sha256 = "ABCDEF";
   diagnostics.game.fingerprint = "verified";
   diagnostics.gameplay.simulation = "60Hz";
-  diagnostics.gameplay.interpolation = "Automatic, pending measurement";
+  diagnostics.gameplay.interpolation = "On";
   diagnostics.gameplay.present = "guest Immediate | host VBlank (VSync On)";
   diagnostics.graphics.render_percent = 100;
   diagnostics.graphics.render_width = 1280;
@@ -129,7 +129,7 @@ void TestStartupBlock() {
                   "output=2560x1440 | aspect=16:9"));
   CHECK(Has(text, "Runtime game: title_id=584108FF | default.xex | size=704512 | fingerprint=verified"));
   CHECK(Has(text, "Runtime game sha256: ABCDEF"));
-  CHECK(Has(text, "Runtime timing: simulation=60Hz | interpolation=Automatic, pending measurement | "
+  CHECK(Has(text, "Runtime timing: simulation=60Hz | interpolation=On | "
                   "present=guest Immediate | host VBlank (VSync On)"));
   CHECK(Has(text, "Runtime renderer: render=100% 1280x720 | guest=1280x720 | host_targets=4/4 | resolve=1x | "
                   "msaa=2x native"));
@@ -189,8 +189,8 @@ void TestFrameRatePolicy() {
   CHECK(gw2::SimulationRateText(0) == "60Hz");
   CHECK(gw2::InterpolationPolicyText(60) == "Inactive");
   CHECK(gw2::InterpolationPolicyText(30) == "Inactive");
-  CHECK(gw2::InterpolationPolicyText(144) == "Automatic, pending measurement");
-  CHECK(gw2::InterpolationPolicyText(0) == "Automatic, pending measurement");
+  CHECK(gw2::InterpolationPolicyText(144) == "On");
+  CHECK(gw2::InterpolationPolicyText(0) == "Automatic, by guest render rate");
   CHECK(gw2::PresentModeText(60) == "VBlank");
   CHECK(gw2::PresentModeText(144) == "Immediate");
   CHECK(gw2::PresentationText(0, false) == "guest Immediate | host VBlank (VSync On)");

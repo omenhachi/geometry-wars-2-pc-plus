@@ -51,10 +51,21 @@ bool SameComponent(const std::filesystem::path& left, const std::filesystem::pat
 #endif
 }
 
-bool IsReparsePoint(const std::filesystem::path& path) {
+// Only links (symbolic links, junctions) count: OneDrive and other cloud folders put reparse points on ordinary
+// files and folders.
+bool IsLinkReparsePoint(const std::filesystem::path& path) {
 #if defined(_WIN32)
   const DWORD attributes = GetFileAttributesW(path.c_str());
-  return attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
+  if (attributes == INVALID_FILE_ATTRIBUTES || (attributes & FILE_ATTRIBUTE_REPARSE_POINT) == 0) {
+    return false;
+  }
+  WIN32_FIND_DATAW data;
+  const HANDLE find = FindFirstFileW(path.c_str(), &data);
+  if (find == INVALID_HANDLE_VALUE) {
+    return true;
+  }
+  FindClose(find);
+  return IsReparseTagNameSurrogate(data.dwReserved0);
 #else
   return false;
 #endif
@@ -254,7 +265,7 @@ bool IsRegularFile(const std::filesystem::path& path) {
   if (ec || status.type() != std::filesystem::file_type::regular) {
     return false;
   }
-  return !IsReparsePoint(path);
+  return !IsLinkReparsePoint(path);
 }
 
 bool HasReparseAncestor(const std::filesystem::path& path, const std::filesystem::path& root) {
@@ -277,11 +288,11 @@ bool HasReparseAncestor(const std::filesystem::path& path, const std::filesystem
     if (!std::filesystem::exists(status)) {
       continue;
     }
-    if (std::filesystem::is_symlink(status) || IsReparsePoint(current)) {
+    if (std::filesystem::is_symlink(status) || IsLinkReparsePoint(current)) {
       return true;
     }
   }
-  return IsReparsePoint(root);
+  return IsLinkReparsePoint(root);
 }
 
 }  // namespace trg::update

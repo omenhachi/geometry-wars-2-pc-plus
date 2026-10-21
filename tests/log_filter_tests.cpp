@@ -96,7 +96,7 @@ void TestClassification() {
   CHECK(gw2::ShouldLogInMinimalMode(info, "core", "Runtime OS: Windows 11 64-bit (build 22631)"));
   CHECK(gw2::ShouldLogInMinimalMode(info, "core", "Runtime GPU: selected=Automatic | resolved=Test GPU"));
   CHECK(gw2::ShouldLogInMinimalMode(info, "core", "Runtime timing: simulation=60Hz | present=Immediate"));
-  CHECK(gw2::ShouldLogInMinimalMode(info, "core", "Visual interpolation enabled: measured presentation 143.9 Hz"));
+  CHECK(gw2::ShouldLogInMinimalMode(info, "core", "Visual interpolation enabled: guest render rate 143.9 Hz"));
   CHECK(gw2::ShouldLogInMinimalMode(info, "core", "User data: portable path selected: user_data"));
   CHECK(gw2::ShouldLogInMinimalMode(info, "core", "Player settings: settings.toml"));
   CHECK(gw2::ShouldLogInMinimalMode(info, "core", "Graphics card: Test GPU (adapter 0)"));
@@ -228,6 +228,45 @@ void TestSessionLifecycle(const std::filesystem::path& dir) {
   CHECK(std::filesystem::exists(decoy));
 }
 
+void TestHardExitDiscard(const std::filesystem::path& dir) {
+  std::printf("a window close discards a Minimal log without shutting logging down\n");
+  const std::filesystem::path closed = dir / "closed.log";
+  const std::filesystem::path crashed = dir / "closed_crash.log";
+  const std::filesystem::path next = dir / "next.log";
+  WriteText(closed, "normal session\n");
+  WriteText(crashed, "run started\nCRASH REPORT\n");
+  WriteText(next, "next session\n");
+  SetDetailedLogging(false);
+
+  rex::cvar::SetFlagByName("log_file", closed.string());
+  gw2::DiscardSessionLogBeforeHardExit();
+  rex::cvar::SetFlagByName("log_file", crashed.string());
+  gw2::DiscardSessionLogBeforeHardExit();
+  CHECK(std::filesystem::exists(crashed));
+  CHECK(!std::filesystem::exists(dir / "closed_crash.log.discard"));
+#if defined(_WIN32)
+  CHECK(std::filesystem::exists(closed));
+  CHECK(std::filesystem::exists(dir / "closed.log.discard"));
+  WriteText(dir / "next.log.discard", "");
+#endif
+
+  rex::cvar::SetFlagByName("log_file", next.string());
+  gw2::RemoveDiscardedSessionLogs();
+  CHECK(!std::filesystem::exists(closed));
+  CHECK(!std::filesystem::exists(dir / "closed.log.discard"));
+  CHECK(std::filesystem::exists(crashed));
+  CHECK(std::filesystem::exists(next));
+  CHECK(!std::filesystem::exists(dir / "next.log.discard"));
+
+  SetDetailedLogging(true);
+  WriteText(closed, "normal session\n");
+  rex::cvar::SetFlagByName("log_file", closed.string());
+  gw2::DiscardSessionLogBeforeHardExit();
+  CHECK(std::filesystem::exists(closed));
+  CHECK(!std::filesystem::exists(dir / "closed.log.discard"));
+  rex::cvar::SetFlagByName("log_file", "");
+}
+
 #if defined(_WIN32)
 
 std::wstring SelfPath() {
@@ -348,7 +387,9 @@ void TestWiring() {
   const std::string app = ReadSource("geometry_wars_retro_evolved_2_app.h");
   CHECK(Has(app, "gw2::ApplyDetailedLogging();"));
   CHECK(Has(app, "gw2::InstallSessionLogCleanup();"));
-  CHECK(Has(app, "gw2::FinalizeSessionLog();"));
+  CHECK(Has(app, "gw2::DiscardSessionLogBeforeHardExit();"));
+  CHECK(Has(app, "gw2::RemoveDiscardedSessionLogs();"));
+  CHECK(!Has(app, "gw2::FinalizeSessionLog();"));
   CHECK(Has(app, "gw2::TakeInheritedSessionLog()"));
 
   const std::string launcher_source = ReadSource("launcher.cpp");
@@ -392,6 +433,7 @@ int main() {
   TestSettingValue(dir);
   TestCrashReportIndependent();
   TestSessionLifecycle(dir);
+  TestHardExitDiscard(dir);
 #if defined(_WIN32)
   TestHandoff(dir);
 #endif

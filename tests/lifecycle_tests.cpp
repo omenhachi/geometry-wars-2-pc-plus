@@ -46,7 +46,8 @@ void TestHostWindowCloseHardExits() {
   const std::string app = ReadSource("geometry_wars_retro_evolved_2_app.h");
   CHECK(Has(app, "void OnClosing(rex::ui::UIEvent&) override"));
   const std::string body = FunctionBody(app, "void OnClosing(");
-  CHECK(Has(body, "gw2::FinalizeSessionLog();"));
+  CHECK(Has(body, "gw2::DiscardSessionLogBeforeHardExit();"));
+  CHECK(!Has(body, "FinalizeSessionLog"));
   CHECK(Has(body, "rex::FlushLogging();"));
   CHECK(Has(body, "std::_Exit(0);"));
   CHECK(!Has(body, "TerminateTitle"));

@@ -67,7 +67,7 @@ std::function<bool()> g_gameplay_active;
 std::function<bool()> g_ui_active;
 // UI thread only.
 CursorHider g_cursor;
-// Input polling thread only; cleared after the callback is unregistered.
+// Guest threads that poll input, serialized by the runtime's activity lock; cleared after the callback is unregistered.
 std::unordered_map<uint64_t, ControllerActivityFilter> g_controller_filters;
 bool g_pointer_over_ui = false;
 
@@ -352,6 +352,5 @@ REX_HOOK_RAW(__imp__VdSwap) {
     return;
   }
   gw2::SyncGameDelta(base, gw2::LimiterClock::now());
-  gw2::DebugSauloTimingPresent(base);
   gw2::CountGuestFrame();
 }

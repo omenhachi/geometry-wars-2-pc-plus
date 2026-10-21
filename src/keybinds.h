@@ -1,12 +1,7 @@
 #pragma once
 
-// Remappable keyboard controls for the launcher's Controls page. The launcher edits the ReXGlue keybind_* settings
-// through the same trg::SettingsStore every other launcher setting uses, so the keyboard needs no settings system of
-// its own.
-//
-// A binding is one ReXGlue name, optionally with Shift/Ctrl/Alt prefixes ("Shift+Up"), exactly the form ReXGlue's
-// keyboard driver parses. Stored defaults are the pinned ReXGlue ones and keep their alternatives ("Semicolon,Space");
-// a capture replaces the whole binding with one key.
+// A binding is one ReXGlue key name with optional Shift/Ctrl/Alt prefixes ("Shift+Up"), the form ReXGlue's keyboard
+// driver parses. Defaults keep ReXGlue's alternatives ("Semicolon,Space"); a capture replaces them with one key.
 
 #include <array>
 #include <string>
@@ -18,16 +13,13 @@
 
 namespace gw2 {
 
-// One keyboard control the launcher offers: the ReXGlue keybind_* setting, the label shown on the Controls page, and
-// the pinned ReXGlue default (one key, or alternatives separated by commas).
 struct KeyboardAction {
   const char* key;
   const char* label;
   const char* default_binding;
 };
 
-// The controls the launcher offers, in page order. Guide is left out: it is empty by default and the pad ignores it.
-// The defaults mirror ReXGlue 0.10.0; Reset all settings and Keyboard defaults restore exactly these.
+// Guide is left out: it is empty by default and the pad ignores it. The defaults mirror ReXGlue 0.10.0.
 inline constexpr std::array<KeyboardAction, 24> kKeyboardActions = {{
     {"keybind_a", "A", "Semicolon,Space"},
     {"keybind_b", "B", "Quote,Backspace"},
@@ -69,8 +61,7 @@ inline std::string_view Trim(std::string_view text) {
 
 }  // namespace keybind_detail
 
-// The ReXGlue key name for an ImGui key, or nullptr when ReXGlue has no name for it: a mouse or gamepad key, a bare
-// modifier (one can never fire), or a key its keybind parser does not accept.
+// The ReXGlue key name for an ImGui key, or nullptr when its keybind parser has none.
 inline const char* KeyboardKeyName(ImGuiKey key) {
   switch (key) {
     case ImGuiKey_Tab:
@@ -109,8 +100,7 @@ inline const char* KeyboardKeyName(ImGuiKey key) {
     case ImGuiKey_RightShift:
     case ImGuiKey_LeftAlt:
     case ImGuiKey_RightAlt:
-      // Modifiers prefix a binding ("Shift+Up"); on their own they can never fire, so ReXGlue never names them as a
-      // binding.
+      // Modifiers only prefix a binding; on their own they never fire.
       return nullptr;
     case ImGuiKey_Apostrophe:
       return "Quote";
@@ -180,10 +170,7 @@ inline const char* KeyboardKeyName(ImGuiKey key) {
   return nullptr;
 }
 
-// Whether the port already handles this key itself. Such a key may not be a gameplay binding, so a press does not
-// reach the game and the port action at once. The list is the keys with a live listener (F2 frame counter, F3 debug
-// overlay, F4 settings overlay, F7 achievements, F10 cheat menu, F11 fullscreen, Backtick console) plus Escape and
-// F12, which stay reserved and unbound.
+// Keys the port or the runtime handles itself, plus Escape and F12, cannot also be gameplay bindings.
 inline bool KeyboardBindingIsReserved(ImGuiKey key) {
   switch (key) {
     case ImGuiKey_Escape:
@@ -201,8 +188,7 @@ inline bool KeyboardBindingIsReserved(ImGuiKey key) {
   }
 }
 
-// The binding to store for a captured key, e.g. "Space" or "Shift+Up". Empty when the key cannot be bound: a mouse or
-// gamepad key, a key ReXGlue does not name, a bare modifier, or a reserved key.
+// The binding to store for a captured key; empty when the key cannot be bound.
 inline std::string KeyboardBindingFor(ImGuiKey key, bool shift, bool ctrl, bool alt) {
   const char* name = KeyboardKeyName(key);
   if (!name || KeyboardBindingIsReserved(key)) {
@@ -278,8 +264,7 @@ inline bool BindingPartIsValid(std::string_view part) {
 
 }  // namespace keybind_detail
 
-// Whether every part of a stored binding is a key ReXGlue names and none is reserved. An empty or partly unusable
-// binding is invalid.
+// Every part must be a key ReXGlue names, and none may be reserved.
 inline bool KeyboardBindingIsValid(std::string_view binding) {
   bool any = false;
   std::size_t start = 0;
@@ -299,8 +284,7 @@ inline bool KeyboardBindingIsValid(std::string_view binding) {
   return any;
 }
 
-// What the launcher shows and edits for an action: the stored value, or the default when the stored value is missing
-// or not something ReXGlue can use. Edits stay pending in the store until Save or Play.
+// The stored binding, or the default when it is missing or unusable.
 inline std::string SavedKeyboardBinding(const trg::SettingsStore& settings, const KeyboardAction& action) {
   const std::string saved = settings.Get(action.key);
   return KeyboardBindingIsValid(saved) ? saved : std::string(action.default_binding);

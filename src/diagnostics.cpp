@@ -3,6 +3,7 @@
 #include <cstdio>
 
 #include "frame_limiter.h"
+#include "visual_interpolation.h"
 
 namespace gw2 {
 namespace {
@@ -151,7 +152,15 @@ std::string SimulationRateText(int fps) {
 }
 
 std::string InterpolationPolicyText(int fps) {
-  return IsHighFrameRate(fps) ? "Automatic, pending measurement" : "Inactive";
+  switch (InterpolationPolicyFor(fps)) {
+    case InterpolationPolicy::kOn:
+      return "On";
+    case InterpolationPolicy::kMeasured:
+      return "Automatic, by guest render rate";
+    case InterpolationPolicy::kOff:
+      break;
+  }
+  return "Inactive";
 }
 
 std::string PresentModeText(int fps) {

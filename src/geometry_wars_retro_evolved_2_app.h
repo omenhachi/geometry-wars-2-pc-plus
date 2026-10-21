@@ -99,6 +99,7 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
     gw2::LoadPlayerSettings(gw2::LauncherSettingsPath(user_data_root()));
     gw2::ApplyDetailedLogging();
     gw2::InstallSessionLogCleanup();
+    gw2::RemoveDiscardedSessionLogs();
     const gw2::ApplicationIdentity identity{
         .product = "Geometry Wars: Retro Evolved 2",
         .version = GW2_PORT_VERSION,
@@ -255,10 +256,10 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
   }
 
   // Window close is a hard exit: the base TerminateTitle would wait on guest threads that are still running guest
-  // code. Finalizing here is the only chance to apply the logging policy before the process ends.
+  // code. Those threads may still log, so logging is not shut down here.
   void OnClosing(rex::ui::UIEvent&) override {
     REXLOG_INFO("Window closing, hard-exiting process.");
-    gw2::FinalizeSessionLog();
+    gw2::DiscardSessionLogBeforeHardExit();
     rex::FlushLogging();
     std::_Exit(0);
   }
@@ -330,7 +331,7 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
     return launcher_open_ || gw2::CheatMenuOpen() || achievements_ != nullptr;
   }
 
-  // The new process owns the game, so this one exits the way ReXApp::OnClosing does, without the subsystem teardown.
+  // The new process owns the game, so this one hard-exits like OnClosing, without the subsystem teardown.
   // Deferred, so the launcher has saved its placement first.
   bool RestartInNewWindow() {
     if (!gw2::RelaunchSelf(L"--gw2_skip_launcher=true")) {

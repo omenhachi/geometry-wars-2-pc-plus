@@ -72,7 +72,7 @@ struct CrashReport {
 // Last runtime state shown in the crash report. Written at startup and on interpolation transitions only.
 void SetCrashRuntimeState(const char* frame_rate, const char* simulation, const char* interpolation,
                           const char* present, const char* gpu);
-void SetCrashInterpolationState(bool active, double measured_hz);
+void SetCrashInterpolationState(bool active, double render_hz);
 
 // Resolves a native instruction address to a recompiled guest function. Installed by the guest-function lookup.
 using CrashGuestFunctionResolver = void (*)(uint64_t host_address, CrashGuestRef* out);

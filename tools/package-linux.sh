@@ -97,7 +97,7 @@ mkdir -p "$WORK/game/extracted" "$WORK/third_party" "$WORK/tools"
 for f in CMakeLists.txt CMakePresets.json geometry_wars_retro_evolved_2_manifest.toml LICENSE tools/build-patched-rexruntime.sh; do
   rsync -a "$ROOT/$f" "$WORK/$f"
 done
-for d in assets config src tests generated packaging patches/rexglue-sdk third_party/trg-launcher; do
+for d in assets config src tests generated packaging patches/rexglue-sdk patches/trg-launcher third_party/trg-launcher; do
   mkdir -p "$WORK/$d"
   rsync -a --delete --exclude .git "$ROOT/$d/" "$WORK/$d/"
 done

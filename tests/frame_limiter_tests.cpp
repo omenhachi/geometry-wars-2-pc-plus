@@ -297,8 +297,8 @@ void TestSimulationPacer() {
   for (const double fps : {60.0, 90.0, 120.0, 144.0, 165.0, 240.0, 1000.0}) {
     SimulationPacer pacer;
     const PacerRun run = SimulatePacer(pacer, int(10.0 * fps), 1.0 / fps);
-    CHECK(run.ticks == 600);
-    CHECK(Near(run.sim, 10.0));
+    CHECK(run.ticks == 600 || run.ticks == 601);
+    CHECK(run.sim >= run.real - kEps && run.sim <= run.real + (1.0 + kEarlyStepShare) * kStep + kEps);
     CHECK(run.largest == kStep);
   }
 
@@ -311,6 +311,17 @@ void TestSimulationPacer() {
   const PacerRun mixed = SimulatePacer(10.0, Cycle({1.0 / 90.0, 1.0 / 165.0, 1.0 / 240.0, 1.0 / 120.0}));
   CHECK(mixed.ticks <= 601);
   CHECK(std::fabs(mixed.sim - mixed.real) <= kStep + kEps);
+
+  Section("simulation pacer at a jittered 60 Hz cadence");
+  SimulationPacer cadence;
+  int one_step_frames = 0;
+  for (int i = 0; i < 600; ++i) {
+    double step_delta = 0.0;
+    if (cadence.Tick(kStep + (i % 2 == 0 ? -0.00005 : 0.00005), kStep, step_delta) && Near(step_delta, kStep)) {
+      ++one_step_frames;
+    }
+  }
+  CHECK(one_step_frames == 600);
 
   Section("simulation pacer below 60");
   SimulationPacer slow;
@@ -358,6 +369,16 @@ void TestFixedStepGate() {
     }
     CHECK(ticks == 600);
   }
+
+  Section("visual clock gate at a jittered 60 Hz cadence");
+  FixedStepGate cadence;
+  int cadence_ticks = 0;
+  for (int i = 0; i < 600; ++i) {
+    if (cadence.Tick(kStep + (i % 2 == 0 ? -0.00005 : 0.00005), kStep)) {
+      ++cadence_ticks;
+    }
+  }
+  CHECK(cadence_ticks == 600);
 
   Section("visual clock gate does not catch up");
   FixedStepGate stalled;

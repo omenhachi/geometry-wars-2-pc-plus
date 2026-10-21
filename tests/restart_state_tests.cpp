@@ -110,7 +110,7 @@ void TestStartupDiagnostics(const std::filesystem::path& shipped) {
   CHECK(Has(text, "Runtime GPU: selected=Automatic | resolved="));
   CHECK(Has(text, "Runtime display: 1920x1080@60Hz | scale=150% | monitor=1 | windowed | "
                   "window=1152x493 | output=1728x740 | aspect=21:9"));
-  CHECK(Has(text, "Runtime timing: simulation=60Hz | interpolation=Automatic, pending measurement | "
+  CHECK(Has(text, "Runtime timing: simulation=60Hz | interpolation=Automatic, by guest render rate | "
                   "present=guest Immediate | host VBlank (VSync On)"));
 
   rex::ShutdownLogging();
