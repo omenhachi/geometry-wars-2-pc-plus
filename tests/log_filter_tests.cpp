@@ -2,6 +2,7 @@
 // rotating log file, and the session-log lifecycle that keeps a crash log but discards a normal-session log when
 // Detailed logging is off. Run: gw2_log_filter_tests
 
+#include <atomic>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -11,6 +12,8 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <thread>
+#include <vector>
 
 #include <rex/cvar.h>
 #include <rex/logging.h>
@@ -161,6 +164,60 @@ void TestCrashReportIndependent() {
   CHECK(Has(std::string(detailed, detailed_length), "Exception code: 0xC0000005"));
 }
 
+void TestConcurrentReconfiguration(const std::filesystem::path& active) {
+  std::printf("Detailed logging can change while other threads log\n");
+  SetDetailedLogging(true);
+  const std::vector<spdlog::sink_ptr> installed = rex::GetLoggerRaw(rex::log::core())->sinks();
+  for (int i = 0; i < 50; ++i) {
+    SetDetailedLogging(i % 2 == 0);
+  }
+  CHECK(rex::GetLoggerRaw(rex::log::core())->sinks() == installed);
+
+  constexpr int kThreads = 4;
+  constexpr int kMessages = 2000;
+  constexpr int kChanges = 400;
+  std::atomic<bool> go{false};
+  std::vector<std::thread> threads;
+  for (int t = 0; t < kThreads; ++t) {
+    threads.emplace_back([&go, t] {
+      while (!go.load()) {
+        std::this_thread::yield();
+      }
+      for (int i = 0; i < kMessages; ++i) {
+        REXLOG_INFO("chatter {} {}", t, i);
+        REXLOG_WARN("kept {} {}", t, i);
+      }
+    });
+  }
+  go = true;
+  for (int i = 0; i < kChanges; ++i) {
+    SetDetailedLogging(i % 2 == 0);
+  }
+  for (std::thread& thread : threads) {
+    thread.join();
+  }
+  CHECK(rex::GetLoggerRaw(rex::log::core())->sinks() == installed);
+
+  SetDetailedLogging(true);
+  REXLOG_INFO("detailed after reconfiguration");
+  SetDetailedLogging(false);
+  REXLOG_INFO("chatter after minimal");
+  REXLOG_WARN("warning after minimal");
+  rex::FlushLogging();
+
+  const std::string log = ReadText(active);
+  size_t kept = 0;
+  for (size_t at = log.find("kept "); at != std::string::npos; at = log.find("kept ", at + 1)) {
+    ++kept;
+  }
+  CHECK(kept == size_t(kThreads) * kMessages);
+  CHECK(Has(log, "detailed after reconfiguration"));
+  CHECK(!Has(log, "chatter after minimal"));
+  CHECK(Has(log, "warning after minimal"));
+
+  SetDetailedLogging(true);
+}
+
 void TestSessionLifecycle(const std::filesystem::path& dir) {
   std::printf("Detailed retains the session log, Minimal discards only the active log\n");
   rex::LogConfig config;
@@ -176,6 +233,7 @@ void TestSessionLifecycle(const std::filesystem::path& dir) {
   CHECK(!active.empty());
   CHECK(std::filesystem::exists(active));
 
+  TestConcurrentReconfiguration(active);
   SetDetailedLogging(true);
   CHECK(!gw2::MinimalLogFilterInstalled());
   REXLOG_INFO("launcher detailed segment");

@@ -1,5 +1,6 @@
 #include "log_filter.h"
 
+#include <atomic>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -7,6 +8,7 @@
 
 #include <rex/cvar.h>
 #include <rex/logging.h>
+#include <spdlog/details/null_mutex.h>
 #include <spdlog/sinks/base_sink.h>
 #include <spdlog/sinks/rotating_file_sink.h>
 
@@ -45,8 +47,10 @@ constexpr std::string_view kEssentialInfo[] = {
     "Restarted in a new window",
 };
 
-// Forwards the messages Minimal mode keeps to the next sink.
-class MinimalLogSink final : public spdlog::sinks::base_sink<std::mutex> {
+std::atomic<bool> g_minimal{false};
+
+// Drops what Minimal mode leaves out while the mode is on. The target does the locking.
+class MinimalLogSink final : public spdlog::sinks::base_sink<spdlog::details::null_mutex> {
  public:
   explicit MinimalLogSink(spdlog::sink_ptr target) : target_(std::move(target)) {}
 
@@ -56,7 +60,7 @@ class MinimalLogSink final : public spdlog::sinks::base_sink<std::mutex> {
   void sink_it_(const spdlog::details::log_msg& msg) override {
     const std::string_view category(msg.logger_name.data(), msg.logger_name.size());
     const std::string_view message(msg.payload.data(), msg.payload.size());
-    if (ShouldLogInMinimalMode(msg.level, category, message)) {
+    if (!g_minimal.load(std::memory_order_relaxed) || ShouldLogInMinimalMode(msg.level, category, message)) {
       target_->log(msg);
     }
   }
@@ -98,7 +102,7 @@ class ExitMessageSink final : public spdlog::sinks::base_sink<std::mutex> {
   spdlog::sink_ptr target_;
 };
 
-spdlog::sink_ptr g_filter;
+bool g_installed = false;
 
 // The GPU plugin registers its category on first use; do it here so its logger takes the filter.
 void RegisterBuiltInCategories() {
@@ -147,24 +151,21 @@ void ReplaceFileChain(const spdlog::sink_ptr& file, const spdlog::sink_ptr& top)
   }
 }
 
-void RebuildFileFilter() {
+// Logger sink lists are read without a lock by every logging thread, so they are rewritten only here and in
+// ReleaseMinimalLogFilter, when no other thread logs. Later mode changes only flip g_minimal.
+void InstallFileFilter() {
   RegisterBuiltInCategories();
   const spdlog::sink_ptr file = FindFileSink();
-  g_filter.reset();
   if (!file) {
     return;
   }
 
   auto exit_filter = std::make_shared<ExitMessageSink>(file);
   exit_filter->set_level(file->level());
-  spdlog::sink_ptr top = exit_filter;
-  if (!DetailedLoggingEnabled()) {
-    auto minimal = std::make_shared<MinimalLogSink>(exit_filter);
-    minimal->set_level(file->level());
-    top = minimal;
-    g_filter = minimal;
-  }
-  ReplaceFileChain(file, top);
+  auto minimal = std::make_shared<MinimalLogSink>(exit_filter);
+  minimal->set_level(file->level());
+  ReplaceFileChain(file, minimal);
+  g_installed = true;
 }
 
 }  // namespace
@@ -203,11 +204,14 @@ bool DetailedLoggingEnabled() {
 }
 
 void ApplyDetailedLogging() {
-  RebuildFileFilter();
+  if (!g_installed) {
+    InstallFileFilter();
+  }
+  g_minimal.store(!DetailedLoggingEnabled(), std::memory_order_relaxed);
 }
 
 bool MinimalLogFilterInstalled() {
-  return g_filter != nullptr;
+  return g_installed && g_minimal.load(std::memory_order_relaxed);
 }
 
 void ReleaseMinimalLogFilter() {
@@ -215,7 +219,7 @@ void ReleaseMinimalLogFilter() {
   if (file) {
     ReplaceFileChain(file, file);
   }
-  g_filter.reset();
+  g_installed = false;
 }
 
 }  // namespace gw2

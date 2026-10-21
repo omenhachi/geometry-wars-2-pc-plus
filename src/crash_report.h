@@ -5,10 +5,8 @@
 
 namespace gw2 {
 
-// Single-log Windows crash reporting: an unhandled exception appends one CRASH REPORT block to the log file of the
-// current run. A bug report only needs that same log, so no crash-*.txt and no minidump is written. The Windows
-// write path avoids the logger, the heap and application locks; the block formatter stays pure so its layout is
-// tested without a real crash. A no-op outside Windows.
+// Windows crash reporting: an unhandled exception appends one CRASH REPORT block to the current run's log. The write
+// path avoids the logger, the heap and application locks. A no-op outside Windows.
 
 struct CrashLogTime {
   int year = 0;

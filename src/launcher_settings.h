@@ -87,8 +87,8 @@ class CvarAccess {
   virtual bool RestartPending() const = 0;
 };
 
-// Sets the Xenos native_2x_msaa from the Multisampling choice, also replacing a native_2x_msaa = false that older
-// launchers saved for "Off". The render target caches read it once, when the runtime is set up.
+// Sets the Xenos native_2x_msaa from the Multisampling choice. The render target caches read it once, when the
+// runtime is set up.
 void ApplyMultisampling(CvarAccess& cvars);
 
 // Makes the D3D12 render target path the host one when Internal render resolution is below 100% and no path is

@@ -6,23 +6,21 @@
 
 namespace gw2 {
 
-// Minimal mode keeps warnings, errors and the first-line startup diagnostics; it drops the ordinary runtime
-// chatter. Pure, so the classification can be tested without a logger.
+// Minimal mode keeps warnings, errors and the startup diagnostics; it drops the ordinary runtime chatter.
 bool ShouldLogInMinimalMode(spdlog::level::level_enum level, std::string_view category,
                             std::string_view message);
 
-// The `detailed_logging` setting in effect now: true unless it is explicitly off. A missing or malformed value
-// means Detailed logging.
+// The `detailed_logging` setting: true unless it is explicitly off.
 bool DetailedLoggingEnabled();
 
-// Adds the Minimal filter to the file sink, or removes it, to match the setting. Call it again after the launcher
-// applies the player's choice; the runtime is not started while it changes.
+// Makes the file log follow the setting. The first call wraps the file sink in the filter and must run before
+// other threads log; later calls only switch the filter and are safe at any time.
 void ApplyDetailedLogging();
 
+// Whether the filter is installed and Minimal mode is on.
 bool MinimalLogFilterInstalled();
 
-// Drops the Minimal filter and the reference it holds to the file sink, so the sink's file can be closed by
-// ShutdownLogging. Only used on the way out.
+// Unwraps the file sink so ShutdownLogging can close its file. Only on the way out, once no other thread logs.
 void ReleaseMinimalLogFilter();
 
 // The sink a logger actually writes to, looking through the Minimal filter.

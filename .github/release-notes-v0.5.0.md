@@ -21,7 +21,7 @@ v0.5.0 keeps the original game speed at high frame rates, adds automatic updates
 
 ## Launcher
 
-- **Updates**: the launcher checks the project's GitHub releases once per start. When a newer release exists, a banner appears in the header; nothing is installed until you choose **UPDATE NOW** and then **RESTART TO UPDATE**. The download is verified with its SHA-256 before anything is replaced, and only the port's own program files are replaced: the `game` folder, `user_data`, saves, settings, logs and caches are kept. On Windows the update is installed by the included `trg-updater.exe`; the Linux AppImage replaces its own file. If the check cannot reach GitHub, the launcher simply continues.
+- **Updates**: the launcher checks the project's GitHub releases once per start. When a newer release exists, a banner appears in the header; nothing is installed until you choose **UPDATE NOW** and then **RESTART TO UPDATE**. The download is verified with its SHA-256 before anything is replaced, and only the port's own program files, including the shipped `geometry_wars_retro_evolved_2.toml`, are replaced: the `game` folder, `user_data`, saves, settings, logs and caches are kept. On Windows the update is installed by the included `trg-updater.exe`; the Linux AppImage replaces its own file. If the check cannot reach GitHub, the launcher simply continues.
 - **Keyboard remapping** (Controls page): every keyboard control can be changed by clicking it and pressing the new key, and **Keyboard defaults** restores the standard layout. The Keyboard toggle is still Off by default.
 - **Controller navigation**: Xbox, PlayStation and other controllers that SDL recognizes navigate the launcher and the in-game overlays.
 - **Display scaling**: the launcher follows each monitor's scaling and redraws its text when you move it to a monitor with a different scale (Windows).
@@ -87,5 +87,5 @@ Each download has a matching `.sha256` file. Compare the SHA-256 of the file you
 
 | File | SHA-256 |
 | --- | --- |
-| `GeometryWarsRetroEvolved2-v0.5.0-windows-x64.zip` | `d297c474661ef581e01a885c27814379c37bd886e42370bfe27fda034685b2ae` |
-| `GeometryWarsRetroEvolved2Recompiled-v0.5.0-x86_64.AppImage` | `0d435771385b169d6c006e01c4783a8998e2b301bda50c26c54ce3cd208baf57` |
+| `GeometryWarsRetroEvolved2-v0.5.0-windows-x64.zip` | `249c38ae688477d5d755ce5a26a9f1d18f50897e8ba9beceed621b8af741df8b` |
+| `GeometryWarsRetroEvolved2Recompiled-v0.5.0-x86_64.AppImage` | `afe84166029458897a6f1c8222f954c44687d89aa3c39d0ddbc6a46d0281fd14` |

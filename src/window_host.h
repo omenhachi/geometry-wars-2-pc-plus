@@ -19,8 +19,7 @@ namespace gw2 {
 
 inline constexpr char kWindowTitle[] = "Geometry Wars: Retro Evolved 2";
 
-// The game's measured frame rate, from the swaps the game makes. The title, the frame counter and the SDK's F3
-// overlay all read these values.
+// The game's measured frame rate, from the swaps the game makes.
 struct GuestFrameStats {
   double fps = 0;
   double frame_time_ms = 0;
