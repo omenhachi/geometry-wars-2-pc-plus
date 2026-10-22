@@ -1,7 +1,8 @@
 #pragma once
 
 // A stroke font in the style of the game's vector lettering: square, angular capitals made of straight lines, drawn as
-// neon (a wide faint glow under a crisp line). Each glyph is polylines on a grid 4 wide and 6 tall, y down.
+// neon (a wide faint glow under a crisp line). Diagonals stay short (M, W and V are bevelled), since long sharp points
+// spike the glow and clash with the boxy letters. Each glyph is polylines on a grid 4 wide and 6 tall, y down.
 
 #include <algorithm>
 #include <cctype>
@@ -41,7 +42,7 @@ inline const Glyph& GlyphFor(char c) {
       {'J', {4, {{{4, 0}, {4, 6}, {0, 6}, {0, 4}}}}},
       {'K', {4, {{{0, 0}, {0, 6}}, {{4, 0}, {0, 3.2f}, {4, 6}}}}},
       {'L', {4, {{{0, 0}, {0, 6}, {4, 6}}}}},
-      {'M', {4.6f, {{{0, 6}, {0, 0}, {2.3f, 3}, {4.6f, 0}, {4.6f, 6}}}}},
+      {'M', {4.6f, {{{0, 6}, {0, 0}, {1, 0}, {2.3f, 1.8f}, {3.6f, 0}, {4.6f, 0}, {4.6f, 6}}}}},
       {'N', {4, {{{0, 6}, {0, 0}, {4, 6}, {4, 0}}}}},
       {'O', {4, {{{0, 0}, {4, 0}, {4, 6}, {0, 6}, {0, 0}}}}},
       {'P', {4, {{{0, 6}, {0, 0}, {4, 0}, {4, 3}, {0, 3}}}}},
@@ -50,8 +51,8 @@ inline const Glyph& GlyphFor(char c) {
       {'S', {4, {{{4, 0}, {0, 0}, {0, 3}, {4, 3}, {4, 6}, {0, 6}}}}},
       {'T', {4, {{{0, 0}, {4, 0}}, {{2, 0}, {2, 6}}}}},
       {'U', {4, {{{0, 0}, {0, 6}, {4, 6}, {4, 0}}}}},
-      {'V', {4, {{{0, 0}, {2, 6}, {4, 0}}}}},
-      {'W', {4.8f, {{{0, 0}, {1.2f, 6}, {2.4f, 2.8f}, {3.6f, 6}, {4.8f, 0}}}}},
+      {'V', {4, {{{0, 0}, {0, 3.5f}, {2, 6}, {4, 3.5f}, {4, 0}}}}},
+      {'W', {4.8f, {{{0, 0}, {0, 6}, {1, 6}, {2.4f, 4.2f}, {3.8f, 6}, {4.8f, 6}, {4.8f, 0}}}}},
       {'X', {4, {{{0, 0}, {4, 6}}, {{4, 0}, {0, 6}}}}},
       {'Y', {4, {{{0, 0}, {2, 3}, {4, 0}}, {{2, 3}, {2, 6}}}}},
       {'Z', {4, {{{0, 0}, {4, 0}, {0, 6}, {4, 6}}}}},
