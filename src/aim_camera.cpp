@@ -21,6 +21,7 @@
 #include "aspect_ratio.h"
 #include "cheat_menu.h"
 #include "guest_memory.h"
+#include "hud_colour.h"
 #include "king_records.h"
 #include "launcher_cvars.h"
 #include "launcher_settings.h"
@@ -231,11 +232,22 @@ ImU32 Neon(float h, float white, float alpha) {
       ImVec4(r + (1.0f - r) * white, g + (1.0f - g) * white, b + (1.0f - b) * white, alpha));
 }
 
+// How the crosshair's colours spread: the full spectrum (a quarter of it per arm), or with an interface colour chosen
+// (hud_colour.h), every arm in that colour with a slight shimmer along it, paler as the colour is.
+struct CrosshairPalette {
+  float arm_step = 0.25f;
+  float segment_step = 0.04f;
+  float centre_offset = 0.5f;
+  float white = 0.0f;
+};
+
+const CrosshairPalette kSpectrum{};
+
 // One pass of the four arms pointing at p, turned by angle. Each runs from `outer` in to `inner` from the centre; a
-// negative inner carries the arms past the centre, so they cross. Each arm is a gradient a quarter of the spectrum
-// on from the one before, starting at hue.
+// negative inner carries the arms past the centre, so they cross. Each arm is a gradient from hue, spread by the
+// palette.
 void DrawCrosshairArms(ImDrawList* draw, ImVec2 p, float angle, float inner, float outer, float hue, float white,
-                       float alpha, float thickness, bool outline) {
+                       float alpha, float thickness, bool outline, const CrosshairPalette& palette) {
   for (int i = 0; i < 4; ++i) {
     const float a = angle + float(i) * 1.5707964f;
     const float c = std::cos(a);
@@ -243,22 +255,38 @@ void DrawCrosshairArms(ImDrawList* draw, ImVec2 p, float angle, float inner, flo
     for (int k = 0; k < kCrosshairSegments; ++k) {
       const float r0 = outer + (inner - outer) * float(k) / kCrosshairSegments;
       const float r1 = outer + (inner - outer) * float(k + 1) / kCrosshairSegments;
-      const ImU32 color = outline ? kCrosshairOutline : Neon(hue + float(i) * 0.25f + float(k) * 0.04f, white, alpha);
+      const ImU32 color =
+          outline ? kCrosshairOutline
+                  : Neon(hue + float(i) * palette.arm_step + float(k) * palette.segment_step,
+                         white + (1.0f - white) * palette.white, alpha);
       draw->AddLine(ImVec2(p.x + c * r0, p.y + s * r0), ImVec2(p.x + c * r1, p.y + s * r1), color, thickness);
     }
   }
 }
 
-void DrawCrosshair(ImDrawList* draw, ImVec2 p, float size, float thickness, float angle, float spread, float hue) {
+void DrawCrosshair(ImDrawList* draw, ImVec2 p, float size, float thickness, float angle, float spread, float hue,
+                   const CrosshairPalette& palette) {
   // spread 1 is the resting gap, 0 the arms just meeting, below 0 crossing.
   const float inner = size * 0.3f * spread;
   const float outer = inner + size * 0.7f;
-  DrawCrosshairArms(draw, p, angle, inner, outer, hue, 0.0f, 1.0f, thickness + 4.0f, true);
-  DrawCrosshairArms(draw, p, angle, inner, outer, hue, 0.0f, 0.35f, thickness * 3.0f, false);
-  DrawCrosshairArms(draw, p, angle, inner, outer, hue, 0.1f, 1.0f, thickness, false);
-  DrawCrosshairArms(draw, p, angle, inner, outer, hue, 0.75f, 1.0f, thickness * 0.4f, false);
+  DrawCrosshairArms(draw, p, angle, inner, outer, hue, 0.0f, 1.0f, thickness + 4.0f, true, palette);
+  DrawCrosshairArms(draw, p, angle, inner, outer, hue, 0.0f, 0.35f, thickness * 3.0f, false, palette);
+  DrawCrosshairArms(draw, p, angle, inner, outer, hue, 0.1f, 1.0f, thickness, false, palette);
+  DrawCrosshairArms(draw, p, angle, inner, outer, hue, 0.75f, 1.0f, thickness * 0.4f, false, palette);
   draw->AddCircleFilled(p, thickness * 0.9f + 2.0f, kCrosshairOutline);
-  draw->AddCircleFilled(p, thickness * 0.9f, Neon(hue + 0.5f, 0.6f, 1.0f));
+  draw->AddCircleFilled(p, thickness * 0.9f, Neon(hue + palette.centre_offset, 0.6f, 1.0f));
+}
+
+// The crosshair in the interface colour: Green and Rainbow keep the spectrum, anything else tints it.
+float TintCrosshair(float hue, CrosshairPalette& palette) {
+  using gw2::hud_colour::Preset;
+  const Preset preset = gw2::hud_colour::CurrentPreset();
+  if (preset == Preset::kGreen || preset == Preset::kRainbow) return hue;
+  const auto look = gw2::hud_colour::CurrentLook(0);
+  if (!look) return hue;
+  palette = {0.0f, 0.008f, 0.0f, 1.0f - std::clamp(look->saturation, 0.0f, 1.0f)};
+  // The moving hue becomes a gentle shimmer around the chosen one.
+  return look->hue / 360.0f + 0.03f * std::sin(hue * 6.2831855f);
 }
 
 class MouseAimOverlay final : public rex::ui::ImGuiDialog {
@@ -342,8 +370,10 @@ class MouseAimOverlay final : public rex::ui::ImGuiDialog {
     } else {
       spread_ = 1.0f;
     }
+    CrosshairPalette palette = kSpectrum;
+    hue = TintCrosshair(hue, palette);
     DrawCrosshair(ImGui::GetForegroundDrawList(), io.MousePos, canvas.height * kCrosshairSizeShare,
-                  std::max(3.0f, canvas.height * kCrosshairThicknessShare), angle, spread_, hue);
+                  std::max(3.0f, canvas.height * kCrosshairThicknessShare), angle, spread_, hue, palette);
   }
 
  private:

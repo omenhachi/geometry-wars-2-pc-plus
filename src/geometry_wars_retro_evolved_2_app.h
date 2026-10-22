@@ -23,6 +23,7 @@
 #include "diagnostics.h"
 #include "frame_counter.h"
 #include "game_files.h"
+#include "hud_colour_hooks.h"
 #include "graphics_fallback.h"
 #include "guest_functions.h"
 #include "input_summary.h"
@@ -179,6 +180,13 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
       gw2::InstallKeyboardDiagram(defaults.game_data_root);
       InstallTitleLogo(defaults.game_data_root);
     }
+    gw2::ApplyHudColourSetting();
+    gw2::SetHudColourSaver([this](std::string_view key, std::string value) {
+      app_context().CallInUIThreadDeferred([this, key = std::string(key), value = std::move(value)] {
+        cvars_.Assign(key, value);
+        settings_->SaveNow(key, value);
+      });
+    });
     const bool show = gw2::LauncherWanted(game_ready, gw2::ShowLauncherSetting(*settings_), gw2::ShiftHeld(),
                                           gw2::TakeSkipLauncher());
     if (!show || !imgui_drawer()) {
@@ -200,6 +208,7 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
                            gw2::ApplyDetailedLogging();
                            gw2::InstallKeyboardDiagram(defaults.game_data_root);
                            InstallTitleLogo(defaults.game_data_root);
+                           gw2::ApplyHudColourSetting();
                            resume(defaults);
                          });
                        },
@@ -228,6 +237,7 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
                       {.play = [this] {
                          launcher_open_ = false;
                          gw2::ApplyDetailedLogging();
+                         gw2::ApplyHudColourSetting();
                          StartGame();
                        },
                        .restart = [this] { return RestartInNewWindow(); },

@@ -35,6 +35,9 @@ REXCVAR_DEFINE_BOOL(gw2_online_leaderboards, gw2::kOnlineLeaderboardsDefault, "G
 REXCVAR_DEFINE_STRING(gw2_player_name, "", "Geometry Wars", "The name shown on the online leaderboards");
 REXCVAR_DEFINE_BOOL(gw2_player_name_asked, false, "Geometry Wars",
                     "Whether the launcher has asked for a player name (it asks once)");
+REXCVAR_DEFINE_STRING(gw2_hud_colour, "green", "Geometry Wars",
+                      "Menu and HUD colour: green, blue, purple, pink, gold, rainbow or custom");
+REXCVAR_DEFINE_STRING(gw2_hud_colour_custom, "", "Geometry Wars", "The custom menu and HUD colour, as #RRGGBB");
 REXCVAR_DEFINE_BOOL(gw2_show_fps, gw2::kShowFpsDefault, "Geometry Wars",
                     "Show the frame rate in the window title");
 REXCVAR_DEFINE_BOOL(gw2_show_render_resolution, gw2::kShowResolutionDefault, "Geometry Wars",

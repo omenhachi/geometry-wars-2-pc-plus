@@ -42,6 +42,9 @@ inline constexpr bool kOnlineLeaderboardsDefault = true;
 inline constexpr char kPlayerNameKey[] = "gw2_player_name";
 // Set once the launcher has asked for a player name, whichever way it was answered, so it asks only once.
 inline constexpr char kPlayerNameAskedKey[] = "gw2_player_name_asked";
+// The interface colour (hud_colour.h): a preset name, and the custom colour as #RRGGBB.
+inline constexpr char kHudColourKey[] = "gw2_hud_colour";
+inline constexpr char kHudColourCustomKey[] = "gw2_hud_colour_custom";
 inline constexpr char kShowFpsKey[] = "gw2_show_fps";
 inline constexpr bool kShowFpsDefault = true;
 inline constexpr char kShowResolutionKey[] = "gw2_show_render_resolution";

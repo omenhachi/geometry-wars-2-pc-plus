@@ -44,6 +44,8 @@ std::vector<ManagedSetting> BuildManagedSettings() {
       {kOnlineLeaderboardsKey, ValueKind::kBool},
       {kPlayerNameKey, ValueKind::kString},
       {kPlayerNameAskedKey, ValueKind::kBool},
+      {kHudColourKey, ValueKind::kString},
+      {kHudColourCustomKey, ValueKind::kString},
       {kFrameRateKey, ValueKind::kInt},
       {kShowFpsKey, ValueKind::kBool},
       {kShowResolutionKey, ValueKind::kBool},

@@ -15,6 +15,8 @@ REXCVAR_DECLARE(bool, gw2_vibration);
 REXCVAR_DECLARE(bool, gw2_online_leaderboards);
 REXCVAR_DECLARE(std::string, gw2_player_name);
 REXCVAR_DECLARE(bool, gw2_player_name_asked);
+REXCVAR_DECLARE(std::string, gw2_hud_colour);
+REXCVAR_DECLARE(std::string, gw2_hud_colour_custom);
 REXCVAR_DECLARE(bool, gw2_show_fps);
 REXCVAR_DECLARE(bool, gw2_show_render_resolution);
 REXCVAR_DECLARE(bool, gw2_show_frame_counter);

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cfloat>
+#include <cstdio>
 #include <cmath>
 #include <cstdint>
 #include <filesystem>
@@ -36,6 +37,7 @@
 #include "dpi.h"
 #include "frame_limiter.h"
 #include "game_files.h"
+#include "hud_colour.h"
 #include "imgui_gamepad.h"
 #include "keybinds.h"
 #include "launcher_achievements.h"
@@ -69,6 +71,8 @@ constexpr char kShowLauncherHelp[] = "Off starts the game directly. Hold Shift w
 constexpr char kWindowSizeHelp[] =
     "The game window's size in Windowed mode. A new window: the game restarts once when you press Play.";
 constexpr char kMonitorHelp[] = "The display the game opens on. A new window: the game restarts once when you press Play.";
+constexpr char kHudColourHelp[] =
+    "The menus, the HUD and the crosshair. Also in the game: Help and options, Settings, Colour.";
 constexpr char kVSyncHelp[] = "On prevents tearing. Off allows it, for the lowest latency and G-Sync/FreeSync.";
 constexpr char kShowFpsHelp[] =
     "Shows the game's frame rate in the window title: Geometry Wars: Retro Evolved 2 | FPS: 60.00";
@@ -674,7 +678,90 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
       SelectWindowSizeForAspect();
     }
     ui.Choice("VSync", kVSyncHelp, kVSyncKey, "true", {{"true", "Off"}, {"false", "On"}}, 2);
+    ui.Row("Colour", kHudColourHelp);
+    HudColourSwatches(ui);
     ui.EndRows();
+  }
+
+  // One swatch per preset, each showing the game's green in that colour, and Custom opening a colour picker.
+  void HudColourSwatches(trg::Ui& ui) {
+    namespace colour = gw2::hud_colour;
+    trg::SettingsStore& settings = ui.settings();
+    const colour::Preset current =
+        colour::Parse(settings.Get(kHudColourKey, "green")).value_or(colour::Preset::kGreen);
+    const std::string custom_hex = settings.Get(kHudColourCustomKey);
+    const auto custom = colour::CustomLook(custom_hex);
+    const trg::Theme& theme = ui.theme();
+    const float s = ui.scale();
+    const double seconds = ImGui::GetTime();
+    constexpr colour::Preset kPresets[] = {colour::Preset::kGreen,  colour::Preset::kBlue, colour::Preset::kPurple,
+                                           colour::Preset::kPink,   colour::Preset::kGold, colour::Preset::kRainbow,
+                                           colour::Preset::kCustom};
+    const float gap = 6.0f * s;
+    const float width = (ImGui::GetContentRegionAvail().x - gap * 6) / 7.0f;
+    const float height = ImGui::GetFrameHeight();
+    ImDrawList* draw = ImGui::GetWindowDrawList();
+    ImGui::PushID("hud_colour");
+    bool open_picker = false;
+    for (int i = 0; i < 7; ++i) {
+      const colour::Preset preset = kPresets[i];
+      if (i > 0) ImGui::SameLine(0.0f, gap);
+      ImGui::PushID(i);
+      const ImVec2 min = ImGui::GetCursorScreenPos();
+      const bool pressed = ImGui::InvisibleButton("##swatch", ImVec2(width, height));
+      const bool hovered = ImGui::IsItemHovered();
+      const ImVec2 max(min.x + width, min.y + height);
+      const colour::Rgb rgb = colour::Swatch(preset, custom, seconds);
+      const ImU32 tint = ImGui::ColorConvertFloat4ToU32(ImVec4(rgb.r, rgb.g, rgb.b, 1.0f));
+      const ImU32 fill = ImGui::ColorConvertFloat4ToU32(ImVec4(rgb.r * 0.18f, rgb.g * 0.18f, rgb.b * 0.18f, 1.0f));
+      draw->AddRectFilled(min, max, fill);
+      const bool chosen = preset == current;
+      if (chosen) {
+        const ImU32 selection = ImGui::ColorConvertFloat4ToU32(theme.selection);
+        draw->AddRect(ImVec2(min.x - 3 * s, min.y - 3 * s), ImVec2(max.x + 3 * s, max.y + 3 * s), selection, 0, 0,
+                      1.5f * s);
+        draw->AddRect(min, max, selection, 0, 0, 1.5f * s);
+      } else {
+        draw->AddRect(min, max, hovered ? tint : ImGui::ColorConvertFloat4ToU32(theme.line), 0, 0, 1.0f * s);
+      }
+      const char* label = colour::Label(preset).data();
+      const ImVec2 size = ImGui::CalcTextSize(label);
+      draw->AddText(ImVec2(min.x + (width - size.x) * 0.5f, min.y + (height - size.y) * 0.5f), tint, label);
+      if (pressed) {
+        if (preset == colour::Preset::kCustom) {
+          open_picker = true;  // opened below, in the same ID scope as the popup
+        } else {
+          settings.Set(kHudColourKey, std::string(colour::Name(preset)));
+        }
+      }
+      ImGui::PopID();
+    }
+    if (open_picker) ImGui::OpenPopup("##custom_colour");
+    if (ImGui::BeginPopup("##custom_colour")) {
+      colour::Rgb start = custom ? colour::Swatch(colour::Preset::kCustom, custom, 0) : colour::Rgb{0.117f, 1, 0};
+      float picked[3] = {start.r, start.g, start.b};
+      // Keep exactly what was picked, not the swatch's game-green rendering of it.
+      if (custom) {
+        unsigned r = 0, g = 0, b = 0;
+        if (std::sscanf(custom_hex.c_str(), "#%02x%02x%02x", &r, &g, &b) == 3) {
+          picked[0] = r / 255.0f;
+          picked[1] = g / 255.0f;
+          picked[2] = b / 255.0f;
+        }
+      }
+      ImGui::TextUnformatted("Pick any colour: its hue and saturation are used, at the game's own brightness.");
+      if (ImGui::ColorPicker3("##picker", picked,
+                              ImGuiColorEditFlags_PickerHueWheel | ImGuiColorEditFlags_NoSidePreview |
+                                  ImGuiColorEditFlags_NoAlpha)) {
+        const std::string hex = colour::FormatHex({picked[0], picked[1], picked[2]});
+        if (colour::CustomLook(hex)) {
+          settings.Set(kHudColourCustomKey, hex);
+          settings.Set(kHudColourKey, "custom");
+        }
+      }
+      ImGui::EndPopup();
+    }
+    ImGui::PopID();
   }
 
   AspectRatio SelectedAspectRatio() const { return ParseAspectRatio(settings_.Get(kAspectKey, "16:9")); }
