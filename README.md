@@ -2,7 +2,7 @@
 
 # Geometry Wars 2 PC Plus
 
-### Geometry Wars: Retro Evolved 2 running natively on PC, with real mouse aim, keyboard prompts and controls screens, on top of a native static recompilation with high frame rates and modern PC options
+### Geometry Wars: Retro Evolved 2 running natively on PC, with real mouse aim, keyboard prompts and controls screens, online leaderboards and a launcher in the game's own style, on top of a native static recompilation with high frame rates and modern PC options
 
 [![Latest release](https://img.shields.io/github/v/release/omenhachi/geometry-wars-2-pc-plus?style=for-the-badge&label=release&color=943cff&labelColor=07101f&cacheSeconds=300)](https://github.com/omenhachi/geometry-wars-2-pc-plus/releases/latest)
 ![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux%20experimental%20%7C%20Steam%20Deck%20experimental-00acc1?style=for-the-badge&labelColor=07101f)
@@ -19,12 +19,15 @@ PC Plus is based on [saulob's PC port](https://github.com/saulob/geometry-wars-r
 
 - **Mouse aim that feels like a modern twin-stick shooter.** Hold the left mouse button and your shots go straight to the cursor. The game's own aim sweeps round towards the stick like a controller would; with the mouse, the shot direction is set exactly, every frame, so it's instant. A controller still plays the original way.
 - **Right mouse button bombs**, and **Escape pauses** (and backs out of menus).
-- **An animated neon crosshair** that replaces the cursor during a round: four arms that fly in, spin, shift through the spectrum and pinch together while you fire, as thick as your bullets so it never gets lost in the chaos. `--gw2_crosshair_motion=false` keeps it still.
+- **An animated neon crosshair** that replaces the cursor during a round: four arms that fly in, spin, shift through the spectrum and pinch together while you fire, as thick as your bullets so it never gets lost in the chaos. `--gw2_crosshair_motion=false` keeps it still. In Pacifism, where your ship can't fire, the crosshair and cursor stay out of the way.
 - **Keyboard prompts everywhere.** With the keyboard or mouse in use, every menu shows the keys instead of Xbox buttons (Enter Select, Esc Back, H How To Play, L Leaderboard), and pressing a button on a controller switches them straight back.
 - **A keyboard and mouse controls screen.** The help screens show a neon keyboard and mouse diagram (WASD, Q/E, Esc and the mouse) in place of the controller, drawn in the game's own style.
 - X and Y on the keyboard default to H (How To Play) and L (Leaderboard).
+- **Online leaderboards.** Switch them on and choose a player name on the launcher's **Gameplay** page, and the game's own **Everyone** boards show the top PC Plus players for every mode, with your row highlighted. If the server can't be reached, the game quietly uses your local boards. Windows only for now.
+- **Your name in the game.** With a player name set, the menus, your leaderboard rows and your personal best show it instead of "User".
+- **A launcher that looks like Geometry Wars**: outlined violet frames, lime lettering, the game's orange double outline on the selection, line-drawn neon title lettering, and a Controls page that lists the keys by what they do.
 
-Turn on **Keyboard** on the launcher's Controls page to use all of this. PC Plus is in development; its first release is coming, and until then it can be built from source (below).
+Keyboard and mouse are on from the start (the launcher's **Keyboard** setting on the Controls page), and a controller works alongside them. Download the latest release from the [releases page](https://github.com/omenhachi/geometry-wars-2-pc-plus/releases/latest), or build it from source (below).
 
 A note on building: Windows Defender flags the official ReXGlue 0.10.0 Windows SDK zip that `tools\codegen.ps1` downloads (its `rexruntime.dll` is reported by about 28 of 71 engines on VirusTotal, while ReXGlue built from the same source tag is not). It is very likely a false positive, but you can avoid the prebuilt SDK entirely by building [ReXGlue v0.10.0](https://github.com/rexglue/rexglue-sdk/tree/v0.10.0) from source (`cmake --preset win-amd64`, then build the `install` target) and copying `out\install\win-amd64` to `tools\rexglue\win-amd64`.
 
@@ -73,7 +76,7 @@ The launcher checks the Title ID and content type when you pick the package, and
 
 ## Installing
 
-1. Download **GeometryWarsRetroEvolved2-v0.5.0-windows-x64.zip** from the [latest release](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled/releases/latest) and extract it anywhere you can write to.
+1. Download **GeometryWarsRetroEvolved2-v…-windows-x64.zip** from the [latest release](https://github.com/omenhachi/geometry-wars-2-pc-plus/releases/latest) and extract it anywhere you can write to. To update, extract over your current folder or use the launcher's update.
 2. Run **geometry_wars_retro_evolved_2.exe**. The launcher opens.
 3. On the **Play** page click **Install from package...** and pick your package. It is one file with a long hexadecimal name and no extension. On an Xbox 360 drive it is in `Content\0000000000000000\584108FF\000D0000\`.
 4. Wait until **Ready to play** appears. The game files are copied into the `game` folder next to the program. The package file itself is not copied there.
@@ -134,6 +137,7 @@ Window size, monitor, VSync, Aspect Ratio and graphics card take effect when you
 - **Frame rate in title**: shows the frame rate in the window title, for example `Geometry Wars: Retro Evolved 2 | FPS: 60.00`
 - **Render resolution in title**: shows the render resolution in the window title, for example `Geometry Wars: Retro Evolved 2 | 2560x1440` at 2x on 16:9. It is off by default; with both title options on, the resolution comes before the frame rate.
 - **Frame counter**: shows the frame rate in the corner of the window. Press **F2** while playing to show or hide it.
+- **Online leaderboards** (Windows): Off by default. When On, each finished run's score is sent to the PC Plus leaderboard server under your **Player name** (up to 15 letters, digits, spaces, `_ . -`). Only your player name, scores, input device (mouse, keyboard or controller) and game version are sent; runs with cheats on are never sent, and no account, email or IP address is kept. **Delete my online scores** removes your name and every score you've sent. Scores come from players' own PCs, so these are community boards for fun, not a tournament.
 
 ### Cheats
 - **Invincible**: the player cannot die. A shield or the short protection after a bomb still works as usual.
@@ -144,7 +148,7 @@ All three are Off by default. The launcher's Cheats page saves them and they tak
 
 ### Controls
 - Xbox controllers work without setup
-- **Keyboard**: enabled or disabled. When enabled, the keyboard and mouse emulate the controller, and the keys are listed on the page.
+- **Keyboard**: On (the default) or Off. When On, the keyboard and mouse play the game alongside any controller, and the keys are listed on the page by what they do, with a Mouse section for aiming and bombing.
 - **Vibration**: Off or On (controller rumble). Off by default, with no strength setting. When On, the controller vibrates for bombs, deaths, respawns, game over, extra lives and bombs, shield hits, the King zone, Gravity Well explosions and overloads, and gate crossings. Windows has been tested with a physical controller; Linux and Steam Deck vibration has not been confirmed on real hardware yet.
 - Online multiplayer is not supported.
 
@@ -152,9 +156,9 @@ All three are Off by default. The launcher's Cheats page saves them and they tak
 The launcher's **Achievements** page lists the game's 12 achievements (200G in total) with their icons, gamerscore and unlocked state, and a progress summary. The list appears after you have pressed **PLAY** once, from the next time the launcher opens.
 
 ### Achievements, leaderboards and Xbox Live
-Everything stays offline: there is no Xbox Live connection, Microsoft sign-in or online player.
+There is no Xbox Live connection or Microsoft sign-in. The only thing that goes online is the optional PC Plus leaderboard, and only when you switch it on.
 - **Achievements**: the game's achievements menu item and **F7** open the same list in game. B, Escape or F7 closes it. Unlocks show the usual notification and are kept between runs on this PC, with no synchronization with Xbox Live.
-- **Leaderboards**: the leaderboard screens work with your own scores only. Finished games are kept in a local file, and the boards show your row or no rows, never other players.
+- **Leaderboards**: finished games are kept in a local file. With **Online leaderboards** off, the boards show your own scores only. With it on, the **Everyone** boards show the top PC Plus players from the leaderboard server, and the local boards are used whenever the server can't be reached.
 - **Profile**: the game's profile and options are saved locally.
 
 [docs/offline-live.md](docs/offline-live.md) and [docs/offline-profile.md](docs/offline-profile.md) have the details.
