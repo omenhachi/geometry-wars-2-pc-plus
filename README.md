@@ -23,7 +23,7 @@ PC Plus is based on [saulob's PC port](https://github.com/saulob/geometry-wars-r
 - **Keyboard prompts everywhere.** With the keyboard or mouse in use, every menu shows the keys instead of Xbox buttons (Enter Select, Esc Back, H How To Play, L Leaderboard), and pressing a button on a controller switches them straight back.
 - **A keyboard and mouse controls screen.** The help screens show a neon keyboard and mouse diagram (WASD, Q/E, Esc and the mouse) in place of the controller, drawn in the game's own style.
 - X and Y on the keyboard default to H (How To Play) and L (Leaderboard).
-- **Online leaderboards.** Switch them on and choose a player name on the launcher's **Gameplay** page, and the game's own **Everyone** boards show the top PC Plus players for every mode, with your row highlighted. If the server can't be reached, the game quietly uses your local boards. Windows only for now.
+- **Online leaderboards.** Choose a player name on the launcher's **Gameplay** page, and the game's own **Everyone** boards show the top PC Plus players for every mode, with your row highlighted. If the server can't be reached, the game quietly uses your local boards. Windows only for now.
 - **Your name in the game.** With a player name set, the menus, your leaderboard rows and your personal best show it instead of "User".
 - **A launcher that looks like Geometry Wars**: outlined violet frames, lime lettering, the game's orange double outline on the selection, line-drawn neon title lettering, and a Controls page that lists the keys by what they do.
 
@@ -137,7 +137,7 @@ Window size, monitor, VSync, Aspect Ratio and graphics card take effect when you
 - **Frame rate in title**: shows the frame rate in the window title, for example `Geometry Wars: Retro Evolved 2 | FPS: 60.00`
 - **Render resolution in title**: shows the render resolution in the window title, for example `Geometry Wars: Retro Evolved 2 | 2560x1440` at 2x on 16:9. It is off by default; with both title options on, the resolution comes before the frame rate.
 - **Frame counter**: shows the frame rate in the corner of the window. Press **F2** while playing to show or hide it.
-- **Online leaderboards** (Windows): Off by default. When On, each finished run's score is sent to the PC Plus leaderboard server under your **Player name** (up to 15 letters, digits, spaces, `_ . -`). Only your player name, scores, input device (mouse, keyboard or controller) and game version are sent; runs with cheats on are never sent, and no account, email or IP address is kept. **Delete my online scores** removes your name and every score you've sent. Scores come from players' own PCs, so these are community boards for fun, not a tournament.
+- **Online leaderboards** (Windows): On by default, but nothing is sent until you choose a **Player name**. Then each finished run's score is sent to the PC Plus leaderboard server under that name (up to 15 letters, digits, spaces, `_ . -`). Only your player name, scores, input device (mouse, keyboard or controller) and game version are sent; runs with cheats on are never sent, and no account, email or IP address is kept. **Delete my online scores** removes your name and every score you've sent. Scores come from players' own PCs, so these are community boards for fun, not a tournament.
 
 ### Cheats
 - **Invincible**: the player cannot die. A shield or the short protection after a bomb still works as usual.
@@ -156,9 +156,9 @@ All three are Off by default. The launcher's Cheats page saves them and they tak
 The launcher's **Achievements** page lists the game's 12 achievements (200G in total) with their icons, gamerscore and unlocked state, and a progress summary. The list appears after you have pressed **PLAY** once, from the next time the launcher opens.
 
 ### Achievements, leaderboards and Xbox Live
-There is no Xbox Live connection or Microsoft sign-in. The only thing that goes online is the optional PC Plus leaderboard, and only when you switch it on.
+There is no Xbox Live connection or Microsoft sign-in. The only thing that goes online is the PC Plus leaderboard, and only once you've chosen a player name (or never, with **Online leaderboards** Off).
 - **Achievements**: the game's achievements menu item and **F7** open the same list in game. B, Escape or F7 closes it. Unlocks show the usual notification and are kept between runs on this PC, with no synchronization with Xbox Live.
-- **Leaderboards**: finished games are kept in a local file. With **Online leaderboards** off, the boards show your own scores only. With it on, the **Everyone** boards show the top PC Plus players from the leaderboard server, and the local boards are used whenever the server can't be reached.
+- **Leaderboards**: finished games are kept in a local file. With no player name, or **Online leaderboards** Off, the boards show your own scores only. Otherwise the **Everyone** boards show the top PC Plus players from the leaderboard server, and the local boards are used whenever the server can't be reached.
 - **Profile**: the game's profile and options are saved locally.
 
 [docs/offline-live.md](docs/offline-live.md) and [docs/offline-profile.md](docs/offline-profile.md) have the details.
