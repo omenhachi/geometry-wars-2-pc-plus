@@ -20,8 +20,8 @@ class CursorHider {
   void KeyboardInput() { SetDevice(Device::kKeyboard); }
   void ControllerInput() { SetDevice(Device::kController); }
 
-  // Returns the new visibility when it changes, otherwise nullopt.
-  std::optional<bool> Update(bool gameplay, bool focused, bool ui_active) {
+  // Returns the new visibility when it changes, otherwise nullopt. A drawn crosshair stands in for the cursor.
+  std::optional<bool> Update(bool gameplay, bool focused, bool ui_active, bool crosshair = false) {
     if (!gameplay) {
       device_ = Device::kMouse;
       device_before_ui_ = Device::kMouse;
@@ -32,7 +32,7 @@ class CursorHider {
     }
     ui_active_ = gameplay && ui_active;
     const bool active = gameplay && focused && !ui_active;
-    const bool visible = !active || device_ == Device::kMouse;
+    const bool visible = !active || (device_ == Device::kMouse && !crosshair);
     if (visible == visible_) {
       return std::nullopt;
     }

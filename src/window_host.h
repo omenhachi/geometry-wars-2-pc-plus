@@ -85,6 +85,9 @@ WindowSize CurrentDrawableSize(rex::ui::Window* window);
 // Keeps the cursor in step with ImGui UI that captures the mouse.
 void CreateCursorSync(rex::ui::ImGuiDrawer* drawer);
 
+// Whether the game window has keyboard focus. UI thread.
+bool WindowFocused();
+
 // The latest sample; all zero until the first one is measured.
 GuestFrameStats GetGuestFrameStats();
 

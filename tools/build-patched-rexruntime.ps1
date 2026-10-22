@@ -145,7 +145,8 @@ function Install-PatchedRuntime([string[]]$Configs) {
         }
 
         Import-VsEnvironment
-        $flags = $RexBuildFlags.Replace('<source>', $srcCmake)
+        # Quoted, so a source path with spaces stays one -ffile-prefix-map argument.
+        $flags = $RexBuildFlags.Replace('<source>', "`"$srcCmake`"")
         Push-Location $src
         try {
             Invoke-Native 'ReXGlue configure' { cmake --preset win-amd64 "-DCMAKE_C_FLAGS=$flags" "-DCMAKE_CXX_FLAGS=$flags" }

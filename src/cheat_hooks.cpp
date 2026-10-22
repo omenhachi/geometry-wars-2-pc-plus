@@ -3,6 +3,7 @@
 
 #include <rex/hook.h>
 
+#include "aim_camera.h"
 #include "cheat_rules.h"
 #include "cheats.h"
 #include "guest_memory.h"
@@ -37,6 +38,8 @@ REX_HOOK_RAW(sub_8204FF00) {
     gw2::rumble::ObserveLocalPlayer(LoadFloat(base, player + gw2::players::kCenterXOffset),
                                     LoadFloat(base, player + gw2::players::kCenterYOffset),
                                     LoadFloat(base, player + gw2::players::kRadiusOffset));
+    gw2::aim::ObservePlayer(LoadFloat(base, player + gw2::players::kCenterXOffset),
+                            LoadFloat(base, player + gw2::players::kCenterYOffset));
   }
   if (!infinite) {
     return;

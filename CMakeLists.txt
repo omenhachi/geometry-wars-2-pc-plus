@@ -176,6 +176,7 @@ set(GW2_SOURCES
     src/profile_fix.cpp
     src/live_fix.cpp
     src/achievements_overlay.cpp
+    src/aim_camera.cpp
     src/aspect_render.cpp
     src/cheat_menu.cpp
     src/cheat_hooks.cpp

@@ -33,6 +33,7 @@
 #include <rex/ui/window_listener.h>
 #include <rex/ui/windowed_app_context.h>
 
+#include "aim_camera.h"
 #include "cursor_input.h"
 #include "frame_limiter.h"
 #include "input_activity.h"
@@ -110,7 +111,7 @@ rex::ui::Window* CurrentWindow() {
 }
 
 void ApplyCursor(rex::ui::Window* window, bool gameplay, bool ui_active) {
-  if (const auto visible = g_cursor.Update(gameplay, window->HasFocus(), ui_active)) {
+  if (const auto visible = g_cursor.Update(gameplay, window->HasFocus(), ui_active, CrosshairShown())) {
     window->SetCursorVisibility(*visible ? rex::ui::Window::CursorVisibility::kVisible
                                          : rex::ui::Window::CursorVisibility::kHidden);
   }
@@ -317,6 +318,11 @@ void DetachWindowHost() {
   g_toggle_window_mode = nullptr;
   g_gameplay_active = nullptr;
   g_ui_active = nullptr;
+}
+
+bool WindowFocused() {
+  rex::ui::Window* window = CurrentWindow();
+  return window != nullptr && window->HasFocus();
 }
 
 GuestFrameStats GetGuestFrameStats() {

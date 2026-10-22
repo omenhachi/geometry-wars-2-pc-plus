@@ -17,6 +17,7 @@
 #include <rex/version.h>
 
 #include "achievements_overlay.h"
+#include "aim_camera.h"
 #include "active_log.h"
 #include "cheat_menu.h"
 #include "diagnostics.h"
@@ -142,6 +143,7 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
   void OnCreateDialogs(rex::ui::ImGuiDrawer* drawer) override {
     if (drawer) {
       gw2::CreateFrameCounter(drawer);
+      gw2::CreateMouseAim(drawer);
       gw2::CreateCursorSync(drawer);
     }
   }

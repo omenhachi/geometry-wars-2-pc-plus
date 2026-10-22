@@ -1,5 +1,8 @@
 #include <bit>
 #include <cstdint>
+#include <mutex>
+#include <set>
+#include <tuple>
 
 #include <rex/cvar.h>
 #include <rex/hook.h>
@@ -7,6 +10,7 @@
 #include <rex/logging.h>
 #include <rex/system/xvideo.h>
 
+#include "aim_camera.h"
 #include "aspect_ratio.h"
 #include "guest_memory.h"
 #include "launcher_cvars.h"
@@ -26,7 +30,21 @@ void StoreFloat(uint8_t* base, uint32_t addr, float value) {
   gw2::StoreBE32(base, addr, std::bit_cast<uint32_t>(value));
 }
 
+// Diagnostics for locating the keytip button glyphs: each distinct sprite once.
+void LogSpriteOnce(uint32_t lr, uint32_t texture, double x, double y, double width, double height) {
+  static std::mutex mutex;
+  static std::set<std::tuple<uint32_t, uint32_t, int, int, int, int>> seen;
+  const auto key = std::make_tuple(lr, texture, int(x), int(y), int(width), int(height));
+  std::lock_guard lock(mutex);
+  if (seen.size() < 2000 && seen.insert(key).second) {
+    REXLOG_INFO("Sprite debug: lr={:08X} texture={:08X} rect=({:.1f}, {:.1f}, {:.1f}, {:.1f})", lr, texture, x, y,
+                width, height);
+  }
+}
+
 }  // namespace
+
+REXCVAR_DEFINE_BOOL(gw2_sprite_debug, false, "Geometry Wars", "Log each distinct sprite the game queues, once");
 
 // The game builds a 1920x1080 canvas for an HD answer. The canvas stays 720 lines, so the answer is never HD.
 REX_HOOK_RAW(__imp__XGetVideoMode) {
@@ -63,7 +81,10 @@ REX_HOOK_RAW(sub_8206A300) {
     ctx.f1.f64 = projection.fov;
     ctx.f2.f64 = projection.aspect;
   }
+  const uint32_t matrix = ctx.r3.u32;
+  const uint32_t lr = uint32_t(ctx.lr);
   __imp__sub_8206A300(ctx, base);
+  gw2::aim::CaptureProjection(base, matrix, lr);
 }
 
 // Queues a full-screen sprite given as x, y, width and height (f1 to f4) in a 640x360 space that the game maps onto the
@@ -71,6 +92,9 @@ REX_HOOK_RAW(sub_8206A300) {
 // kept in 16:9.
 REX_EXTERN(__imp__sub_8205D8F8);
 REX_HOOK_RAW(sub_8205D8F8) {
+  if (REXCVAR_GET(gw2_sprite_debug)) {
+    LogSpriteOnce(uint32_t(ctx.lr), ctx.r8.u32, ctx.f1.f64, ctx.f2.f64, ctx.f3.f64, ctx.f4.f64);
+  }
   const gw2::AspectRatio aspect = ConfiguredAspect();
   if (aspect != gw2::AspectRatio::k16x9 && ctx.lr == kSplashSpriteReturn && ctx.f1.f64 == 0.0 && ctx.f2.f64 == 0.0 &&
       ctx.f3.f64 == double(gw2::kSpriteSpaceWidth) && ctx.f4.f64 == double(gw2::kSpriteSpaceHeight)) {
