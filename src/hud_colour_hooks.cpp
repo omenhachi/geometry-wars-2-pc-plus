@@ -53,15 +53,16 @@ void StoreF(uint8_t* base, uint32_t at, float value) {
   StoreBE32(base, at, bits);
 }
 
-// The colour a glyph should draw with instead of the one at `colour`, or 0 to keep it. The glyph copies the colour into
-// its vertices before it returns, so one buffer per drawing thread is enough.
-uint32_t RecolouredText(uint8_t* base, uint32_t colour) {
+// The colour to draw with instead of the one at `colour`, or 0 to keep it. The drawers copy their colours into the
+// vertices before they return, so one buffer per colour argument and drawing thread is enough.
+uint32_t RecolouredText(uint8_t* base, uint32_t colour, int slot = 0) {
   if (colour == 0) return 0;
   const auto look = colour::CurrentLook(Seconds());
   if (!look) return 0;
   const auto out = colour::Recolour({LoadF(base, colour), LoadF(base, colour + 4), LoadF(base, colour + 8)}, *look);
   if (!out) return 0;
-  thread_local uint32_t buffer = 0;
+  thread_local uint32_t buffers[2] = {};
+  uint32_t& buffer = buffers[slot & 1];
   if (buffer == 0) buffer = rex::system::kernel_memory()->SystemHeapAlloc(16);
   if (buffer == 0) return 0;
   StoreF(base, buffer, out->r);
@@ -193,3 +194,31 @@ REX_HOOK_RAW(sub_82075FA8) {
   __imp__sub_82075FA8(ctx, base);
 }
 
+
+
+
+
+// The menus' and HUD's shapes: the mode icons, the line widgets and the shapes under the glyphs. Every caller of these
+// drawers is front-end or HUD code; the enemies reach the same line primitives through other functions
+// (sub_82061DA0, sub_82061908), which are left alone. Colours are RGBA pointers, two for a gradient (often the same):
+// r7 and r8 for the line and gradient drawers, r5 (and r6) for the polylines. Text comes through recoloured already.
+namespace {
+void RecolourPair(uint8_t* base, PPCRegister& first, PPCRegister& second) {
+  const uint32_t a = first.u32, b = second.u32;
+  if (const uint32_t recoloured = RecolouredText(base, a, 0)) first.u64 = recoloured;
+  if (b == a) {
+    second.u64 = first.u64;
+  } else if (const uint32_t recoloured = RecolouredText(base, b, 1)) {
+    second.u64 = recoloured;
+  }
+}
+}  // namespace
+
+#define HUD_COLOUR_SHAPE_HOOK(name, recolour)   REX_EXTERN(__imp__##name);                    REX_HOOK_RAW(name) {                            recolour;                                     __imp__##name(ctx, base);                   }
+HUD_COLOUR_SHAPE_HOOK(sub_8205FFB8, RecolourPair(base, ctx.r7, ctx.r8))
+HUD_COLOUR_SHAPE_HOOK(sub_820603C0, RecolourPair(base, ctx.r7, ctx.r8))
+HUD_COLOUR_SHAPE_HOOK(sub_82060600, RecolourPair(base, ctx.r7, ctx.r8))
+HUD_COLOUR_SHAPE_HOOK(sub_82091E98, RecolourPair(base, ctx.r7, ctx.r8))
+HUD_COLOUR_SHAPE_HOOK(sub_8205F6B8, RecolourPair(base, ctx.r5, ctx.r6))
+HUD_COLOUR_SHAPE_HOOK(sub_82060900, if (const uint32_t c = RecolouredText(base, ctx.r5.u32)) ctx.r5.u64 = c)
+HUD_COLOUR_SHAPE_HOOK(sub_82060CC0, if (const uint32_t c = RecolouredText(base, ctx.r5.u32)) ctx.r5.u64 = c)
