@@ -146,6 +146,9 @@ void CaptureProjection(const uint8_t* base, uint32_t matrix, uint32_t lr);
 // The ship moves on the arena plane, z = 0.
 void ObservePlayer(float x, float y);
 
+// Whether the mouse aimed and fired in the last minute: what a run that just ended was played with. Any thread.
+bool MouseAimedRecently();
+
 }  // namespace gw2::aim
 
 namespace rex::ui {

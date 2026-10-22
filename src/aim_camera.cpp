@@ -80,6 +80,7 @@ std::atomic<int32_t> g_stick{0};  // x in the low 16 bits, y in the high
 std::atomic<int64_t> g_pulse_until{0};
 std::atomic<uint16_t> g_pulse_buttons{0};
 std::atomic<bool> g_crosshair{false};
+std::atomic<int64_t> g_mouse_fired{0};  // Clock ticks of the last mouse-aimed shot
 
 int64_t Ticks(Clock::time_point t) { return t.time_since_epoch().count(); }
 
@@ -104,6 +105,12 @@ void CaptureProjection(const uint8_t* base, uint32_t matrix, uint32_t lr) {
   state.proj = proj;
   state.has_proj = true;
   ++state.frames;
+}
+
+bool MouseAimedRecently() {
+  const int64_t fired = g_mouse_fired.load(std::memory_order_relaxed);
+  return fired != 0 &&
+         Ticks(Clock::now()) - fired <= std::chrono::duration_cast<Clock::duration>(std::chrono::minutes(1)).count();
 }
 
 void ObservePlayer(float x, float y) {
@@ -301,6 +308,9 @@ class MouseAimOverlay final : public rex::ui::ImGuiDialog {
     }
     aim::g_stick.store(int32_t(uint16_t(stick_.x)) | (int32_t(uint16_t(stick_.y)) << 16), std::memory_order_relaxed);
     aim::g_fire.store(active && fire && (stick_.x != 0 || stick_.y != 0), std::memory_order_relaxed);
+    if (active && fire) {
+      aim::g_mouse_fired.store(aim::Ticks(now), std::memory_order_relaxed);
+    }
     aim::g_bomb.store(active && bomb, std::memory_order_relaxed);
     aim::g_override_time.store(aim::Ticks(now), std::memory_order_relaxed);
 

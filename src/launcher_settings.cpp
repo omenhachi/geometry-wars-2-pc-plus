@@ -41,6 +41,8 @@ std::vector<ManagedSetting> BuildManagedSettings() {
       {kBloomKey, ValueKind::kString},
       {kKeyboardKey, ValueKind::kBool},
       {kVibrationKey, ValueKind::kBool},
+      {kOnlineLeaderboardsKey, ValueKind::kBool},
+      {kPlayerNameKey, ValueKind::kString},
       {kFrameRateKey, ValueKind::kInt},
       {kShowFpsKey, ValueKind::kBool},
       {kShowResolutionKey, ValueKind::kBool},

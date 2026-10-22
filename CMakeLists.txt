@@ -179,6 +179,7 @@ set(GW2_SOURCES
     src/aim_camera.cpp
     src/aspect_render.cpp
     src/keyboard_prompts.cpp
+    src/online_leaderboard.cpp
     src/cheat_menu.cpp
     src/cheat_hooks.cpp
     src/cheats.cpp
@@ -246,7 +247,7 @@ endif()
 rexglue_setup_target(geometry_wars_retro_evolved_2 GPU_PLUGINS xenos)
 target_link_libraries(geometry_wars_retro_evolved_2 PRIVATE trg::launcher)
 if(WIN32)
-    target_link_libraries(geometry_wars_retro_evolved_2 PRIVATE advapi32 bcrypt dxgi shcore synchronization shell32)
+    target_link_libraries(geometry_wars_retro_evolved_2 PRIVATE advapi32 bcrypt dxgi shcore synchronization shell32 winhttp)
 else()
     # The SDK stages the runtime beside the program only on Windows and macOS; the RPATH is $ORIGIN.
     add_custom_command(TARGET geometry_wars_retro_evolved_2 POST_BUILD

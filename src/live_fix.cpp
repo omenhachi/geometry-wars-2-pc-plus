@@ -1,6 +1,8 @@
 #include "live_fix.h"
 
+#include <algorithm>
 #include <atomic>
+#include <thread>
 #include <cstring>
 #include <mutex>
 
@@ -10,6 +12,7 @@
 
 #include "achievements_overlay_rules.h"
 #include "guest_memory.h"
+#include "online_leaderboard.h"
 
 REXCVAR_DEFINE_BOOL(gw2_local_live, true, "Geometry Wars",
                     "Serve the game's Xbox Live scores and leaderboards from a local file; nothing goes online")
@@ -57,7 +60,21 @@ bool CreateStatsEnumerator(PPCContext& ctx, uint8_t* base, StatsQuery::Kind kind
   uint32_t handle = 0;
   ctx.r3.u64 = CreateEnumerator(base, services->enumerators, kind, pivot, ctx.r5.u32, ctx.r6.u32, ctx.r7.u32,
                                 ctx.r8.u32, ctx.r9.u32, &handle);
+  // An online board has a row per player: the game sizes its buffer from this answer.
+  if (ctx.r3.u32 == kErrorSuccess && ranked && online::Enabled() && ctx.r8.u32 != 0) {
+    const uint32_t rows = std::min(ctx.r5.u32, online::kMaxRows);
+    StoreBE32(base, ctx.r8.u32, kResultsHeaderSize + (kViewSize + kRowSize * std::max(rows, 1u)) * ctx.r6.u32);
+  }
   return true;
+}
+
+// Writes boards into the game's enumeration buffer and completes its overlapped, as ServeEnumeration does.
+void ServeViews(uint8_t* base, const std::vector<StatsView>& views, uint32_t buffer, uint32_t size,
+                uint32_t items_ptr, uint32_t overlapped) {
+  const uint32_t result = WriteStatsResults(base, buffer, size, views) ? kErrorSuccess : kErrorInsufficientBuffer;
+  const uint32_t items = result == kErrorSuccess ? 1 : 0;
+  if (items_ptr) StoreBE32(base, items_ptr, items);
+  CompleteOverlapped(base, overlapped, result, items);
 }
 
 void FilterGuestInput(PPCContext& ctx, uint8_t* base, uint32_t user, uint32_t state) {
@@ -87,6 +104,7 @@ void Install(InstallParams params) {
     REXLOG_INFO("Local Live services are disabled (gw2_local_live=false)");
     return;
   }
+  online::Configure(params.stats_file.parent_path() / "online_token", params.user.xuid);
   auto* services = new Services(std::move(params.stats_file), std::move(params.user));
   const LoadResult loaded = services->stats.Load();
   REXLOG_INFO("Local Live services ready, stats file {}",
@@ -140,6 +158,8 @@ REX_HOOK_RAW(sub_820E88F8) {
     if (services->stats.Record(xuid, write.view, write.score) == RecordResult::kNotSaved) {
       REXLOG_WARN("New best score in view {} kept in memory: the stats file could not be written", write.view);
     }
+    // Each finished run's own score, never older local bests: their cheat state is unknown.
+    online::SubmitScore(write.view, write.score);
   }
 }
 
@@ -161,6 +181,31 @@ REX_HOOK_RAW(sub_820958D0) {
   if (Services* services = Active()) {
     const uint32_t handle = ctx.r3.u32;
     if (const auto query = services->enumerators.Take(handle)) {
+      const uint32_t overlapped = ctx.r7.u32;
+      // The Everyone board comes from the server. The game polls the overlapped (its spinning globe) until the
+      // answer arrives, so the fetch runs on its own thread; any failure answers with the local board.
+      if (query->kind == StatsQuery::Kind::kRanked && overlapped != 0 && online::Enabled()) {
+        StoreBE32(base, overlapped, kErrorIoPending);
+        StoreBE32(base, overlapped + 0x18, kErrorIoPending);
+        const uint32_t buffer = ctx.r4.u32;
+        const uint32_t size = ctx.r5.u32;
+        const uint32_t items = ctx.r6.u32;
+        std::thread([base, services, buffer, size, items, overlapped, query = *query] {
+          std::vector<StatsView> views;
+          for (const uint32_t view : query.views) {
+            auto board = online::FetchBoard(view, uint32_t(query.pivot), query.max_rows);
+            if (!board) break;
+            views.push_back(std::move(*board));
+          }
+          if (views.size() == query.views.size() && StatsResultsSize(views) <= size) {
+            ServeViews(base, views, buffer, size, items, overlapped);
+          } else {
+            ServeEnumeration(base, services->board, query, buffer, size, items, overlapped);
+          }
+        }).detach();
+        ctx.r3.u64 = kErrorIoPending;
+        return;
+      }
       ctx.r3.u64 = ServeEnumeration(base, services->board, *query, ctx.r4.u32, ctx.r5.u32, ctx.r6.u32, ctx.r7.u32);
       return;
     }

@@ -8,6 +8,7 @@
 #include <fstream>
 #include <iterator>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <system_error>
@@ -43,6 +44,7 @@
 #include "launcher_play.h"
 #include "launcher_platform.h"
 #include "launcher_quit.h"
+#include "online_leaderboard.h"
 #include "launcher_settings.h"
 #include "log_filter.h"
 #include "update_config.h"
@@ -73,6 +75,17 @@ constexpr char kFrameRateHelp[] =
     "60 FPS is the original game rate. Higher frame rates use automatic visual interpolation while gameplay simulation "
     "remains at 60 Hz.";
 constexpr char kFrameCounterHelp[] = "Shows the game's frame rate in the corner. F2 toggles it while playing.";
+constexpr char kOnlineLeaderboardsHelp[] =
+    "Sends your finished runs' scores to the PC Plus leaderboards and shows other players on the Everyone boards.";
+constexpr char kOnlinePrivacyHelp[] =
+    "When on, your player name, your scores, what you played with (mouse, keyboard or controller) and the game version "
+    "are sent to the PC Plus leaderboard server. Runs with cheats on are never sent. No account, email or IP address "
+    "is kept, and you can delete everything below.";
+constexpr char kPlayerNameHelp[] = "Shown on the online boards: up to 15 letters, digits, spaces, _ . or -.";
+
+// The answer to "Delete my online scores", set by the request's thread and shown on the next frame.
+std::mutex g_online_status_mutex;
+std::optional<std::string> g_online_status;
 constexpr char kCheatsHelp[] =
     "Press F10 while playing to open the Cheats menu. Changes made there apply only to the current session.";
 
@@ -643,6 +656,34 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
     ui.Toggle("Render resolution in title", kShowResolutionHelp, kShowResolutionKey, kShowResolutionDefault,
               "Off", "On");
     ui.Toggle("Frame counter", kFrameCounterHelp, kShowFrameCounterKey, kShowFrameCounterDefault, "Hidden", "Shown");
+    PageOnlineLeaderboards(ui);
+  }
+
+  void PageOnlineLeaderboards(trg::Ui& ui) {
+    ui.Heading("Online leaderboards");
+    ui.Help(kOnlinePrivacyHelp);
+    ui.Toggle("Online leaderboards", kOnlineLeaderboardsHelp, kOnlineLeaderboardsKey, kOnlineLeaderboardsDefault,
+              "Off", "On");
+    ui.InputText("Player name", kPlayerNameHelp, kPlayerNameKey, "Your name");
+    const std::string name = ui.settings().Get(kPlayerNameKey);
+    const bool on = ui.settings().GetBool(kOnlineLeaderboardsKey, kOnlineLeaderboardsDefault);
+    if (on && online::ValidName(name).empty()) {
+      ui.Help(name.empty() ? "Choose a player name to appear on the online boards."
+                           : "That name can't be used: up to 15 letters, digits, spaces, _ . or -.");
+    }
+    if (ui.ConfirmRow("Online scores", "Removes your name and every score this PC has sent from the online boards.",
+                      "Delete my online scores", "Delete your name and every score this PC sent?", "Delete")) {
+      ui.SetStatus("Deleting your online scores...");
+      online::DeleteMyScores([](bool, std::string message) {
+        std::lock_guard lock(g_online_status_mutex);
+        g_online_status = std::move(message);
+      });
+    }
+    std::lock_guard lock(g_online_status_mutex);
+    if (g_online_status) {
+      ui.SetStatus(*g_online_status);
+      g_online_status.reset();
+    }
   }
 
   void PageControls(trg::Ui& ui) {

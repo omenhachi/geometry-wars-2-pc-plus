@@ -27,6 +27,7 @@
 #include "guest_functions.h"
 #include "input_summary.h"
 #include "keyboard_prompts.h"
+#include "online_leaderboard.h"
 #include "launcher.h"
 #include "launcher_cvars.h"
 #include "launcher_platform.h"
@@ -306,6 +307,7 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
 
   // The cheat menu exists only once the game starts, so F10 does nothing over the launcher or the installer.
   void StartGame() {
+    REXLOG_INFO("Online leaderboards: {}", gw2::online::Describe());
     const int monitor = std::atoi(rex::cvar::GetFlagByName(gw2::kMonitorKey).c_str());
     gw2::StartupWindowInfo startup_window;
     startup_window.fullscreen = window() != nullptr && window()->IsFullscreen();
