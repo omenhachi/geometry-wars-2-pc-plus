@@ -19,12 +19,13 @@ struct KeyboardAction {
   const char* default_binding;
 };
 
-// Guide is left out: it is empty by default and the pad ignores it. The defaults mirror ReXGlue 0.10.0.
+// Guide is left out: it is empty by default and the pad ignores it. The defaults mirror ReXGlue 0.10.0, except X and
+// Y, which the menus use for How To Play and Leaderboard (config/geometry_wars_retro_evolved_2.toml sets the same).
 inline constexpr std::array<KeyboardAction, 24> kKeyboardActions = {{
     {"keybind_a", "A", "Semicolon,Space"},
     {"keybind_b", "B", "Quote,Backspace"},
-    {"keybind_x", "X", "L"},
-    {"keybind_y", "Y", "P"},
+    {"keybind_x", "X", "H"},
+    {"keybind_y", "Y", "L"},
     {"keybind_left_shoulder", "Left bumper", "1"},
     {"keybind_right_shoulder", "Right bumper", "3"},
     {"keybind_left_trigger", "Left trigger", "Q,I"},

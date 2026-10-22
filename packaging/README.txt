@@ -1,11 +1,13 @@
-Geometry Wars: Retro Evolved 2 - PC port
+Geometry Wars 2 PC Plus
 Version @VERSION@
 
 Geometry Wars: Retro Evolved 2 for Xbox Live Arcade, statically recompiled to
-run natively on Windows with the ReXGlue SDK.
+run natively on Windows with the ReXGlue SDK. PC Plus is based on saulob's PC
+port (https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled) and
+adds mouse aim, keyboard prompts and a keyboard and mouse controls screen.
 
 Source code and issue tracker:
-https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled
+https://github.com/omenhachi/geometry-wars-2-pc-plus
 
 
 NO GAME FILES ARE INCLUDED
@@ -112,7 +114,7 @@ deleting the old folder deletes "user_data" with it.
 
 If the game does not start or crashes, please attach the newest file from the
 "logs" folder to a report at
-https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled/issues
+https://github.com/omenhachi/geometry-wars-2-pc-plus/issues
 
 
 LICENSE

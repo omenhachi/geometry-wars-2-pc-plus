@@ -9,3 +9,6 @@ packaging/linux/*.desktop text eol=lf
 # The runtime patches are applied with git apply on both platforms.
 patches/rexglue-sdk/* text eol=lf
 patches/appimage-runtime/* text eol=lf
+
+# Game-style textures the port ships.
+*.tga binary

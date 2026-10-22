@@ -55,9 +55,12 @@ namespace {
 const ImVec4 kAccent = ImVec4(0.580f, 0.235f, 1.0f, 1.0f);
 constexpr double kPlayFeedbackSeconds = 0.4;
 constexpr ImGuiConfigFlags kNavFlags = ImGuiConfigFlags_NavEnableKeyboard | ImGuiConfigFlags_NavEnableGamepad;
-constexpr char kAuthorUrl[] = "https://github.com/saulob";
-constexpr char kRepositoryUrl[] = "https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled";
-constexpr char kAuthorText[] = "BY SAULOB";
+constexpr char kAuthorUrl[] = "https://github.com/omenhachi";
+constexpr char kRepositoryUrl[] = "https://github.com/omenhachi/geometry-wars-2-pc-plus";
+constexpr char kAuthorText[] = "BY OMENHACHI";
+// PC Plus builds on saulob's port, credited beside the author.
+constexpr char kOriginalAuthorUrl[] = "https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled";
+constexpr char kOriginalAuthorText[] = "   \xC2\xB7   ORIGINAL PORT BY SAULOB";
 constexpr char kShowLauncherHelp[] = "Off starts the game directly. Hold Shift while starting to bring it back.";
 constexpr char kWindowSizeHelp[] =
     "The game window's size in Windowed mode. A new window: the game restarts once when you press Play.";
@@ -448,9 +451,10 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
     c.fonts = g_fonts;
     c.branding.title = "GEOMETRY WARS: RETRO EVOLVED 2";
     c.branding.subtitle_segments = {
-        {"PC PORT   \xC2\xB7   ", ""},
+        {"PC PLUS   \xC2\xB7   ", ""},
         {"v" GW2_PORT_VERSION "   \xC2\xB7   ", ""},
         {kAuthorText, kAuthorUrl},
+        {kOriginalAuthorText, kOriginalAuthorUrl},
     };
     c.branding.subtitle_color = kAccent;
     const float art_aspect =

@@ -6,35 +6,40 @@
   "original": {
     "revision": "0.0.1.2"
   },
-  "project": "Geometry Wars: Retro Evolved 2 PC Port",
-  "status": "released",
+  "project": "Geometry Wars 2 PC Plus",
+  "status": "in development",
   "targets": [
     "Windows",
     "Linux",
     "Steam Deck"
   ],
   "toolchain": "Rexglue",
-  "approach": "Static recompilation of the Xbox 360 XBLA version to native PC code using ReXGlue",
+  "approach": "Static recompilation of the Xbox 360 XBLA version to native PC code using ReXGlue, based on saulob's PC port, with mouse aim and keyboard and mouse prompts",
   "maintainers": [
     {
-      "name": "saulob",
+      "name": "omenhachi",
+      "link": "https://github.com/omenhachi"
+    },
+    {
+      "name": "saulob (original port)",
       "link": "https://github.com/saulob"
     }
   ],
   "links": [
     {
       "label": "Latest release",
-      "url": "https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled/releases/latest"
+      "url": "https://github.com/omenhachi/geometry-wars-2-pc-plus/releases/latest"
     },
     {
-      "label": "Reddit announcement",
-      "url": "https://www.reddit.com/r/recomps/comments/1x3kv7a/geometry_wars_retro_evolved_2_recompiled_for_pc/"
+      "label": "Original port by saulob",
+      "url": "https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled"
     }
   ],
   "tags": [
     "XBLA",
     "launcher",
-    "high-fps"
+    "high-fps",
+    "mouse-aim"
   ],
-  "notes": "Public native Windows release with an experimental Linux/Steam Deck AppImage (limited real-hardware testing so far). TRG launcher, high frame rates, rendering up to 4x resolution, local profile and progression, offline scores, leaderboards and achievements, cheats with an in-game menu, and portable user data"
+  "notes": "Fork of saulob's port adding twin-stick mouse aim (shots go straight to the cursor), an animated crosshair, Escape to pause, keyboard prompts in every menu and a keyboard and mouse controls screen. Everything from the original port is kept."
 }

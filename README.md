@@ -1,11 +1,10 @@
 <div align="center">
 
-# Geometry Wars: Retro Evolved 2 - PC Port
+# Geometry Wars 2 PC Plus
 
-### Geometry Wars: Retro Evolved 2 running natively on Windows, and experimentally on Linux and Steam Deck, through static recompilation, with the TRG launcher, high frame rate support and modern PC options
+### Geometry Wars: Retro Evolved 2 running natively on PC, with real mouse aim, keyboard prompts and controls screens, on top of a native static recompilation with high frame rates and modern PC options
 
-[![Latest release](https://img.shields.io/github/v/release/saulob/geometry-wars-retro-evolved-2-recompiled?style=for-the-badge&label=release&color=943cff&labelColor=07101f&cacheSeconds=300)](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled/releases/latest)
-[![Downloads](https://img.shields.io/github/downloads/saulob/geometry-wars-retro-evolved-2-recompiled/total?style=for-the-badge&color=943cff&labelColor=07101f&cacheSeconds=300)](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled/releases)
+[![Latest release](https://img.shields.io/github/v/release/omenhachi/geometry-wars-2-pc-plus?style=for-the-badge&label=release&color=943cff&labelColor=07101f&cacheSeconds=300)](https://github.com/omenhachi/geometry-wars-2-pc-plus/releases/latest)
 ![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux%20experimental%20%7C%20Steam%20Deck%20experimental-00acc1?style=for-the-badge&labelColor=07101f)
 
 <sub>The original Xbox 360 game code, statically recompiled to native PC code with the <a href="https://github.com/rexglue/rexglue-sdk">ReXGlue SDK</a>. <b>No game files included</b>: bring your own Geometry Wars: Retro Evolved 2 Xbox Live Arcade package.</sub>
@@ -14,7 +13,22 @@
 
 <img width="1905" height="1071" alt="2026-10-11_18-47" src="https://github.com/user-attachments/assets/08b1ed2c-3244-41c1-94f1-e2ae4c1b76d1" />
 
-## What's new in v0.5.0
+## About PC Plus
+
+PC Plus is based on [saulob's PC port](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled). It's a great port, but I thought a few things were missing, and I wanted to really bring it into the current day and age, especially for playing on a keyboard and mouse. Everything from the original port is still here; PC Plus adds:
+
+- **Mouse aim that feels like a modern twin-stick shooter.** Hold the left mouse button and your shots go straight to the cursor. The game's own aim sweeps round towards the stick like a controller would; with the mouse, the shot direction is set exactly, every frame, so it's instant. A controller still plays the original way.
+- **Right mouse button bombs**, and **Escape pauses** (and backs out of menus).
+- **An animated neon crosshair** that replaces the cursor during a round: four arms that fly in, spin, shift through the spectrum and pinch together while you fire, as thick as your bullets so it never gets lost in the chaos. `--gw2_crosshair_motion=false` keeps it still.
+- **Keyboard prompts everywhere.** With the keyboard or mouse in use, every menu shows the keys instead of Xbox buttons (Enter Select, Esc Back, H How To Play, L Leaderboard), and pressing a button on a controller switches them straight back.
+- **A keyboard and mouse controls screen.** The help screens show a neon keyboard and mouse diagram (WASD, Q/E, Esc and the mouse) in place of the controller, drawn in the game's own style.
+- X and Y on the keyboard default to H (How To Play) and L (Leaderboard).
+
+Turn on **Keyboard** on the launcher's Controls page to use all of this. PC Plus is in development; its first release is coming, and until then it can be built from source (below).
+
+A note on building: Windows Defender flags the official ReXGlue 0.10.0 Windows SDK zip that `tools\codegen.ps1` downloads (its `rexruntime.dll` is reported by about 28 of 71 engines on VirusTotal, while ReXGlue built from the same source tag is not). It is very likely a false positive, but you can avoid the prebuilt SDK entirely by building [ReXGlue v0.10.0](https://github.com/rexglue/rexglue-sdk/tree/v0.10.0) from source (`cmake --preset win-amd64`, then build the `install` target) and copying `out\install\win-amd64` to `tools\rexglue\win-amd64`.
+
+## What's new in v0.5.0 (original port)
 
 - **High frame rates keep the original game speed**: above 60 FPS the game still updates 60 times per second, and the frames in between are interpolated ([#5](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled/issues/5))
 - **Launcher self-update**: the launcher can download and install a newer release for you
@@ -158,14 +172,14 @@ Everything stays offline: there is no Xbox Live connection, Microsoft sign-in or
 
 ## Reporting problems
 
-If the game does not start or crashes, please open an [issue](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled/issues). Attach the newest `geometry_wars_retro_evolved_2_*.log` file from the `logs` folder next to the program, and say what you were doing when the problem happened.
+If the game does not start or crashes, please open an [issue](https://github.com/omenhachi/geometry-wars-2-pc-plus/issues). Attach the newest `geometry_wars_retro_evolved_2_*.log` file from the `logs` folder next to the program, and say what you were doing when the problem happened.
 
 ## Building it yourself
 
 The recompiled C++ is generated from your own game files, so the repository does not contain it. Clone with submodules, so the TRG launcher is included:
 
 ```powershell
-git clone --recurse-submodules https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled.git
+git clone --recurse-submodules https://github.com/omenhachi/geometry-wars-2-pc-plus.git
 ```
 
 In an existing clone, run `git submodule update --init --recursive`.
@@ -195,6 +209,7 @@ How the launcher, settings and installer work is described in [docs/launcher.md]
 
 ## Credits
 
+- [saulob](https://github.com/saulob) for the [original PC port](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled) that PC Plus is built on: the recompilation setup, the runtime patches, the launcher and installer, offline Xbox Live, high frame rates and everything else under "Features" above
 - Geometry Wars: Retro Evolved 2 by Bizarre Creations, published by Microsoft Game Studios for Xbox Live Arcade (2008). This is an unofficial fan-made PC port. It is not affiliated with or endorsed by them or by any rights holder, and it contains none of their files.
 - [ReXGlue SDK](https://github.com/rexglue/rexglue-sdk) for the recompiler and runtime (BSD 3-Clause)
 - [TRG Launcher](https://github.com/TekRantGaming/trg-launcher), the launcher interface, pinned at v1.1.0. The referenced revision contains no explicit license file.
@@ -203,7 +218,7 @@ How the launcher, settings and installer work is described in [docs/launcher.md]
 
 ## AI disclosure
 
-AI tools were used to assist with code analysis, development, debugging and documentation. Changes were directed, tested and reviewed by the maintainer.
+AI tools were used to assist with code analysis, development, debugging and documentation. Changes were directed, tested and reviewed by the maintainer. The PC Plus additions were developed with Claude (Anthropic) and play-tested by the maintainer.
 
 ## License
 

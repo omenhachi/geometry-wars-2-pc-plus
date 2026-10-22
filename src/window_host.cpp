@@ -58,6 +58,12 @@ constexpr std::size_t kWindowHostZOrder = 1000;
 
 std::mutex g_mutex;
 std::atomic<bool> g_active{false};
+// Which prompts the menus show: a key press or a click selects the keyboard, a controller press the pad. Moving the
+// mouse alone does not switch, so a nudged mouse cannot flip the prompts under someone holding a pad.
+std::atomic<bool> g_prompt_keyboard{true};
+// The keyboard and mouse driver's emulated pad (kMnkDevice in ReXGlue's mnk_input_driver.cpp): its activity is the
+// keyboard, so it never switches the prompts to the pad.
+constexpr rex::input::DeviceId kKeyboardPad = static_cast<rex::input::DeviceId>(0x4D4E4B00);
 rex::ui::Window* g_window = nullptr;
 rex::ui::WindowedAppContext* g_app_context = nullptr;
 std::function<void()> g_toggle_window_mode;
@@ -159,11 +165,14 @@ void OnControllerActivity(rex::input::DeviceId device,
   if (!app_context) {
     return;
   }
-  app_context->CallInUIThread([] {
+  app_context->CallInUIThread([device] {
     if (!g_active.load(std::memory_order_relaxed)) {
       return;
     }
     g_cursor.ControllerInput();
+    if (device != kKeyboardPad) {
+      g_prompt_keyboard.store(false, std::memory_order_relaxed);
+    }
     UpdateCursor();
   });
 }
@@ -189,6 +198,7 @@ class WindowHost final : public rex::ui::WindowInputListener, public rex::ui::Wi
     }
     if (IsMeaningfulKey(e)) {
       g_cursor.KeyboardInput();
+      g_prompt_keyboard.store(true, std::memory_order_relaxed);
       UpdateCursor();
     }
     if (e.virtual_key() != rex::ui::VirtualKey::kF11) {
@@ -219,6 +229,7 @@ class WindowHost final : public rex::ui::WindowInputListener, public rex::ui::Wi
       return;
     }
     g_cursor.MouseButtonPressed();
+    g_prompt_keyboard.store(true, std::memory_order_relaxed);
     UpdateCursor();
   }
 
@@ -318,6 +329,10 @@ void DetachWindowHost() {
   g_toggle_window_mode = nullptr;
   g_gameplay_active = nullptr;
   g_ui_active = nullptr;
+}
+
+bool PromptsUseKeyboard() {
+  return g_prompt_keyboard.load(std::memory_order_relaxed);
 }
 
 bool WindowFocused() {

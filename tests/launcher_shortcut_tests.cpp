@@ -47,13 +47,15 @@ void TestHeaderBranding() {
   std::printf("header subtitle is PC PORT / BY SAULOB, with the GW title and accent\n");
   const std::string launcher = ReadSource("launcher.cpp");
   CHECK(Has(launcher, "c.branding.title = \"GEOMETRY WARS: RETRO EVOLVED 2\";"));
-  CHECK(Has(launcher, "{\"PC PORT   \\xC2\\xB7   \", \"\"},"));
+  CHECK(Has(launcher, "{\"PC PLUS   \\xC2\\xB7   \", \"\"},"));
   CHECK(Has(launcher, "{kAuthorText, kAuthorUrl},"));
+  CHECK(Has(launcher, "{kOriginalAuthorText, kOriginalAuthorUrl},"));
   CHECK(!Has(launcher, "LAUNCHER   \\xC2\\xB7"));
   CHECK(Has(launcher, "c.branding.subtitle_color = kAccent;"));
-  CHECK(Has(launcher, "constexpr char kAuthorUrl[] = \"https://github.com/saulob\";"));
+  CHECK(Has(launcher, "constexpr char kAuthorUrl[] = \"https://github.com/omenhachi\";"));
+  CHECK(Has(launcher, "constexpr char kRepositoryUrl[] = \"https://github.com/omenhachi/geometry-wars-2-pc-plus\";"));
   CHECK(Has(launcher,
-            "constexpr char kRepositoryUrl[] = "
+            "constexpr char kOriginalAuthorUrl[] = "
             "\"https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled\";"));
 }
 

@@ -26,6 +26,7 @@
 #include "graphics_fallback.h"
 #include "guest_functions.h"
 #include "input_summary.h"
+#include "keyboard_prompts.h"
 #include "launcher.h"
 #include "launcher_cvars.h"
 #include "launcher_platform.h"
@@ -171,6 +172,10 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
       REXLOG_INFO("Internal render resolution: using D3D12 host render targets");
     }
     const bool game_ready = gw2::CheckGameFiles(defaults.game_data_root).state == gw2::GameFileState::kValid;
+    // Before the runtime mounts the game folder, which it lists once.
+    if (game_ready) {
+      gw2::InstallKeyboardDiagram(defaults.game_data_root);
+    }
     const bool show = gw2::LauncherWanted(game_ready, gw2::ShowLauncherSetting(*settings_), gw2::ShiftHeld(),
                                           gw2::TakeSkipLauncher());
     if (!show || !imgui_drawer()) {
@@ -190,6 +195,7 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
                          launcher_open_ = false;
                          app_context().CallInUIThreadDeferred([resume, defaults] {
                            gw2::ApplyDetailedLogging();
+                           gw2::InstallKeyboardDiagram(defaults.game_data_root);
                            resume(defaults);
                          });
                        },

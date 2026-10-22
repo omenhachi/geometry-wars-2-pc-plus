@@ -16,7 +16,7 @@ namespace gw2 {
 namespace {
 
 constexpr const char* kReleasesUrl =
-    "https://api.github.com/repos/saulob/geometry-wars-retro-evolved-2-recompiled/releases/latest";
+    "https://api.github.com/repos/omenhachi/geometry-wars-2-pc-plus/releases/latest";
 
 std::optional<std::string> Environment(const char* name) {
 #if defined(_WIN32)

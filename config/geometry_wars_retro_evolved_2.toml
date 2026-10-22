@@ -10,3 +10,8 @@ fullscreen = false
 monitor = 1
 window_width = 1280
 window_height = 720
+
+# Keyboard X and Y: How To Play and Leaderboard in the menus, so H and L instead of ReXGlue's L and P. The launcher's
+# saved bindings take over once changed there.
+keybind_x = "H"
+keybind_y = "L"

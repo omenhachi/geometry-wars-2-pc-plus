@@ -178,6 +178,7 @@ set(GW2_SOURCES
     src/achievements_overlay.cpp
     src/aim_camera.cpp
     src/aspect_render.cpp
+    src/keyboard_prompts.cpp
     src/cheat_menu.cpp
     src/cheat_hooks.cpp
     src/cheats.cpp
@@ -348,6 +349,11 @@ add_custom_command(TARGET geometry_wars_retro_evolved_2 POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${CMAKE_CURRENT_SOURCE_DIR}/assets/launcher/header-art.png"
         "$<TARGET_FILE_DIR:geometry_wars_retro_evolved_2>/assets/launcher/header-art.png"
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+        "$<TARGET_FILE_DIR:geometry_wars_retro_evolved_2>/assets/controls"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_CURRENT_SOURCE_DIR}/assets/controls/controller_kbm.tga"
+        "$<TARGET_FILE_DIR:geometry_wars_retro_evolved_2>/assets/controls/controller_kbm.tga"
     VERBATIM
 )
 

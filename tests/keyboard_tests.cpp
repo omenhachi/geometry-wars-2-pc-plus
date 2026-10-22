@@ -95,8 +95,8 @@ void TestMapping() {
   } kExpected[] = {
       {"keybind_a", "A", "Semicolon,Space"},
       {"keybind_b", "B", "Quote,Backspace"},
-      {"keybind_x", "X", "L"},
-      {"keybind_y", "Y", "P"},
+      {"keybind_x", "X", "H"},
+      {"keybind_y", "Y", "L"},
       {"keybind_left_shoulder", "Left bumper", "1"},
       {"keybind_right_shoulder", "Right bumper", "3"},
       {"keybind_left_trigger", "Left trigger", "Q,I"},

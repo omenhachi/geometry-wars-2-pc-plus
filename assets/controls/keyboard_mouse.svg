@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="512" viewBox="0 0 800 512">
+  <!-- Keyboard and mouse controls diagram, drawn like the game's controller.tga: white lines on black, which the
+       game tints and glows. The game draws its own Bomb, Movement and Firing leader lines at fixed points, so the
+       parts sit where the controller's triggers (Q, E), left stick (WASD) and right stick (mouse) were. -->
+  <rect width="800" height="512" fill="#000"/>
+  <g fill="none" stroke="#fff" stroke-width="4" stroke-linejoin="round" stroke-linecap="round">
+    <!-- Bomb: Q at the left trigger, E at the right trigger -->
+    <rect x="166" y="38" width="62" height="62" rx="10"/>
+    <rect x="572" y="38" width="62" height="62" rx="10"/>
+    <!-- Movement: W A S D, W under Q, S over the left stick's leader line end (166, 346) -->
+    <rect x="166" y="214" width="62" height="62" rx="10"/>
+    <rect x="98" y="282" width="62" height="62" rx="10"/>
+    <rect x="166" y="282" width="62" height="62" rx="10"/>
+    <rect x="234" y="282" width="62" height="62" rx="10"/>
+    <!-- Pause: Esc between the two bomb keys -->
+    <rect x="352" y="42" width="96" height="54" rx="10"/>
+    <!-- Firing: the mouse, its bottom on the right stick's leader line end (491, 443) -->
+    <path d="M 448 200 L 484 212 L 491 224 L 498 212 L 534 200 L 556 214 L 574 258 L 584 312 L 580 366 L 556 414
+             L 491 443 L 432 428 L 406 394 L 386 348 L 390 316 L 410 296 L 418 244 L 430 214 Z"/>
+    <path d="M 410 296 L 491 310 L 583 298"/>
+    <path d="M 491 224 L 491 310"/>
+    <rect x="482" y="238" width="18" height="40" rx="7"/>
+    <path d="M 392 318 L 408 312 L 412 328 L 395 334 Z"/>
+    <path d="M 396 340 L 412 334 L 417 350 L 400 356 Z"/>
+    <path d="M 552 326 L 562 360 L 548 394"/>
+  </g>
+  <!-- Fire: the crosshair on the left button; bomb: a small burst on the right button -->
+  <g stroke="#fff" stroke-width="5" stroke-linecap="round">
+    <path d="M 437 238 L 445 246 M 465 238 L 457 246 M 437 266 L 445 258 M 465 266 L 457 258"/>
+    <path d="M 533 237 L 533 241 M 533 263 L 533 267 M 519 252 L 523 252 M 543 252 L 547 252
+             M 523 242 L 526 245 M 543 242 L 540 245 M 523 262 L 526 259 M 543 262 L 540 259"/>
+    <circle cx="533" cy="252" r="5" fill="#fff"/>
+  </g>
+  <g fill="#fff" font-family="Arial, Helvetica, sans-serif" font-weight="bold" text-anchor="middle">
+    <text x="197" y="81" font-size="30">Q</text>
+    <text x="603" y="81" font-size="30">E</text>
+    <text x="197" y="257" font-size="30">W</text>
+    <text x="129" y="325" font-size="30">A</text>
+    <text x="197" y="325" font-size="30">S</text>
+    <text x="265" y="325" font-size="30">D</text>
+    <text x="400" y="78" font-size="24">ESC</text>
+    <text x="400" y="122" font-size="16" letter-spacing="2">PAUSE</text>
+    <text x="451" y="291" font-size="13" letter-spacing="1">HOLD</text>
+    <text x="533" y="291" font-size="13" letter-spacing="1">BOMB</text>
+  </g>
+</svg>
