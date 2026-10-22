@@ -114,7 +114,7 @@ void TestCaptureEscape() {
   CHECK(Has(trg, "Press a key...  (Esc cancels)"));
 
   const std::string launcher = ReadSource("launcher.cpp");
-  CHECK(Has(launcher, "const std::optional<ImGuiKey> key = ui.KeyBindRow(action.label, nullptr, shown);"));
+  CHECK(Has(launcher, "const std::optional<ImGuiKey> key = ui.KeyBindRow(label, help, shown);"));
   CHECK(Has(launcher, "if (!key) {"));
 }
 
@@ -129,11 +129,17 @@ void TestKeyboardSection() {
   CHECK(Has(launcher, "\"Reset to defaults\""));
   CHECK(Has(launcher, "\"Put every key back to its default?\", \"Reset\""));
   CHECK(Has(launcher, "ResetKeyboardDefaults(ui.settings())"));
-  CHECK(Has(launcher, "ui.Section(\"Keyboard controls\", true)"));
+  CHECK(Has(launcher, "ui.Heading(\"Mouse\")"));
+  CHECK(Has(launcher, "ui.Heading(\"Keyboard\")"));
   CHECK(Has(launcher, "Click a key, then press the new one. Esc cancels."));
   CHECK(Has(launcher, "ui.settings().GetBool(kKeyboardKey, true)"));
   CHECK(Has(launcher, "ImGui::BeginDisabled()"));
-  CHECK(Has(launcher, "ui.KeyBindRow(action.label, nullptr, shown)"));
+  // The game's actions first, by what they do; the unused pad inputs stay reachable in a closed section.
+  CHECK(Has(launcher, "{\"keybind_lstick_up\", \"Move up\", nullptr}"));
+  CHECK(Has(launcher, "{\"keybind_right_trigger\", \"Bomb\""));
+  CHECK(Has(launcher, "ui.Section(\"Other controller buttons\", false)"));
+  CHECK(Has(launcher, "if (!IsGameControl(action.key))"));
+  CHECK(Has(launcher, "ui.KeyBindRow(label, help, shown)"));
 }
 
 void TestFallbackLauncher() {

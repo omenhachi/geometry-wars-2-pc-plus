@@ -202,6 +202,13 @@ UiFontFiles FindUiFonts() {
   const UINT length = GetWindowsDirectoryW(windows, MAX_PATH);
   const std::filesystem::path fonts =
       std::filesystem::path(length ? std::wstring(windows, length) : std::wstring(L"C:\\Windows")) / L"Fonts";
+  // Bahnschrift (Windows 10 and later) for labels, page names and titles: a squarer, signage-like face closer to
+  // the game's vector lettering. Body text stays Segoe UI.
+  std::error_code error;
+  const std::filesystem::path display = fonts / "bahnschrift.ttf";
+  if (std::filesystem::exists(display, error)) {
+    return {fonts / "segoeui.ttf", display, display};
+  }
   return {fonts / "segoeui.ttf", fonts / "seguisb.ttf", fonts / "segoeuib.ttf"};
 }
 

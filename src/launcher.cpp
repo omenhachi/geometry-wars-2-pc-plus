@@ -44,6 +44,7 @@
 #include "launcher_play.h"
 #include "launcher_platform.h"
 #include "launcher_quit.h"
+#include "line_font.h"
 #include "online_leaderboard.h"
 #include "launcher_settings.h"
 #include "log_filter.h"
@@ -54,7 +55,8 @@ namespace gw2 {
 namespace {
 
 // The violet of the Geometry Wars logo (#943CFF).
-const ImVec4 kAccent = ImVec4(0.580f, 0.235f, 1.0f, 1.0f);
+// The game's menu lime: headings, page names, chosen options and links.
+const ImVec4 kAccent = ImVec4(0.490f, 1.0f, 0.290f, 1.0f);
 constexpr double kPlayFeedbackSeconds = 0.4;
 constexpr ImGuiConfigFlags kNavFlags = ImGuiConfigFlags_NavEnableKeyboard | ImGuiConfigFlags_NavEnableGamepad;
 constexpr char kAuthorUrl[] = "https://github.com/omenhachi";
@@ -89,8 +91,25 @@ std::optional<std::string> g_online_status;
 constexpr char kCheatsHelp[] =
     "Press F10 while playing to open the Cheats menu. Changes made there apply only to the current session.";
 
+// The game's own menus: near-black space, violet frames, lime lettering and an orange double outline on what is
+// selected. Body text stays a pale grey-white, which reads better than lime in quantity.
 trg::Theme LauncherTheme() {
-  return trg::Theme::Midnight().WithAccent(kAccent);
+  trg::Theme t = trg::Theme::Midnight().WithAccent(kAccent);
+  t.bg = ImVec4(0.012f, 0.012f, 0.035f, 1.0f);
+  t.panel = ImVec4(0.020f, 0.020f, 0.060f, 0.94f);
+  t.frame = ImVec4(0.060f, 0.050f, 0.160f, 1.0f);
+  t.frame_hot = ImVec4(0.110f, 0.080f, 0.260f, 1.0f);
+  t.frame_active = ImVec4(0.150f, 0.100f, 0.340f, 1.0f);
+  t.popup = ImVec4(0.025f, 0.022f, 0.070f, 0.98f);
+  t.text = ImVec4(0.900f, 0.930f, 0.960f, 1.0f);
+  t.dim = ImVec4(0.600f, 0.620f, 0.760f, 1.0f);
+  t.good = ImVec4(0.180f, 0.700f, 0.150f, 1.0f);
+  t.good_dot = kAccent;
+  t.warn = ImVec4(0.900f, 0.420f, 0.080f, 1.0f);
+  t.warn_dot = ImVec4(1.000f, 0.560f, 0.120f, 1.0f);
+  t.line = ImVec4(0.470f, 0.300f, 1.000f, 0.90f);
+  t.selection = ImVec4(1.000f, 0.560f, 0.120f, 1.0f);
+  return t;
 }
 
 constexpr float kHeaderArtAspect = 1600.0f / 180.0f;
@@ -463,6 +482,13 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
     c.theme = LauncherTheme();
     c.fonts = g_fonts;
     c.branding.title = "GEOMETRY WARS: RETRO EVOLVED 2";
+    // The title in line-drawn capitals like the game's own, kept about as wide as the font title was.
+    c.branding.title_painter = [](ImDrawList* draw, ImVec2 pos, float size, float scale) {
+      constexpr std::string_view kTitle = "GEOMETRY WARS: RETRO EVOLVED 2";
+      const float height = std::min(size * 0.8f, 780.0f * scale / line_font::Width(kTitle, 1.0f));
+      line_font::Draw(draw, ImVec2(pos.x, pos.y + (size - height) * 0.5f), height, kTitle,
+                      ImGui::ColorConvertFloat4ToU32(kAccent), std::max(2.0f, height * 0.075f));
+    };
     c.branding.subtitle_segments = {
         {"PC PLUS   \xC2\xB7   ", ""},
         {"v" GW2_PORT_VERSION "   \xC2\xB7   ", ""},
@@ -505,7 +531,7 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
         return {name, "Render resolution, anti-aliasing and texture filtering.",
                 [this](trg::Ui& ui) { PageGraphics(ui); }, nullptr};
       case PageId::kGameplay:
-        return {name, "Frame rate limit, the window title and the corner counter.",
+        return {name, "Frame rate, the window title, the corner counter and online leaderboards.",
                 [this](trg::Ui& ui) { PageGameplay(ui); }, nullptr};
       case PageId::kControls:
         return {name, "Controller and keyboard.", [this](trg::Ui& ui) { PageControls(ui); }, nullptr};
@@ -686,6 +712,36 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
     }
   }
 
+  // The pad inputs Geometry Wars uses, named for what they do, in the order players look for them. The rest are under
+  // "Other controller buttons".
+  struct GameControl {
+    std::string_view key;
+    const char* label;
+    const char* help;
+  };
+  static constexpr GameControl kGameControls[] = {
+      {"keybind_lstick_up", "Move up", nullptr},
+      {"keybind_lstick_down", "Move down", nullptr},
+      {"keybind_lstick_left", "Move left", nullptr},
+      {"keybind_lstick_right", "Move right", nullptr},
+      {"keybind_rstick_up", "Fire up", "Or aim with the mouse."},
+      {"keybind_rstick_down", "Fire down", nullptr},
+      {"keybind_rstick_left", "Fire left", nullptr},
+      {"keybind_rstick_right", "Fire right", nullptr},
+      {"keybind_right_trigger", "Bomb", "The right mouse button bombs too."},
+      {"keybind_left_trigger", "Bomb (second key)", nullptr},
+      {"keybind_start", "Pause", "Esc pauses too. In menus this also selects."},
+      {"keybind_a", "Select", nullptr},
+      {"keybind_b", "Back", "Esc goes back too."},
+      {"keybind_x", "How To Play", nullptr},
+      {"keybind_y", "Leaderboard", nullptr},
+  };
+
+  static bool IsGameControl(std::string_view key) {
+    return std::any_of(std::begin(kGameControls), std::end(kGameControls),
+                       [key](const GameControl& control) { return control.key == key; });
+  }
+
   void PageControls(trg::Ui& ui) {
     ui.Info("Controller", "Automatic: Xbox controllers work without setup.");
     ui.Toggle("Keyboard", "Use the keyboard for gameplay controls together with the controller.", kKeyboardKey,
@@ -696,26 +752,40 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
       ResetKeyboardDefaults(ui.settings());
       ui.SetStatus("Keyboard controls reset to defaults.");
     }
-    if (ui.Section("Keyboard controls", true)) {
-      ui.Help("Click a key, then press the new one. Esc cancels.");
-      const bool enabled = ui.settings().GetBool(kKeyboardKey, true);
-      if (!enabled) {
-        ImGui::BeginDisabled();
-      }
+    const bool enabled = ui.settings().GetBool(kKeyboardKey, true);
+    ui.Heading("Mouse");
+    ui.Info("Aim and fire", "Hold the left mouse button: your ship fires straight at the cursor.");
+    ui.Info("Bomb", "Right mouse button.");
+    ui.Heading("Keyboard");
+    ui.Help("Click a key, then press the new one. Esc cancels.");
+    if (!enabled) {
+      ImGui::BeginDisabled();
+    }
+    for (const GameControl& control : kGameControls) {
       for (const KeyboardAction& action : kKeyboardActions) {
-        KeyboardRow(ui, action);
+        if (control.key == action.key) {
+          KeyboardRow(ui, action, control.label, control.help);
+        }
       }
-      if (!enabled) {
-        ImGui::EndDisabled();
+    }
+    if (ui.Section("Other controller buttons", false)) {
+      ui.Help("Buttons Geometry Wars does not use with a keyboard, listed by their controller names.");
+      for (const KeyboardAction& action : kKeyboardActions) {
+        if (!IsGameControl(action.key)) {
+          KeyboardRow(ui, action, action.label, nullptr);
+        }
       }
+    }
+    if (!enabled) {
+      ImGui::EndDisabled();
     }
   }
 
   // The key table holds the ReXGlue keybind_* settings, so a row edits the same store the rest of the launcher uses.
   // The store keeps the edit pending until Save or Play.
-  static void KeyboardRow(trg::Ui& ui, const KeyboardAction& action) {
+  static void KeyboardRow(trg::Ui& ui, const KeyboardAction& action, const char* label, const char* help) {
     const std::string shown = KeyboardBindingLabel(SavedKeyboardBinding(ui.settings(), action));
-    const std::optional<ImGuiKey> key = ui.KeyBindRow(action.label, nullptr, shown);
+    const std::optional<ImGuiKey> key = ui.KeyBindRow(label, help, shown);
     if (!key) {
       return;
     }

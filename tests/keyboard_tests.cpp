@@ -259,7 +259,7 @@ void TestSources() {
   CHECK(Has(settings, "{kKeyboardKey, ValueKind::kBool}"));
 
   const std::string launcher = ReadSource("launcher.cpp");
-  CHECK(Has(launcher, "ui.KeyBindRow(action.label, nullptr, shown)"));
+  CHECK(Has(launcher, "ui.KeyBindRow(label, help, shown)"));
   CHECK(Has(launcher, "ResetKeyboardDefaults(ui.settings())"));
   CHECK(Has(launcher, "KeyboardBindingFor(*key, io.KeyShift, io.KeyCtrl, io.KeyAlt)"));
   CHECK(Has(launcher, "KeyboardBindingLabel(SavedKeyboardBinding(ui.settings(), action))"));

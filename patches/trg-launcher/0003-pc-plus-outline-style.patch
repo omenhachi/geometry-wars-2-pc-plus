@@ -1,0 +1,368 @@
+diff --git a/include/trg/launcher.h b/include/trg/launcher.h
+index 00b405c..05d8487 100644
+--- a/include/trg/launcher.h
++++ b/include/trg/launcher.h
+@@ -59,6 +59,9 @@ struct Theme {
+   ImVec4 warn;          // "Game files needed" card
+   ImVec4 good_dot;
+   ImVec4 warn_dot;      // also the sidebar's attention dot
++  // Outlined (vector) style: panel and button outlines, and the double outline on what is selected.
++  ImVec4 line = ImVec4(0.45f, 0.30f, 1.00f, 0.85f);
++  ImVec4 selection = ImVec4(1.00f, 0.55f, 0.12f, 1.00f);
+ 
+   // Deep space blue with a green accent (Outpost Kaloki X).
+   static Theme Midnight();
+@@ -111,6 +114,8 @@ struct Branding {
+   bool fade_into_page = true;                            // fade the header's bottom into the page
+   std::optional<ImVec4> subtitle_color;                  // default: the accent
+   ImU32 title_shadow = IM_COL32(0, 0, 0, 150);
++  // When set, draws the title at its top-left corner and size instead of the bold font (for a game's own lettering).
++  std::function<void(ImDrawList* draw, ImVec2 pos, float size, float scale)> title_painter;
+ };
+ 
+ // ------------------------------------------------------------------ pages ---
+diff --git a/src/launcher.cpp b/src/launcher.cpp
+index 81104f7..0c708e0 100644
+--- a/src/launcher.cpp
++++ b/src/launcher.cpp
+@@ -2,7 +2,9 @@
+ 
+ #include <algorithm>
+ #include <cfloat>
++#include <cctype>
+ #include <cmath>
++#include <cstring>
+ #include <cstdio>
+ #include <cstdlib>
+ #include <cstring>
+@@ -20,17 +22,18 @@ ImVec4 Mix(const ImVec4& a, const ImVec4& b, float t) {
+ void ApplyTheme(const Theme& t, float s) {
+   ImGuiStyle& st = ImGui::GetStyle();
+   st.WindowPadding = ImVec2(14 * s, 12 * s);  // popups and combos; the launcher's own windows use none
++  // Outlined vector style: square corners, line borders instead of filled shapes.
+   st.WindowBorderSize = 0;
+   st.ChildBorderSize = 0;
+-  st.PopupBorderSize = 0;
+-  st.FrameBorderSize = 0;
++  st.PopupBorderSize = 1.5f * s;
++  st.FrameBorderSize = 1.2f * s;
+   st.WindowRounding = 0;
+-  st.ChildRounding = 12 * s;
+-  st.FrameRounding = 7 * s;
+-  st.PopupRounding = 8 * s;
+-  st.GrabRounding = 7 * s;
+-  st.TabRounding = 7 * s;
+-  st.ScrollbarRounding = 8 * s;
++  st.ChildRounding = 0;
++  st.FrameRounding = 0;
++  st.PopupRounding = 0;
++  st.GrabRounding = 0;
++  st.TabRounding = 0;
++  st.ScrollbarRounding = 0;
+   st.ScrollbarSize = 10 * s;
+   st.FramePadding = ImVec2(12 * s, 8 * s);
+   st.ItemSpacing = ImVec2(10 * s, 10 * s);
+@@ -47,9 +50,10 @@ void ApplyTheme(const Theme& t, float s) {
+   c[ImGuiCol_FrameBg] = t.frame;
+   c[ImGuiCol_FrameBgHovered] = t.frame_hot;
+   c[ImGuiCol_FrameBgActive] = t.frame_active;
+-  c[ImGuiCol_Button] = t.frame;
+-  c[ImGuiCol_ButtonHovered] = t.frame_hot;
+-  c[ImGuiCol_ButtonActive] = t.frame_active;
++  c[ImGuiCol_Button] = ImVec4(t.frame.x, t.frame.y, t.frame.z, 0.35f);
++  c[ImGuiCol_ButtonHovered] = ImVec4(t.line.x, t.line.y, t.line.z, 0.22f);
++  c[ImGuiCol_ButtonActive] = ImVec4(t.line.x, t.line.y, t.line.z, 0.38f);
++  c[ImGuiCol_Border] = ImVec4(t.line.x, t.line.y, t.line.z, t.line.w * 0.75f);
+   c[ImGuiCol_Header] = t.frame;
+   c[ImGuiCol_HeaderHovered] = t.frame_hot;
+   c[ImGuiCol_HeaderActive] = t.frame_active;
+@@ -82,11 +86,60 @@ ImFont* LoadFirstFont(std::initializer_list<std::string> paths, float size) {
+   return nullptr;
+ }
+ 
+-void PushAccent(const Theme& t) {
+-  ImGui::PushStyleColor(ImGuiCol_Button, t.accent);
+-  ImGui::PushStyleColor(ImGuiCol_ButtonHovered, t.accent_hot);
+-  ImGui::PushStyleColor(ImGuiCol_ButtonActive, t.accent_hot);
+-  ImGui::PushStyleColor(ImGuiCol_Text, t.on_accent);
++// A neon outline: a wide faint glow under a crisp line, and a second line inset when it marks the selection.
++void NeonRect(ImDrawList* dl, ImVec2 a, ImVec2 b, ImU32 color, float s, bool double_line, float glow = 1.0f) {
++  const ImVec4 c = ImGui::ColorConvertU32ToFloat4(color);
++  dl->AddRect(a, b, ImGui::ColorConvertFloat4ToU32(ImVec4(c.x, c.y, c.z, c.w * 0.22f * glow)), 0, 0, 6 * s);
++  dl->AddRect(a, b, color, 0, 0, 1.6f * s);
++  if (double_line) {
++    const float in = 4 * s;
++    dl->AddRect(ImVec2(a.x + in, a.y + in), ImVec2(b.x - in, b.y - in), color, 0, 0, 1.6f * s);
++  }
++}
++
++// Capitals with extra spacing between letters, like the game's menus. Returns the width.
++float SpacedCapsWidth(ImFont* font, float size, const char* text, float spacing) {
++  float w = 0;
++  for (const char* p = text; *p; ++p) {
++    const char ch = char(std::toupper(static_cast<unsigned char>(*p)));
++    w += font->CalcTextSizeA(size, FLT_MAX, 0, &ch, &ch + 1).x + (p[1] ? spacing : 0);
++  }
++  return w;
++}
++
++float SpacedCaps(ImDrawList* dl, ImFont* font, float size, ImVec2 pos, ImU32 color, const char* text, float spacing) {
++  float x = pos.x;
++  for (const char* p = text; *p; ++p) {
++    const char ch = char(std::toupper(static_cast<unsigned char>(*p)));
++    dl->AddText(font, size, ImVec2(x, pos.y), color, &ch, &ch + 1);
++    x += font->CalcTextSizeA(size, FLT_MAX, 0, &ch, &ch + 1).x + spacing;
++  }
++  return x - pos.x;
++}
++
++void CornerBrackets(ImDrawList* dl, ImVec2 a, ImVec2 b, ImU32 color, float len, float thickness) {
++  dl->AddLine(a, ImVec2(a.x + len, a.y), color, thickness);
++  dl->AddLine(a, ImVec2(a.x, a.y + len), color, thickness);
++  dl->AddLine(ImVec2(b.x, a.y), ImVec2(b.x - len, a.y), color, thickness);
++  dl->AddLine(ImVec2(b.x, a.y), ImVec2(b.x, a.y + len), color, thickness);
++  dl->AddLine(ImVec2(a.x, b.y), ImVec2(a.x + len, b.y), color, thickness);
++  dl->AddLine(ImVec2(a.x, b.y), ImVec2(a.x, b.y - len), color, thickness);
++  dl->AddLine(b, ImVec2(b.x - len, b.y), color, thickness);
++  dl->AddLine(b, ImVec2(b.x, b.y - len), color, thickness);
++}
++
++// The faint grid the game draws inside its cards.
++void PanelGrid(ImDrawList* dl, ImVec2 a, ImVec2 b, ImU32 color, float step) {
++  for (float x = a.x + step; x < b.x; x += step) dl->AddLine(ImVec2(x, a.y), ImVec2(x, b.y), color, 1.0f);
++  for (float y = a.y + step; y < b.y; y += step) dl->AddLine(ImVec2(a.x, y), ImVec2(b.x, y), color, 1.0f);
++}
++
++// A framed panel: grid, violet outline and corner brackets.
++void FramePanel(ImDrawList* dl, ImVec2 a, ImVec2 b, const Theme& t, float s) {
++  PanelGrid(dl, a, b, Col(t.line, 0.07f), 32 * s);
++  NeonRect(dl, a, b, Col(t.line), s, false, 0.6f);
++  CornerBrackets(dl, ImVec2(a.x - 3 * s, a.y - 3 * s), ImVec2(b.x + 3 * s, b.y + 3 * s), Col(t.accent, 0.9f),
++                 16 * s, 2.0f * s);
+ }
+ 
+ // Draws `text` at `pos` and returns its advance. A non-empty url makes it a
+@@ -283,20 +336,28 @@ int Ui::Segmented(const char* id, const std::vector<std::string>& labels, int se
+   for (size_t i = 0; i < labels.size(); ++i) {
+     if (i) ImGui::SameLine(0, gap);
+     const bool sel = int(i) == selected;
+-    if (sel) PushAccent(theme());
++    if (sel) {
++      ImGui::PushStyleColor(ImGuiCol_Text, theme().accent);
++      ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0, 0, 0, 0));
++    }
+     ImGui::PushID(int(i));
+     if (ImGui::Button(labels[i].c_str(), ImVec2(bw, 0)) && !sel) clicked = int(i);
++    if (sel) NeonRect(ImGui::GetWindowDrawList(), ImGui::GetItemRectMin(), ImGui::GetItemRectMax(),
++                      Col(theme().selection), scale_, true);
+     ImGui::PopID();
+-    if (sel) ImGui::PopStyleColor(4);
++    if (sel) ImGui::PopStyleColor(2);
+   }
+   ImGui::PopID();
+   return clicked;
+ }
+ 
+ bool Ui::AccentButton(const char* label, ImVec2 size) {
+-  PushAccent(theme());
++  ImGui::PushStyleColor(ImGuiCol_Text, theme().accent);
++  ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0, 0, 0, 0));
+   const bool r = ImGui::Button(label, size);
+-  ImGui::PopStyleColor(4);
++  NeonRect(ImGui::GetWindowDrawList(), ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), Col(theme().accent), scale_,
++           false, ImGui::IsItemHovered() ? 1.6f : 1.0f);
++  ImGui::PopStyleColor(2);
+   return r;
+ }
+ 
+@@ -498,7 +559,10 @@ void Ui::StatusCard(Status status, const char* title, const char* detail, float
+   const float w = ImGui::GetContentRegionAvail().x, h = 76 * scale_;
+   ImDrawList* dl = ImGui::GetWindowDrawList();
+   const ImVec4 fill = status == Status::kReady ? t.good : status == Status::kBusy ? t.frame : t.warn;
+-  dl->AddRectFilled(p, ImVec2(p.x + w, p.y + h), Col(fill), 12 * scale_);
++  const ImVec4 edge = status == Status::kReady ? t.good_dot : status == Status::kBusy ? t.line : t.warn_dot;
++  dl->AddRectFilled(p, ImVec2(p.x + w, p.y + h), Col(fill, 0.12f));
++  PanelGrid(dl, p, ImVec2(p.x + w, p.y + h), Col(edge, 0.08f), 24 * scale_);
++  NeonRect(dl, p, ImVec2(p.x + w, p.y + h), Col(edge), scale_, true);
+   const ImVec2 dot(p.x + 34 * scale_, p.y + h * 0.5f);
+   if (status == Status::kBusy) {
+     const float a = float(ImGui::GetTime()) * 5.0f;
+@@ -546,10 +610,15 @@ bool Ui::TaskProgress(Task& task) {
+ 
+ void Ui::Heading(const char* text) {
+   LeaveRows();
+-  ImGui::Dummy(ImVec2(0, 4 * scale_));
+-  ImGui::PushFont(fonts().semibold, fonts().size * 1.1f);
+-  ImGui::TextUnformatted(text);
+-  ImGui::PopFont();
++  ImGui::Dummy(ImVec2(0, 10 * scale_));
++  ImFont* font = fonts().semibold ? fonts().semibold : ImGui::GetFont();
++  const float size = fonts().size * 1.1f * scale_;
++  const ImVec2 p = ImGui::GetCursorScreenPos();
++  ImDrawList* dl = ImGui::GetWindowDrawList();
++  SpacedCaps(dl, font, size, p, Col(theme().accent), text, 3 * scale_);
++  const float y = p.y + size + 6 * scale_;
++  dl->AddLine(ImVec2(p.x, y), ImVec2(p.x + ImGui::GetContentRegionAvail().x, y), Col(theme().line, 0.6f), 1.2f * scale_);
++  ImGui::Dummy(ImVec2(0, size + 12 * scale_));
+ }
+ 
+ void Ui::Paragraph(const char* text) {
+@@ -615,9 +684,11 @@ void Ui::AchievementCardView(const AchievementCard& a, float width) {
+   const ImVec2 p = ImGui::GetCursorScreenPos();
+   ImGui::Dummy(ImVec2(card_w, card_h));
+   ImDrawList* dl = ImGui::GetWindowDrawList();
+-  dl->AddRectFilled(p, ImVec2(p.x + card_w, p.y + card_h), Col(a.unlocked ? t.frame_hot : t.frame), 10 * s);
++  dl->AddRectFilled(p, ImVec2(p.x + card_w, p.y + card_h), Col(a.unlocked ? t.frame_hot : t.frame, 0.45f));
++  NeonRect(dl, p, ImVec2(p.x + card_w, p.y + card_h), Col(a.unlocked ? t.accent : t.line, a.unlocked ? 1.0f : 0.5f), s,
++           false, a.unlocked ? 1.0f : 0.4f);
+   if (a.unlocked)
+-    dl->AddRectFilled(p, ImVec2(p.x + 4 * s, p.y + card_h), Col(t.accent), 10 * s, ImDrawFlags_RoundCornersLeft);
++    dl->AddRectFilled(p, ImVec2(p.x + 4 * s, p.y + card_h), Col(t.accent));
+   float tx = p.x + 18 * s;
+   if (a.icon != ImTextureID{}) {
+     const ImVec2 i0(p.x + 14 * s, p.y + (card_h - icon) * 0.5f);
+@@ -695,7 +766,7 @@ void Launcher::DrawPrompt() {
+   ImGui::SetNextWindowPos(vp->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+   ImGui::SetNextWindowSize(ImVec2(std::min(600 * s_, vp->Size.x - 40 * s_), 0));
+   ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(24 * s_, 20 * s_));
+-  ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 12 * s_);
++  ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+   ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.0f);
+   ImGui::PushStyleColor(ImGuiCol_PopupBg, t.panel);
+   ImGui::PushStyleColor(ImGuiCol_Border, t.warn);
+@@ -916,8 +987,12 @@ void Launcher::DrawHeader(ImVec2 origin, float w, float h) {
+   const float title_size = std::clamp(h * 0.27f, 30 * s_, 46 * s_);
+   const float title_y = origin.y + h * 0.5f - title_size * 0.85f;
+   const char* title = b.title.c_str();
+-  dl->AddText(config_.fonts.bold, title_size, ImVec2(x + 2 * s_, title_y + 3 * s_), b.title_shadow, title);
+-  dl->AddText(config_.fonts.bold, title_size, ImVec2(x, title_y), IM_COL32_WHITE, title);
++  if (b.title_painter) {
++    b.title_painter(dl, ImVec2(x, title_y), title_size, s_);
++  } else {
++    dl->AddText(config_.fonts.bold, title_size, ImVec2(x + 2 * s_, title_y + 3 * s_), b.title_shadow, title);
++    dl->AddText(config_.fonts.bold, title_size, ImVec2(x, title_y), IM_COL32_WHITE, title);
++  }
+   const float subtitle_size = 16 * s_;
+   const ImU32 subtitle_color = Col(b.subtitle_color.value_or(t.accent));
+   const float subtitle_x = x + 2 * s_;
+@@ -943,6 +1018,11 @@ void Launcher::DrawHeader(ImVec2 origin, float w, float h) {
+ void Launcher::DrawSidebar(ImVec2 size) {
+   const Theme& t = config_.theme;
+   ImGui::BeginChild("##sidebar", size, ImGuiChildFlags_None, ImGuiWindowFlags_NoScrollbar);
++  {
++    const ImVec2 a = ImGui::GetWindowPos();
++    FramePanel(ImGui::GetWindowDrawList(), ImVec2(a.x + 2 * s_, a.y + 2 * s_),
++               ImVec2(a.x + size.x - 2 * s_, a.y + size.y - 2 * s_), t, s_);
++  }
+   const float pad = 10 * s_;
+   const float item_h = 46 * s_;
+   ImGui::SetCursorPos(ImVec2(pad, pad));
+@@ -957,13 +1037,18 @@ void Launcher::DrawSidebar(ImVec2 size) {
+     if (ImGui::InvisibleButton("##page", item)) GoToPage(i);
+     const bool hot = ImGui::IsItemHovered();
+     ImDrawList* dl = ImGui::GetWindowDrawList();
+-    if (selected || hot)
+-      dl->AddRectFilled(pos, ImVec2(pos.x + item.x, pos.y + item.y), Col(selected ? t.accent : t.frame), 8 * s_);
+-    dl->AddText(ImVec2(pos.x + 16 * s_, pos.y + (item_h - ImGui::GetFontSize()) * 0.5f),
+-                Col(selected ? t.on_accent : t.text), page.name.c_str());
++    const ImVec2 end(pos.x + item.x, pos.y + item.y);
++    if (selected) {
++      dl->AddRectFilled(pos, end, Col(t.selection, 0.10f));
++      NeonRect(dl, pos, end, Col(t.selection), s_, true);
++    } else if (hot) {
++      NeonRect(dl, pos, end, Col(t.line), s_, false, 0.7f);
++    }
++    SpacedCaps(dl, ImGui::GetFont(), ImGui::GetFontSize(),
++               ImVec2(pos.x + 16 * s_, pos.y + (item_h - ImGui::GetFontSize()) * 0.5f),
++               Col(selected ? t.accent : hot ? t.text : t.dim), page.name.c_str(), 2 * s_);
+     if (page.needs_attention && page.needs_attention())
+-      dl->AddCircleFilled(ImVec2(pos.x + item.x - 18 * s_, pos.y + item_h * 0.5f), 4.5f * s_,
+-                          Col(selected ? t.on_accent : t.warn_dot));
++      dl->AddCircleFilled(ImVec2(pos.x + item.x - 18 * s_, pos.y + item_h * 0.5f), 4.5f * s_, Col(t.warn_dot));
+     ImGui::PopID();
+     ImGui::Dummy(ImVec2(0, 2 * s_));
+   }
+@@ -973,6 +1058,11 @@ void Launcher::DrawSidebar(ImVec2 size) {
+ 
+ void Launcher::DrawContent(ImVec2 size) {
+   ImGui::BeginChild("##content", size, ImGuiChildFlags_None, ImGuiWindowFlags_NoScrollbar);
++  {
++    const ImVec2 a = ImGui::GetWindowPos();
++    FramePanel(ImGui::GetWindowDrawList(), ImVec2(a.x + 2 * s_, a.y + 2 * s_),
++               ImVec2(a.x + size.x - 2 * s_, a.y + size.y - 2 * s_), config_.theme, s_);
++  }
+   if (config_.pages.empty()) {
+     ImGui::EndChild();
+     return;
+@@ -981,9 +1071,13 @@ void Launcher::DrawContent(ImVec2 size) {
+   const float pad = 26 * s_;
+   ImGui::SetCursorPos(ImVec2(pad, pad * 0.8f));
+   ImGui::BeginGroup();
+-  ImGui::PushFont(config_.fonts.semibold, config_.fonts.size * 1.45f);
+-  ImGui::TextUnformatted(page.name.c_str());
+-  ImGui::PopFont();
++  {
++    ImFont* font = config_.fonts.bold ? config_.fonts.bold : ImGui::GetFont();
++    const float size_px = config_.fonts.size * 1.6f * s_;
++    const ImVec2 p = ImGui::GetCursorScreenPos();
++    SpacedCaps(ImGui::GetWindowDrawList(), font, size_px, p, Col(config_.theme.accent), page.name.c_str(), 5 * s_);
++    ImGui::Dummy(ImVec2(SpacedCapsWidth(font, size_px, page.name.c_str(), 5 * s_), size_px + 4 * s_));
++  }
+   if (!page.blurb.empty()) {
+     ImGui::PushStyleColor(ImGuiCol_Text, config_.theme.dim);
+     ImGui::TextUnformatted(page.blurb.c_str());
+@@ -1019,7 +1113,7 @@ void Launcher::DrawFooter(ImVec2 origin, float w, float h) {
+ 
+   const float right = origin.x + w;
+   ImGui::SetCursorScreenPos(ImVec2(right - play_w - bw * 2 - 24 * s_, cy - bh * 0.5f));
+-  ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 12 * s_);
++  ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0.0f);
+   if (ImGui::Button("Quit", ImVec2(bw, bh))) want_quit_ = true;
+   ImGui::SameLine(0, 12 * s_);
+   if (ImGui::Button("Save", ImVec2(bw, bh))) Save();
+@@ -1036,26 +1130,28 @@ void Launcher::DrawPlayButton(ImVec2 size, bool can_play) {
+   const bool clicked = ImGui::InvisibleButton("##play", size);
+   const bool hot = ImGui::IsItemHovered();
+   ImDrawList* dl = ImGui::GetWindowDrawList();
+-  const float r = size.y * 0.5f;
++  const ImVec2 end(p.x + size.x, p.y + size.y);
+   if (can_play) {
+     const float pulse = 0.5f + 0.5f * std::sin(float(ImGui::GetTime()) * 3.0f);
+-    dl->AddRectFilled(ImVec2(p.x - 3 * s_, p.y - 3 * s_), ImVec2(p.x + size.x + 3 * s_, p.y + size.y + 3 * s_),
+-                      Col(t.accent, hot ? 0.35f : 0.18f), r + 3 * s_);
+-    const float grow = (3 + 4 * pulse) * s_;
+-    dl->AddRect(ImVec2(p.x - grow, p.y - grow), ImVec2(p.x + size.x + grow, p.y + size.y + grow),
+-                Col(t.accent, 0.45f * (1.0f - pulse)), r + grow, 0, 2 * s_);
++    dl->AddRectFilled(p, end, Col(t.selection, hot ? 0.24f : 0.12f));
++    const float grow = (3 + 5 * pulse) * s_;
++    dl->AddRect(ImVec2(p.x - grow, p.y - grow), ImVec2(end.x + grow, end.y + grow),
++                Col(t.selection, 0.5f * (1.0f - pulse)), 0, 0, 2 * s_);
++    NeonRect(dl, p, end, Col(t.selection), s_, true, hot ? 1.8f : 1.2f);
++  } else {
++    NeonRect(dl, p, end, Col(t.line, 0.6f), s_, false, 0.5f);
+   }
+-  dl->AddRectFilled(p, ImVec2(p.x + size.x, p.y + size.y),
+-                    can_play ? Col(hot ? t.accent_hot : t.accent) : Col(hot ? t.frame_hot : t.frame), r);
+-  const float fs = 22 * s_;
+-  const ImVec2 ts = config_.fonts.bold->CalcTextSizeA(fs, FLT_MAX, 0, "PLAY");
+-  const float tri = fs * 0.5f;
+-  const float total = ts.x + 12 * s_ + tri;
+-  const float tx = p.x + (size.x - total) * 0.5f, ty = p.y + (size.y - ts.y) * 0.5f;
+-  const ImU32 ink = can_play ? Col(t.on_accent) : Col(t.dim);
+-  dl->AddText(config_.fonts.bold, fs, ImVec2(tx, ty), ink, "PLAY");
+-  const float ax = tx + ts.x + 12 * s_, ay = p.y + size.y * 0.5f;
+-  dl->AddTriangleFilled(ImVec2(ax, ay - tri * 0.6f), ImVec2(ax, ay + tri * 0.6f), ImVec2(ax + tri, ay), ink);
++  ImFont* font = config_.fonts.bold ? config_.fonts.bold : ImGui::GetFont();
++  const float fs = 24 * s_;
++  const float spacing = 6 * s_;
++  const float text_w = SpacedCapsWidth(font, fs, "PLAY", spacing);
++  const float tri = fs * 0.45f;
++  const float total = text_w + 14 * s_ + tri;
++  const float tx = p.x + (size.x - total) * 0.5f, ty = p.y + (size.y - fs) * 0.5f;
++  const ImU32 ink = can_play ? Col(hot ? t.accent_hot : t.accent) : Col(t.dim);
++  SpacedCaps(dl, font, fs, ImVec2(tx, ty), ink, "PLAY", spacing);
++  const float ax = tx + text_w + 14 * s_, ay = p.y + size.y * 0.5f;
++  dl->AddTriangle(ImVec2(ax, ay - tri * 0.6f), ImVec2(ax, ay + tri * 0.6f), ImVec2(ax + tri, ay), ink, 2 * s_);
+   if (clicked) want_play_ = true;
+ }
+ 
