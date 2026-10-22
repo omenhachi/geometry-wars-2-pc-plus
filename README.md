@@ -11,7 +11,7 @@
 
 </div>
 
-<img width="1905" height="1071" alt="2026-10-11_18-47" src="https://github.com/user-attachments/assets/08b1ed2c-3244-41c1-94f1-e2ae4c1b76d1" />
+<img src="docs/screenshots/title-pc-plus.png" alt="The Geometry Wars 2 main menu, with PC PLUS+ in the logo under GEOMETRY" />
 
 ## About PC Plus
 
@@ -171,6 +171,23 @@ There is no Xbox Live connection or Microsoft sign-in. The only thing that goes 
 - **Show settings file**, and **Reset all settings**
 
 ## Screenshots
+
+**Nearby players.** Each mode lists the PC Plus players whose scores are nearest yours, with your own row lit up.
+
+<img src="docs/screenshots/nearby-players.png" alt="The Single Player screen: the Deadline tile lists Omenhachi, Light and Luna with their scores" />
+
+**Your next rival, while you play.** The corner shows the next score to beat, and moves up to the next player the moment you pass it.
+
+<img src="docs/screenshots/next-rival.png" alt="A Deadline round, with OMENHACHI 12,018,660 in the top right corner as the score to beat" />
+
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/nearby-board.png" alt="The Deadline Leaderboard - Nearby screen: 1. Omenhachi, 2. Light, 3. Luna" /><br><sub><b>The Nearby board</b>, ranked, in place of Friends.</sub></td>
+<td width="50%"><img src="docs/screenshots/player-name.png" alt="The launcher asking Choose your player name, with Save and Not now" /><br><sub><b>Choose your player name</b>: the launcher asks once.</sub></td>
+</tr>
+</table>
+
+From the original port:
 
 <img width="1887" height="1057" alt="2026-10-11_18-48" src="https://github.com/user-attachments/assets/c4351235-675b-4864-9371-d0346097c55f" />
 
