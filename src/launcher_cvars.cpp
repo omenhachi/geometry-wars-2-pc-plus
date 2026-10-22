@@ -33,6 +33,8 @@ REXCVAR_DEFINE_BOOL(gw2_vibration, gw2::kVibrationDefault, "Geometry Wars", "Con
 REXCVAR_DEFINE_BOOL(gw2_online_leaderboards, gw2::kOnlineLeaderboardsDefault, "Geometry Wars",
                     "Send finished runs' scores to the PC Plus leaderboard server and read the Everyone boards from it");
 REXCVAR_DEFINE_STRING(gw2_player_name, "", "Geometry Wars", "The name shown on the online leaderboards");
+REXCVAR_DEFINE_BOOL(gw2_player_name_asked, false, "Geometry Wars",
+                    "Whether the launcher has asked for a player name (it asks once)");
 REXCVAR_DEFINE_BOOL(gw2_show_fps, gw2::kShowFpsDefault, "Geometry Wars",
                     "Show the frame rate in the window title");
 REXCVAR_DEFINE_BOOL(gw2_show_render_resolution, gw2::kShowResolutionDefault, "Geometry Wars",

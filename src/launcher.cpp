@@ -506,7 +506,13 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
     c.note = "Play applies the changes. Save keeps them without starting.";
     c.hints = "Enter  Play     Alt+F4  Quit     Ctrl+S  Save";
     for (const PageId page : kPageOrder) {
-      c.pages.push_back(MakePage(page));
+      trg::Page made = MakePage(page);
+      // Whichever page is open, the player name question shows over it.
+      made.draw = [this, draw = std::move(made.draw)](trg::Ui& ui) {
+        draw(ui);
+        DrawNamePrompt(ui);
+      };
+      c.pages.push_back(std::move(made));
     }
     c.can_play = [this] {
       if (install_.running()) {
@@ -546,6 +552,90 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
                 nullptr};
     }
     return {};
+  }
+
+  // Once the game is installed, a launcher with online leaderboards on and no player name asks for one, once ever:
+  // Save or Not now both remember that it asked. The Gameplay page changes the name any time.
+  void DrawNamePrompt(trg::Ui& ui) {
+    const char* id = "##player_name_prompt";
+    trg::SettingsStore& settings = ui.settings();
+    if (!name_prompt_shown_ && files_ == GameFileState::kValid && !install_.running() &&
+        settings.GetBool(kOnlineLeaderboardsKey, kOnlineLeaderboardsDefault) && settings.Get(kPlayerNameKey).empty() &&
+        !settings.GetBool(kPlayerNameAskedKey, false)) {
+      name_prompt_shown_ = true;
+      name_prompt_focus_ = true;
+      name_prompt_text_[0] = '\0';
+      ImGui::OpenPopup(id);
+    }
+    const trg::Theme& t = ui.theme();
+    const float s = ui.scale();
+    const ImGuiViewport* vp = ImGui::GetMainViewport();
+    ImGui::SetNextWindowPos(vp->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowSize(ImVec2(std::min(560 * s, vp->Size.x - 40 * s), 0));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(28 * s, 24 * s));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 2.0f);
+    ImGui::PushStyleColor(ImGuiCol_PopupBg, t.panel);
+    ImGui::PushStyleColor(ImGuiCol_Border, t.selection);
+    const bool open = ImGui::BeginPopupModal(id, nullptr,
+                                             ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
+                                                 ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize);
+    ImGui::PopStyleColor(2);
+    ImGui::PopStyleVar(3);
+    if (!open) {
+      return;
+    }
+    ImGui::PushFont(ui.fonts().bold, ImGui::GetFontSize() * 1.3f);
+    ImGui::PushStyleColor(ImGuiCol_Text, t.accent);
+    ImGui::TextUnformatted("CHOOSE YOUR PLAYER NAME");
+    ImGui::PopStyleColor();
+    ImGui::PopFont();
+    ImGui::Dummy(ImVec2(0, 6 * s));
+    ImGui::PushTextWrapPos(0.0f);
+    ImGui::TextUnformatted("It goes up on the online leaderboards next to your best runs, and the game shows it "
+                           "instead of \"User\".");
+    ImGui::PopTextWrapPos();
+    ImGui::Dummy(ImVec2(0, 8 * s));
+    if (name_prompt_focus_) {
+      ImGui::SetKeyboardFocusHere();
+      name_prompt_focus_ = false;
+    }
+    ImGui::SetNextItemWidth(-FLT_MIN);
+    const bool entered = ImGui::InputTextWithHint("##name", "Your name", name_prompt_text_, sizeof name_prompt_text_,
+                                                  ImGuiInputTextFlags_EnterReturnsTrue);
+    const std::string name = online::ValidName(name_prompt_text_);
+    ImGui::PushStyleColor(ImGuiCol_Text, t.dim);
+    ImGui::PushTextWrapPos(0.0f);
+    ImGui::TextUnformatted(name_prompt_text_[0] != '\0' && name.empty()
+                               ? "That name can't be used: up to 15 letters, digits, spaces, _ . or -."
+                               : "Up to 15 letters, digits, spaces, _ . or -. You can change it any time on the "
+                                 "Gameplay page.");
+    ImGui::PopTextWrapPos();
+    ImGui::PopStyleColor();
+    ImGui::Dummy(ImVec2(0, 10 * s));
+    const float button = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.5f;
+    // The accent button draws its own glow, which disabling does not dim, so a plain one waits for a valid name.
+    bool save = false;
+    if (name.empty()) {
+      ImGui::BeginDisabled();
+      ImGui::Button("Save", ImVec2(button, 0));
+      ImGui::EndDisabled();
+    } else {
+      save = ui.AccentButton("Save", ImVec2(button, 0)) || entered;
+    }
+    ImGui::SameLine();
+    const bool later = ImGui::Button("Not now", ImVec2(button, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape, false);
+    if (save || later) {
+      Values values = {{kPlayerNameAskedKey, "true"}};
+      if (save) {
+        values[kPlayerNameKey] = name;
+      }
+      if (!settings_.SaveNow(values)) {
+        REXLOG_WARN("Launcher: could not save the player name answer; it will be asked again next time");
+      }
+      ImGui::CloseCurrentPopup();
+    }
+    ImGui::EndPopup();
   }
 
   void PagePlay(trg::Ui& ui) {
@@ -1024,6 +1114,9 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
   LauncherGameContext game_;
   LauncherCallbacks callbacks_;
   GameFileState files_ = GameFileState::kMissing;
+  bool name_prompt_shown_ = false;
+  bool name_prompt_focus_ = false;
+  char name_prompt_text_[64] = {};
   std::vector<AchievementEntry> entries_;
   std::unique_ptr<rex::ui::AchievementIconCache> icons_;
   std::vector<MonitorInfo> monitors_;
