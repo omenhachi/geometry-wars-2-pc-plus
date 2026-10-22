@@ -23,6 +23,7 @@ PC Plus is based on [saulob's PC port](https://github.com/saulob/geometry-wars-r
 - **Keyboard prompts everywhere.** With the keyboard or mouse in use, every menu shows the keys instead of Xbox buttons (Enter Select, Esc Back, H How To Play, L Leaderboard), and pressing a button on a controller switches them straight back.
 - **A keyboard and mouse controls screen.** The help screens show a neon keyboard and mouse diagram (WASD, Q/E, Esc and the mouse) in place of the controller, drawn in the game's own style.
 - X and Y on the keyboard default to H (How To Play) and L (Leaderboard).
+- **PC PLUS+ on the title screen**, under GEOMETRY in the menu logo, in the logo's own lettering and colours. It's added to your own logo when the game starts (a copy, `game\logo0_pcplus.tga`); the original `logo0.tga` is never changed, and if your logo isn't the expected one the original simply shows.
 - **Online leaderboards.** Choose a player name on the launcher's **Gameplay** page, and the game's own **Everyone** boards show the top PC Plus players for every mode, with your row highlighted. If the server can't be reached, the game quietly uses your local boards. Windows only for now.
 - **Your name in the game.** With a player name set, the menus, your leaderboard rows and your personal best show it instead of "User".
 - **A launcher that looks like Geometry Wars**: outlined violet frames, lime lettering, the game's orange double outline on the selection, line-drawn neon title lettering, and a Controls page that lists the keys by what they do.

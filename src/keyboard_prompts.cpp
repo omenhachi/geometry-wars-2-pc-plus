@@ -6,6 +6,7 @@
 
 #include "keyboard_prompts.h"
 
+#include <cctype>
 #include <cstdint>
 #include <cstring>
 #include <filesystem>
@@ -25,6 +26,7 @@
 
 #include "guest_memory.h"
 #include "launcher_settings.h"
+#include "title_logo.h"
 #include "window_host.h"
 
 namespace {
@@ -124,6 +126,17 @@ uint32_t GuestString(const std::string& text) {
   return address;
 }
 
+bool IsTitleLogoPath(const uint8_t* base, uint32_t address) {
+  constexpr std::string_view kPath = "game:\\logo0.tga";
+  const char* path = reinterpret_cast<const char*>(base + address);
+  for (size_t i = 0; i <= kPath.size(); ++i) {
+    const char c = path[i];
+    if (i == kPath.size()) return c == '\0';
+    if (std::tolower(static_cast<unsigned char>(c)) != kPath[i]) return false;
+  }
+  return false;
+}
+
 }  // namespace
 
 namespace gw2 {
@@ -163,7 +176,15 @@ void InstallKeyboardDiagram(const std::filesystem::path& game_data_root) {
 // D3DXCreateTextureFromFileEx: r4 the path, the texture pointer goes to the address in the stack argument at r1+124.
 // Loading the controller diagram also loads the keyboard and mouse one into a slot of its own.
 REX_EXTERN(__imp__sub_820B7C78);
+// The menu logo loads once, from a path the game formats ("GAME:\logo%i.tga"); with PC PLUS+ stamped
+// (title_logo.cpp) the stamped copy loads instead.
 REX_HOOK_RAW(sub_820B7C78) {
+  if (gw2::TitleLogoReady() && IsTitleLogoPath(base, ctx.r4.u32)) {
+    if (const uint32_t stamped = GuestString(std::string("GAME:\\") + gw2::kTitleLogoFile); stamped != 0) {
+      ctx.r4.u64 = stamped;
+      REXLOG_INFO("Title logo: loading {}", gw2::kTitleLogoFile);
+    }
+  }
   if (ctx.r4.u32 != kControllerPath) {
     __imp__sub_820B7C78(ctx, base);
     return;

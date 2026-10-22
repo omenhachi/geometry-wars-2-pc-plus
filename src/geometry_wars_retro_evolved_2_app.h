@@ -38,6 +38,7 @@
 #include "rumble.h"
 #include "session_log.h"
 #include "system_info.h"
+#include "title_logo.h"
 #include "user_data.h"
 #include "window_host.h"
 
@@ -176,6 +177,7 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
     // Before the runtime mounts the game folder, which it lists once.
     if (game_ready) {
       gw2::InstallKeyboardDiagram(defaults.game_data_root);
+      InstallTitleLogo(defaults.game_data_root);
     }
     const bool show = gw2::LauncherWanted(game_ready, gw2::ShowLauncherSetting(*settings_), gw2::ShiftHeld(),
                                           gw2::TakeSkipLauncher());
@@ -197,6 +199,7 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
                          app_context().CallInUIThreadDeferred([resume, defaults] {
                            gw2::ApplyDetailedLogging();
                            gw2::InstallKeyboardDiagram(defaults.game_data_root);
+                           InstallTitleLogo(defaults.game_data_root);
                            resume(defaults);
                          });
                        },
@@ -287,6 +290,16 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
   }
 
  private:
+  // PC PLUS+ under GEOMETRY on the menu logo; any failure keeps the original logo.
+  static void InstallTitleLogo(const std::filesystem::path& game_data_root) {
+    const gw2::TitleLogoInstall logo = gw2::InstallTitleLogo(game_data_root);
+    if (!logo.ready) {
+      REXLOG_WARN("Title logo: the original stays ({})", logo.detail);
+    } else if (logo.written) {
+      REXLOG_INFO("Title logo: wrote {}", gw2::kTitleLogoFile);
+    }
+  }
+
   std::filesystem::path LogsDirectory(const std::filesystem::path& user_data) const {
     const std::filesystem::path port_folder = gw2::PortFolder();
     return gw2::LogsFolder(port_folder, user_data, gw2::ActiveLogFile(),
