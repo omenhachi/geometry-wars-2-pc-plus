@@ -26,6 +26,7 @@ PC Plus is based on [saulob's PC port](https://github.com/saulob/geometry-wars-r
 - **PC PLUS+ on the title screen**, under GEOMETRY in the menu logo, in the logo's own lettering and colours. It's added to your own logo when the game starts (a copy, `game\logo0_pcplus.tga`); the original `logo0.tga` is never changed, and if your logo isn't the expected one the original simply shows.
 - **Online leaderboards.** Choose a player name on the launcher's **Gameplay** page, and the game's own **Everyone** boards show the top PC Plus players for every mode, with your row highlighted. If the server can't be reached, the game quietly uses your local boards. Windows only for now.
 - **Players around you, in place of Xbox Live friends.** Each mode on the Single Player screen lists the PC Plus players whose scores are nearest yours (three just above, two below), the Leaderboards screen's **Nearby** filter shows them ranked, and during a run the corner shows the next one to beat, moving up as you pass each of them. They're kept in your user data, so they show straight away at the next start, and updated in the background. Your name can likewise appear on other players' screens as someone near them.
+- **Pick your colour.** In the game's **Help and options**, **Settings**, a new **Colour** row turns the menus, the HUD and the crosshair Green (the original), Blue, Purple, Pink, Gold or Rainbow (a slow drift through the spectrum), and the launcher's **Display** page adds any colour of your own from a colour wheel. It changes at once, glow and fades included, and the enemies keep their own colours. The mode icons on the Single Player screen stay green for now.
 - **Your name in the game.** With a player name set, the menus, your leaderboard rows and your personal best show it instead of "User".
 - **A launcher that looks like Geometry Wars**: outlined violet frames, lime lettering, the game's orange double outline on the selection, line-drawn neon title lettering, and a Controls page that lists the keys by what they do.
 
@@ -121,6 +122,7 @@ The launcher opens before the game. Your choices are saved to `settings.toml` in
 - **Display mode**: Windowed or Borderless Fullscreen. Press **F11** while playing to switch between them. In either mode, mouse activity shows the cursor and keyboard or controller activity hides it. Mouse-driven overlays and the launcher always show it.
 - **Window size** and **Monitor**
 - **VSync** on or off
+- **Colour**: the colour of the game's menus, HUD and crosshair: Green (the original), Blue, Purple, Pink, Gold, Rainbow, or **Custom** from a colour wheel (its hue and saturation, at the game's own brightness). The game's **Help and options**, **Settings**, **Colour** row switches between them while you play.
 - **Aspect Ratio**: 16:9 Original, 16:10, 21:9 Ultrawide, 32:9 Super Ultrawide, 4:3 or 5:4. The game renders in that shape (720 lines, the width follows the format) instead of stretching, and Window size lists the sizes of the chosen format. Render resolution and Internal render resolution scale from it. A window of another shape shows black bars
 
 Window size, monitor, VSync, Aspect Ratio and graphics card take effect when you press **PLAY**. If one differs from the launcher's window, the game restarts once in a new window.
@@ -179,6 +181,12 @@ There is no Xbox Live connection or Microsoft sign-in. The only thing that goes 
 **Your next rival, while you play.** The corner shows the next score to beat, and moves up to the next player the moment you pass it.
 
 <img src="docs/screenshots/next-rival.png" alt="A Deadline round, with OMENHACHI 12,018,660 in the top right corner as the score to beat" />
+
+**Your colour.** Help and options, Settings, Colour: the menus, the HUD and the crosshair change at once.
+
+<img src="docs/screenshots/interface-colours.png" alt="The game's Settings menu in six colours: Green, Blue, Purple, Pink, Gold and Rainbow" />
+
+<img src="docs/screenshots/hud-pink.png" alt="A Deadline round with a pink HUD and a pink crosshair; the enemies keep their own colours" />
 
 <table>
 <tr>
