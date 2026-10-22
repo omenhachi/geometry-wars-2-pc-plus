@@ -204,7 +204,11 @@ bool ServeReadStats(uint8_t* base, const LocalLeaderboard& board, uint32_t xuid_
       for (const StatsRow& row : selected.rows) {
         if (row.xuid == board.user().xuid) mine = row.rating;
       }
-      for (StatsRow& row : nearby(view, mine)) selected.rows.push_back(std::move(row));
+      Nearby around = nearby(view, mine);
+      for (StatsRow& row : selected.rows) {
+        if (row.xuid == board.user().xuid && around.my_rank != 0) row.rank = around.my_rank;
+      }
+      for (StatsRow& row : around.rows) selected.rows.push_back(std::move(row));
     }
     views.push_back(std::move(selected));
   }

@@ -9,6 +9,8 @@
 #include <rex/cvar.h>
 #include <rex/hook.h>
 #include <rex/logging.h>
+#include <rex/system/kernel_state.h>
+#include <rex/system/xmemory.h>
 
 #include "achievements_overlay_rules.h"
 #include "guest_memory.h"
@@ -247,8 +249,37 @@ REX_HOOK_RAW(sub_820955D0) {
   ServeReadStats(base, services->board, xuid_count, xuids, spec_count, specs, LoadBE32(base, size_ptr), results,
                  [local_xuid](uint32_t view, int64_t my_score) {
                    const auto board = online::NearbyBoard(view);
-                   return board ? online::PickNearby(*board, my_score, local_xuid) : std::vector<StatsRow>{};
+                   return board ? online::PickNearby(*board, my_score, local_xuid) : Nearby{};
                  });
+}
+
+// The game's text by number (sub_820826D8 returns string n's 512-byte slot). With the players around you in the
+// friends' rows, the friends' names say so: "Friends Leaderboard", the Friends filter and the score display's
+// "Next Friend". Online leaderboards off, the game's own text stays.
+struct RenamedText {
+  uint32_t id;
+  const char* text;
+  uint32_t guest = 0;  // the copy in guest memory, made on first use
+};
+RenamedText g_renamed_text[] = {{0x29, "Nearby"}, {0x67, "Nearby Players"}, {0x28, "Next Player"}};
+
+REX_EXTERN(__imp__sub_820826D8);
+REX_HOOK_RAW(sub_820826D8) {
+  const uint32_t id = ctx.r3.u32;
+  __imp__sub_820826D8(ctx, base);
+  for (RenamedText& renamed : g_renamed_text) {
+    if (renamed.id != id || !online::Enabled()) continue;
+    if (renamed.guest == 0) {
+      // A whole slot, as the game's are, in case anything writes into it.
+      const uint32_t slot = rex::system::kernel_memory()->SystemHeapAlloc(520);
+      if (slot == 0) return;
+      std::memset(base + slot, 0, 520);
+      std::memcpy(base + slot, renamed.text, std::strlen(renamed.text));
+      renamed.guest = slot;
+    }
+    ctx.r3.u64 = renamed.guest;
+    return;
+  }
 }
 
 // XamShowAchievementsUI(user): opens the achievements overlay instead of ReXGlue's stub.

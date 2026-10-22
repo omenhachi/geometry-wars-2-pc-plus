@@ -121,8 +121,13 @@ uint32_t CreateEnumerator(uint8_t* base, EnumeratorRegistry& registry, StatsQuer
 uint32_t ServeEnumeration(uint8_t* base, const LocalLeaderboard& board, const StatsQuery& query, uint32_t buffer,
                           uint32_t size, uint32_t items_ptr, uint32_t overlapped);
 
-// Other players to show beside the requested ones in a view, given the local player's score there (0 when none).
-using NearbyRows = std::function<std::vector<StatsRow>(uint32_t view, int64_t my_score)>;
+// Other players to show beside the requested ones in a view, given the local player's score there (0 when none),
+// and the local player's rank among them (0 keeps the local board's).
+struct Nearby {
+  std::vector<StatsRow> rows;
+  uint32_t my_rank = 0;
+};
+using NearbyRows = std::function<Nearby(uint32_t view, int64_t my_score)>;
 
 // XUserReadStats: fills the results buffer with the requested players' rows and then any nearby rows that fit,
 // dropping nearby rows from the last view back. False when the buffer is missing or too small for the requested.

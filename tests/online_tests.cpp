@@ -103,20 +103,56 @@ std::string Scores(const std::vector<gw2::live::StatsRow>& rows) {
 
 void TestNearby() {
   // 3 just above, 2 at or below; the local player's own server row is never repeated.
-  CHECK(Scores(PickNearby(Board(20, 1050), 1050, kLocalXuid)) == "1100 1200 1300 1000 900 ");
+  CHECK(Scores(PickNearby(Board(20, 1050), 1050, kLocalXuid).rows) == "1100 1200 1300 1000 900 ");
   // Ties go below: the score to beat is strictly above.
-  CHECK(Scores(PickNearby(Board(20), 1000, kLocalXuid)) == "1100 1200 1300 1000 900 ");
+  CHECK(Scores(PickNearby(Board(20), 1000, kLocalXuid).rows) == "1100 1200 1300 1000 900 ");
   // At the top: the five just below. Near the top: what is above, the rest below.
-  CHECK(Scores(PickNearby(Board(20), 5000, kLocalXuid)) == "2000 1900 1800 1700 1600 ");
-  CHECK(Scores(PickNearby(Board(20), 1950, kLocalXuid)) == "2000 1900 1800 1700 1600 ");
+  CHECK(Scores(PickNearby(Board(20), 5000, kLocalXuid).rows) == "2000 1900 1800 1700 1600 ");
+  CHECK(Scores(PickNearby(Board(20), 1950, kLocalXuid).rows) == "2000 1900 1800 1700 1600 ");
   // At the bottom, or a mode never played: the lowest scores, the nearest first.
-  CHECK(Scores(PickNearby(Board(20), 50, kLocalXuid)) == "100 200 300 400 500 ");
-  CHECK(Scores(PickNearby(Board(20), 0, kLocalXuid)) == "100 200 300 400 500 ");
+  CHECK(Scores(PickNearby(Board(20), 50, kLocalXuid).rows) == "100 200 300 400 500 ");
+  CHECK(Scores(PickNearby(Board(20), 0, kLocalXuid).rows) == "100 200 300 400 500 ");
   // Small boards give what they have; an empty board or only the player gives nothing.
-  CHECK(Scores(PickNearby(Board(2), 150, kLocalXuid)) == "200 100 ");
-  CHECK(PickNearby(Board(0), 0, kLocalXuid).empty());
-  CHECK(PickNearby(Board(0, 500), 500, kLocalXuid).empty());
-  for (const auto& row : PickNearby(Board(3, 150), 150, kLocalXuid)) CHECK(row.xuid != kLocalXuid);
+  CHECK(Scores(PickNearby(Board(2), 150, kLocalXuid).rows) == "200 100 ");
+  CHECK(PickNearby(Board(0), 0, kLocalXuid).rows.empty());
+  CHECK(PickNearby(Board(0, 500), 500, kLocalXuid).rows.empty());
+  for (const auto& row : PickNearby(Board(3, 150), 150, kLocalXuid).rows) CHECK(row.xuid != kLocalXuid);
+
+  // Ranks are counted with the player in: 1100 1200 1300 are 10th, 9th and 8th of 20 plus the player at 1050.
+  const auto ranked = PickNearby(Board(20, 900), 1050, kLocalXuid);
+  CHECK(ranked.my_rank == 11);
+  CHECK(ranked.rows.size() == 5 && ranked.rows[0].rank == 10 && ranked.rows[2].rank == 8 && ranked.rows[3].rank == 12);
+  CHECK(PickNearby(Board(20), 5000, kLocalXuid).my_rank == 1);
+  CHECK(PickNearby(Board(20), 5000, kLocalXuid).rows[0].rank == 2);
+  CHECK(PickNearby(Board(20), 0, kLocalXuid).my_rank == 0);
+  CHECK(PickNearby(Board(20), 0, kLocalXuid).rows[0].rank == 20);
+}
+
+void TestNearbyFile() {
+  gw2::live::StatsView deadline = Board(3, 250);
+  deadline.id = 0;
+  gw2::live::StatsView king;
+  king.id = 5;
+  king.rows.push_back({kOnlineXuidTag | 0xABCDEFull, 0, 894030, "Light and Luna"});
+  const std::string text = FormatNearby({deadline, king});
+  const auto back = ParseNearby(text);
+  CHECK(back.size() == 2 && back[0].id == 0 && back[1].id == 5);
+  CHECK(back.size() == 2 && back[0].rows.size() == 4 && back[0].total_rows == 4);
+  CHECK(back.size() == 2 && back[1].rows.size() == 1 && back[1].rows[0].gamertag == "Light and Luna" &&
+        back[1].rows[0].rating == 894030 && back[1].rows[0].xuid == (kOnlineXuidTag | 0xABCDEFull));
+  CHECK(back.size() == 2 && back[0].rows[3].xuid == kLocalXuid && back[0].rows[3].rating == 250);
+  // What the player sees is what was saved: picking from the file matches picking from the boards.
+  CHECK(back.size() == 2 && Scores(PickNearby(back[0], 250, kLocalXuid).rows) == Scores(PickNearby(deadline, 250, kLocalXuid).rows));
+
+  // Damaged or edited lines are skipped, the rest still read; Windows line ends are fine.
+  const auto mixed = ParseNearby(
+      "# comment\r\n0 0009000000000001 100 Ok\r\n9 0009000000000001 100 BadView\n0 nothex 100 X\n"
+      "0 0009000000000002 -5 Negative\n0 0009000000000003 7 Bad!Name\n0 0000000000000000 1 Zero\n"
+      "0 0009000000000004 12x Junk\n0 0009000000000005 300\n1 0009000000000006 200 Two Words\n");
+  CHECK(mixed.size() == 2 && mixed[0].rows.size() == 1 && mixed[0].rows[0].gamertag == "Ok");
+  CHECK(mixed.size() == 2 && mixed[1].id == 1 && mixed[1].rows[0].gamertag == "Two Words");
+  CHECK(ParseNearby("").empty());
+  CHECK(ParseNearby("not a file at all").empty());
 }
 
 }  // namespace
@@ -126,6 +162,7 @@ int main() {
   TestXuids();
   TestBoards();
   TestNearby();
+  TestNearbyFile();
   std::printf("%d checks, %d failures\n", g_checks, g_failures);
   return g_failures == 0 ? 0 : 1;
 }

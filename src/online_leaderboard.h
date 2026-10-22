@@ -61,9 +61,17 @@ std::optional<live::StatsView> ParseBoard(std::string_view json, uint32_t view, 
 // Players shown around you: on each mode tile in place of the Xbox Live friends, and as the in-game "score to beat",
 // which the game takes as the lowest score above yours. Up to 3 just above `my_score` and up to 2 at or below it,
 // more from one side when the other runs short; a view never played (0) gets the board's lowest scores. Rows with
-// `my_xuid` are left out: the game's own row for the player is already there.
+// `my_xuid` are left out: the game's own row for the player is already there. Ranks are counted on the board with
+// the player's score in it (the server's may be older), so the Nearby board reads in order; my_rank is 0 for a
+// view never played.
 inline constexpr size_t kNearbyRows = 5;
-std::vector<live::StatsRow> PickNearby(const live::StatsView& board, int64_t my_score, uint64_t my_xuid);
+live::Nearby PickNearby(const live::StatsView& board, int64_t my_score, uint64_t my_xuid);
+
+// The boards the players around you were last picked from, kept in user data so the tiles are full from the first
+// look at the next start: one "view xuid score name" line per row (names never hold a line break). Lines that do
+// not read back are skipped.
+std::string FormatNearby(const std::vector<live::StatsView>& boards);
+std::vector<live::StatsView> ParseNearby(std::string_view text);
 
 // Called once at start with the file that keeps this PC's secret token and the local player's xuid.
 void Configure(std::filesystem::path token_file, uint64_t local_xuid);
@@ -81,8 +89,8 @@ void SubmitScore(uint32_t view, int64_t score);
 // thread.
 std::optional<live::StatsView> FetchBoard(uint32_t view, uint32_t first_rank, uint32_t count);
 
-// The cached board a view's nearby players are picked from; nullopt until one has arrived. Starts a background fetch
-// of every board when nothing is cached yet; RefreshNearby (also run after each accepted score) fetches again.
+// The cached board a view's nearby players are picked from (from the last start until fresh ones arrive); nullopt
+// when there is none. The first call each start fetches every board in the background, as does each accepted score.
 std::optional<live::StatsView> NearbyBoard(uint32_t view);
 void RefreshNearby();
 

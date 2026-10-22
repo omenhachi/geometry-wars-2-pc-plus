@@ -376,9 +376,10 @@ static void TestServe() {
 
   // Players around the local one: after the requested rows, as many as the game's buffer holds.
   const NearbyRows nearby = [](uint32_t, int64_t mine) {
-    std::vector<StatsRow> rows;
-    for (int i = 1; i <= 5; ++i) rows.push_back({0x0009000000000100ull + i, 0, mine + 1000 * i, "Other"});
-    return rows;
+    Nearby around;
+    for (int i = 1; i <= 5; ++i) around.rows.push_back({0x0009000000000100ull + i, uint32_t(6 - i), mine + 1000 * i, "Other"});
+    around.my_rank = mine > 0 ? 6 : 0;
+    return around;
   };
   const uint32_t full = 8 + 3 * 16 + 3 * 6 * 48;
   const uint32_t around = 0x8000;
@@ -391,6 +392,9 @@ static void TestServe() {
   const uint32_t view1_rows = m.U32(around_views + 16 + 12);
   Check(m.U64(view1_rows) == kXuid && m.U64(view1_rows + 16) == 5000 && m.U64(view1_rows + 48 + 16) == 6000,
         "the requested row comes first, then the others, picked around the local score");
+  Check(m.U32(view1_rows + 8) == 6 && m.U32(view1_rows + 48 + 8) == 5,
+        "the local row takes its rank among the others, who keep theirs");
+  Check(m.U32(m.U32(around_views + 12) + 8) == 0, "a view never played stays unranked");
   Check(m.U64(m.U32(around_views + 12) + 48 + 16) == 1000, "a view never played is picked around zero");
 
   Check(ServeReadStats(m.base(), board, 1, 0x6808, 3, 0x6000, full - 48, around, nearby),

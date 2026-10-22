@@ -12,7 +12,7 @@ The game has one leaderboard per game mode, written and read through these calls
 | Stats session | `XSessionCreate`, `JoinLocal`, `Start`, `End`, `Delete` | ReXGlue (accepts them) |
 | Score write | `XSessionWriteStats` | the port records it |
 | Leaderboard reads | `XUserCreateStatsEnumeratorByRank` / `ByXuid`, `XEnumerate` | the port |
-| Scoreboard preview and friends board | `XUserReadStats` | the port fills ReXGlue's empty answer |
+| Scoreboard preview and friends board | `XUserReadStats` | the port fills ReXGlue's empty answer, with the online players around you in the friends' rows |
 | Friends | `XFriendsCreateEnumerator` | ReXGlue fails it, so the game sees no friends |
 | Achievements | `XUserWriteAchievements`, `XUserCreateAchievementEnumerator` | ReXGlue |
 | Achievements screen | `XamShowAchievementsUI` | the port opens its achievements overlay |
@@ -56,9 +56,15 @@ Only the local player exists, so each board has at most one row.
 |---|---|
 | Everyone | the player at rank 1 when the view has a score, else no rows ("no results") |
 | My Score | the same row |
-| Friends, and the preview on the mode select screen | the player's row, unranked with a score of zero for a view never played |
+| Friends (shown as Nearby), and the preview on the mode select screen | the player's row, unranked with a score of zero for a view never played; with online leaderboards on, also the players around them (below) |
 
 The personal best shown while playing comes from the same preview data. The handles the port gives out for these enumerations start at `0xEC000000`, away from the runtime's `0xF8xxxxxx`, are used once and then dropped, and are capped at 64 unserved.
+
+## Players around you
+
+With online leaderboards on (see the README), the friends' rows are filled with the PC Plus players nearest the player's score. The game reads its friends' scores with `XUserReadStats`, first asking for the size of the answer (no results buffer; it expects `ERROR_INSUFFICIENT_BUFFER`) and then allocating that much. The size answer makes room for 5 more rows per view, and the answer adds up to 3 players just above the player's score and 2 at or below it (equal scores count as below, because the game's score to beat is the lowest score strictly above), more from one side when the other runs short; a view never played gets the board's lowest scores. The game sorts the rows, highlights the player's own, shows them on the mode tiles and on the Nearby board, and during a run shows the lowest one above as the score to beat, moving up as each is passed. Ranks are counted on the client with the player's own score in.
+
+The rows are picked from each mode's online board (the top 50), fetched in the background the first time the game asks after a start and again after each accepted score, and kept in `<user_data_root>/584108FF/live/nearby.txt` so they show at the next start before the fetch. The hook never waits on the network: without a cached board it answers as before, and rows that would not fit the buffer the game allocated are dropped. "Friends", "Friends Leaderboard" and "Next Friend" read "Nearby", "Nearby Players" and "Next Player" while online leaderboards are on. Choosing View Gamer Card on another player's row reaches ReXGlue's stub, which does nothing.
 
 ## Mode unlocks
 
@@ -76,6 +82,7 @@ Choosing Achievements in the game opens the achievements overlay: the 12 achieve
 |---|---|
 | `584108FF/profile/User/63E83FFF` | the game's 48-byte profile |
 | `584108FF/live/stats.toml` | best score per view |
+| `584108FF/live/nearby.txt` | the online boards the players around you were last picked from |
 | `achievements/584108FF.toml` | unlocked achievements |
 
 `<user_data_root>` is the `user_data` folder next to the program (see [user-data.md](user-data.md)). `tools\build.ps1 -Run` uses `build\user_data` as the user data root, and `-Clean` keeps it. Delete that folder for a fresh player.

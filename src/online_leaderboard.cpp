@@ -5,6 +5,7 @@
 #include <atomic>
 #include <cstring>
 #include <fstream>
+#include <iterator>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -58,6 +59,12 @@ uint64_t g_local_xuid = 0;
 constexpr uint32_t kViews = 6;
 std::array<std::optional<live::StatsView>, kViews> g_nearby;
 std::atomic<bool> g_nearby_fetching{false};
+std::atomic<bool> g_nearby_fresh{false};  // fetched since this start
+
+// Next to the token, in the player's user data.
+std::filesystem::path NearbyFile() {
+  return g_token_file.parent_path() / "nearby.txt";
+}
 std::atomic<bool> g_warned{false};
 
 struct Response {
@@ -202,6 +209,12 @@ void Configure(std::filesystem::path token_file, uint64_t local_xuid) {
   std::lock_guard lock(g_mutex);
   g_token_file = std::move(token_file);
   g_local_xuid = local_xuid;
+  std::ifstream in(NearbyFile(), std::ios::binary);
+  const std::string saved{std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>()};
+  for (live::StatsView& board : ParseNearby(saved)) {
+    const uint32_t view = board.id;
+    if (view < kViews) g_nearby[view] = std::move(board);
+  }
 }
 
 bool Enabled() {
@@ -272,12 +285,9 @@ std::optional<live::StatsView> FetchBoard(uint32_t view, uint32_t first_rank, ui
 
 std::optional<live::StatsView> NearbyBoard(uint32_t view) {
   if (view >= kViews || !Enabled()) return std::nullopt;
-  {
-    std::lock_guard lock(g_mutex);
-    if (g_nearby[view]) return g_nearby[view];
-  }
-  RefreshNearby();
-  return std::nullopt;
+  if (!g_nearby_fresh) RefreshNearby();
+  std::lock_guard lock(g_mutex);
+  return g_nearby[view];
 }
 
 void RefreshNearby() {
@@ -290,6 +300,25 @@ void RefreshNearby() {
       std::lock_guard lock(g_mutex);
       g_nearby[view] = std::move(*board);
       ++fetched;
+    }
+    if (fetched == kViews) {
+      g_nearby_fresh = true;
+      std::vector<live::StatsView> boards;
+      std::filesystem::path file;
+      {
+        std::lock_guard lock(g_mutex);
+        for (const auto& board : g_nearby) boards.push_back(*board);
+        file = NearbyFile();
+      }
+      const std::string text = FormatNearby(boards);
+      const std::filesystem::path staging = file.string() + ".tmp";
+      std::error_code error;
+      {
+        std::ofstream out(staging, std::ios::binary | std::ios::trunc);
+        out.write(text.data(), std::streamsize(text.size()));
+      }
+      std::filesystem::rename(staging, file, error);
+      if (error) std::filesystem::remove(staging, error);
     }
     REXLOG_INFO("Online leaderboards: players around you {}", fetched == kViews ? "updated" : "not updated");
     g_nearby_fetching = false;
