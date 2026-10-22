@@ -52,6 +52,9 @@ class LocalLeaderboard {
 
   const LocalUser& user() const { return user_; }
 
+  // The name the player's rows show instead of the profile's; empty goes back to the profile's. Any thread.
+  void SetDisplayName(std::string name);
+
   StatsView Ranked(uint32_t view, uint32_t first_rank, uint32_t max_rows) const;
   StatsView Around(uint32_t view, uint64_t xuid, uint32_t max_rows) const;
   // A row for the local player when it is asked for, scored or not.
@@ -59,9 +62,12 @@ class LocalLeaderboard {
 
  private:
   StatsRow Row(uint32_t view) const;
+  std::string DisplayName() const;
 
   const LocalStats& stats_;
   LocalUser user_;
+  mutable std::mutex name_mutex_;
+  std::string display_name_;  // guarded by name_mutex_
 };
 
 struct StatsQuery {

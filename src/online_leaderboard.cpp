@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cstring>
 #include <fstream>
 #include <mutex>
 #include <string>
@@ -9,7 +10,10 @@
 #include <utility>
 
 #include <rex/cvar.h>
+#include <rex/hook.h>
 #include <rex/logging.h>
+#include <rex/ppc.h>
+#include <rex/types.h>
 
 #include "aim_camera.h"
 #include "cheats.h"
@@ -30,6 +34,13 @@
 #include <bcrypt.h>
 #include <winhttp.h>
 #endif
+
+// The SDK's XamUserGetName body, exported by rexruntime.dll. The SDK has no header for it.
+namespace rex::kernel::xam {
+
+u32 XamUserGetName_entry(u32 user_index, mapped_string buffer, u32 buffer_len);
+
+}  // namespace rex::kernel::xam
 
 namespace gw2::online {
 namespace {
@@ -272,3 +283,24 @@ void DeleteMyScores(std::function<void(bool, std::string)> done) {
 }
 
 }  // namespace gw2::online
+
+// Named like the SDK's export, so REX_EXTERN would call this hook again: the original is called by its entry point.
+// The local profile is called "User"; with a player name set, the game shows that instead, in its corner and on the
+// player's own leaderboard row.
+REX_HOOK_RAW(__imp__XamUserGetName) {
+  const uint32_t user_index = ctx.r3.u32;
+  const uint32_t buffer = ctx.r4.u32;
+  const uint32_t length = ctx.r5.u32;
+  rex::ppc::HostToGuestFunction<rex::kernel::xam::XamUserGetName_entry>(ctx, base);
+  if (ctx.r3.u32 != 0 || user_index != 0 || buffer == 0 || length == 0) {
+    return;
+  }
+  const std::string name = gw2::online::ValidName(rex::cvar::GetFlagByName(gw2::kPlayerNameKey));
+  if (name.empty()) {
+    return;
+  }
+  // The SDK copies at most 16 bytes; a 15 character name and its terminator fit.
+  const size_t size = std::min<size_t>(std::min<uint32_t>(length, 16), name.size() + 1);
+  std::memcpy(base + buffer, name.data(), size - 1);
+  base[buffer + size - 1] = 0;
+}

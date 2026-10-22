@@ -18,10 +18,20 @@ constexpr size_t kGamertagSize = 16;
 
 }  // namespace
 
+void LocalLeaderboard::SetDisplayName(std::string name) {
+  std::lock_guard lock(name_mutex_);
+  display_name_ = std::move(name);
+}
+
+std::string LocalLeaderboard::DisplayName() const {
+  std::lock_guard lock(name_mutex_);
+  return display_name_.empty() ? user_.name : display_name_;
+}
+
 StatsRow LocalLeaderboard::Row(uint32_t view) const {
   const auto score = stats_.Best(user_.xuid, view);
   const bool scored = score && *score > 0;
-  return {user_.xuid, scored ? 1u : 0u, scored ? *score : 0, user_.name};
+  return {user_.xuid, scored ? 1u : 0u, scored ? *score : 0, DisplayName()};
 }
 
 StatsView LocalLeaderboard::Ranked(uint32_t view, uint32_t first_rank, uint32_t max_rows) const {

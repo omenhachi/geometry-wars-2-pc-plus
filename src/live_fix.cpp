@@ -12,6 +12,7 @@
 
 #include "achievements_overlay_rules.h"
 #include "guest_memory.h"
+#include "launcher_settings.h"
 #include "online_leaderboard.h"
 
 REXCVAR_DEFINE_BOOL(gw2_local_live, true, "Geometry Wars",
@@ -43,7 +44,12 @@ AchievementsOverlayGate g_gate;  // guarded by g_gate_mutex
 std::atomic<float> g_scroll_axis{0.0f};
 std::atomic<bool> g_holds_input{false};
 
-Services* Active() { return g_services.load(std::memory_order_acquire); }
+// The player name from the launcher, read whenever the game asks for scores, since it can change after start.
+Services* Active() {
+  Services* services = g_services.load(std::memory_order_acquire);
+  if (services) services->board.SetDisplayName(online::ValidName(rex::cvar::GetFlagByName(kPlayerNameKey)));
+  return services;
+}
 
 bool Succeeded(PPCContext& ctx, uint8_t* base, uint32_t overlapped) {
   uint32_t status = ctx.r3.u32;
