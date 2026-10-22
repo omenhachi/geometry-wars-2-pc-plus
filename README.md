@@ -5,7 +5,7 @@
 ### Geometry Wars: Retro Evolved 2, running natively on PC, with proper mouse aim, online leaderboards and the little touches that make it feel at home on a PC
 
 [![Latest release](https://img.shields.io/github/v/release/omenhachi/geometry-wars-2-pc-plus?style=for-the-badge&label=release&color=943cff&labelColor=07101f&cacheSeconds=300)](https://github.com/omenhachi/geometry-wars-2-pc-plus/releases/latest)
-![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux%20experimental%20%7C%20Steam%20Deck%20experimental-00acc1?style=for-the-badge&labelColor=07101f)
+![Platforms](https://img.shields.io/badge/platform-Windows-00acc1?style=for-the-badge&labelColor=07101f)
 
 <sub>The original Xbox 360 game, statically recompiled to native PC code with the <a href="https://github.com/rexglue/rexglue-sdk">ReXGlue SDK</a>. <b>No game files included</b>: you need your own Geometry Wars: Retro Evolved 2 Xbox Live Arcade package.</sub>
 
@@ -36,7 +36,7 @@ saulob's port does the heavy lifting, and all of it is still here:
 - All 12 achievements, local scores and progression, no Xbox Live needed
 - Optional cheats, controller vibration and keyboard remapping
 - A launcher that installs the game from your own package, and updates itself
-- An experimental native Linux and Steam Deck build
+- An experimental native Linux build, which you can build from source for now (see below)
 
 ## Screenshots
 
@@ -127,13 +127,9 @@ Window size, Monitor, VSync, Aspect Ratio and the graphics card apply when you p
 <details>
 <summary><b>Linux and Steam Deck (experimental)</b></summary>
 
-This is a native Linux build (Vulkan), not Proton or Wine, and it's still experimental: it has only been tried on a little real hardware, and online leaderboards are Windows only for now.
+PC Plus releases are Windows only for now: there's no Linux download yet. The code includes the original port's native Linux build (Vulkan, not Proton or Wine), so you can build an AppImage yourself with `tools/package-linux.sh` ([docs/linux.md](docs/linux.md)). It's experimental and has only been tried on a little real hardware, and the online leaderboards are Windows only for now.
 
-1. Download the `.AppImage` from the release and mark it executable (`chmod +x`, or Properties, Permissions, Is executable).
-2. Run it and install your package from the **Play** page. The package picker needs `zenity` or `kdialog`.
-3. On a Steam Deck, do this in Desktop Mode, then add the AppImage with **Games**, **Add a Non-Steam Game to My Library** and play it from Game Mode.
-
-Saves go in `user_data` and logs in `logs`, next to the AppImage. More in [docs/linux.md](docs/linux.md).
+Proper Linux and Steam Deck support is something I'd like to work on. If you're keen to help test it, please [open an issue](https://github.com/omenhachi/geometry-wars-2-pc-plus/issues).
 
 </details>
 
