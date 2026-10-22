@@ -19,3 +19,7 @@ mnk_mode = true
 # saved bindings take over once changed there.
 keybind_x = "H"
 keybind_y = "L"
+
+# Audio frames queued ahead of playback (ReXGlue's default is 8). 16 keeps the sound in step through busy modes like
+# Evolved and Sequence, at about 43 ms more delay.
+audio_maxqframes = 16
