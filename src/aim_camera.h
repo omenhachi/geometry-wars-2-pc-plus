@@ -158,11 +158,13 @@ class ImGuiDrawer;
 namespace gw2 {
 
 // Mouse aim with Keyboard on: while the left button is held, the right stick points from the ship to the cursor, and
-// the right button holds the right trigger (bomb). A crosshair replaces the cursor during a round. Escape presses
-// Start in a round (pause) and B elsewhere. gw2_aim_debug also draws a dot per camera where it puts the ship.
+// the right button holds the right trigger (bomb). A crosshair replaces the cursor during a round, except in Pacifism,
+// where the ship cannot fire and the cursor simply hides. Escape presses Start in a round (pause) and B elsewhere.
+// gw2_aim_debug also draws a dot per camera where it puts the ship.
 void CreateMouseAim(rex::ui::ImGuiDrawer* drawer);
 
-// Whether the crosshair is drawn, so the window cursor hides behind it.
-bool CrosshairShown();
+// Whether the window cursor should hide during a round: the crosshair is drawn in its place, or the mode (Pacifism)
+// has nothing to aim at.
+bool AimHidesCursor();
 
 }  // namespace gw2

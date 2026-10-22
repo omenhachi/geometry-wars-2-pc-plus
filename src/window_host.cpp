@@ -117,7 +117,7 @@ rex::ui::Window* CurrentWindow() {
 }
 
 void ApplyCursor(rex::ui::Window* window, bool gameplay, bool ui_active) {
-  if (const auto visible = g_cursor.Update(gameplay, window->HasFocus(), ui_active, CrosshairShown())) {
+  if (const auto visible = g_cursor.Update(gameplay, window->HasFocus(), ui_active, AimHidesCursor())) {
     window->SetCursorVisibility(*visible ? rex::ui::Window::CursorVisibility::kVisible
                                          : rex::ui::Window::CursorVisibility::kHidden);
   }

@@ -21,6 +21,7 @@
 #include "aspect_ratio.h"
 #include "cheat_menu.h"
 #include "guest_memory.h"
+#include "king_records.h"
 #include "launcher_cvars.h"
 #include "launcher_settings.h"
 #include "player_records.h"
@@ -56,10 +57,14 @@ struct State {
   float player_x = 0.0f;
   float player_y = 0.0f;
   Clock::time_point player_seen{};
+  uint32_t mode = 0;  // the game mode being played, as at gw2::king::kModeAddress
 };
 
 std::mutex g_mutex;
 State g_state;
+
+// Pacifism: the ship cannot fire, so there is nothing to aim and the crosshair would only distract.
+constexpr uint32_t kPacifismMode = 4;
 
 // sub_82067A20 builds the gameplay camera; the others draw the menus and the attract mode.
 constexpr Camera kGameplayCamera = Camera::kB;
@@ -79,7 +84,7 @@ std::atomic<bool> g_bomb{false};
 std::atomic<int32_t> g_stick{0};  // x in the low 16 bits, y in the high
 std::atomic<int64_t> g_pulse_until{0};
 std::atomic<uint16_t> g_pulse_buttons{0};
-std::atomic<bool> g_crosshair{false};
+std::atomic<bool> g_hide_cursor{false};  // the crosshair stands in for the cursor, or there is nothing to aim
 std::atomic<int64_t> g_mouse_fired{0};  // Clock ticks of the last mouse-aimed shot
 
 int64_t Ticks(Clock::time_point t) { return t.time_since_epoch().count(); }
@@ -100,7 +105,9 @@ void CaptureProjection(const uint8_t* base, uint32_t matrix, uint32_t lr) {
     return;
   }
   const Mat4 proj = LoadMatrix(base, matrix);
+  const uint32_t mode = gw2::LoadBE32(base, gw2::king::kModeAddress);
   std::lock_guard lock(g_mutex);
+  g_state.mode = mode;
   CameraState& state = g_state.cameras[size_t(camera)];
   state.proj = proj;
   state.has_proj = true;
@@ -290,7 +297,9 @@ class MouseAimOverlay final : public rex::ui::ImGuiDialog {
     const bool fire = io.MouseDown[0];
     const bool bomb = io.MouseDown[1];
     const aim::CameraState& camera = state.cameras[size_t(aim::kGameplayCamera)];
-    const bool active = keyboard && in_round && usable && mouse_valid && camera.has_view && camera.has_proj;
+    const bool pacifism = state.mode == aim::kPacifismMode;
+    const bool active =
+        keyboard && in_round && usable && mouse_valid && !pacifism && camera.has_view && camera.has_proj;
 
     if (active && fire) {
       const auto target = aim::UnprojectToArena(camera.view, camera.proj,
@@ -315,7 +324,7 @@ class MouseAimOverlay final : public rex::ui::ImGuiDialog {
     aim::g_override_time.store(aim::Ticks(now), std::memory_order_relaxed);
 
     const bool crosshair = active && (fire || now - mouse_moved_ <= kCrosshairLinger);
-    aim::g_crosshair.store(crosshair, std::memory_order_relaxed);
+    aim::g_hide_cursor.store(crosshair || (keyboard && in_round && usable && pacifism), std::memory_order_relaxed);
     if (!crosshair) {
       spread_ = kAppearSpread;  // the arms fly in again next time it shows
       return;
@@ -385,8 +394,8 @@ void CreateMouseAim(rex::ui::ImGuiDrawer* drawer) {
   new MouseAimOverlay(drawer);  // retained by the drawer for the session
 }
 
-bool CrosshairShown() {
-  return aim::g_crosshair.load(std::memory_order_relaxed);
+bool AimHidesCursor() {
+  return aim::g_hide_cursor.load(std::memory_order_relaxed);
 }
 
 }  // namespace gw2
