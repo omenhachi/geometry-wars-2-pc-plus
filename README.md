@@ -2,69 +2,145 @@
 
 # Geometry Wars 2 PC Plus
 
-### Geometry Wars: Retro Evolved 2 running natively on PC, with real mouse aim, keyboard prompts and controls screens, online leaderboards and a launcher in the game's own style, on top of a native static recompilation with high frame rates and modern PC options
+### Geometry Wars: Retro Evolved 2, running natively on PC, with proper mouse aim, online leaderboards and the little touches that make it feel at home on a PC
 
 [![Latest release](https://img.shields.io/github/v/release/omenhachi/geometry-wars-2-pc-plus?style=for-the-badge&label=release&color=943cff&labelColor=07101f&cacheSeconds=300)](https://github.com/omenhachi/geometry-wars-2-pc-plus/releases/latest)
 ![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux%20experimental%20%7C%20Steam%20Deck%20experimental-00acc1?style=for-the-badge&labelColor=07101f)
 
-<sub>The original Xbox 360 game code, statically recompiled to native PC code with the <a href="https://github.com/rexglue/rexglue-sdk">ReXGlue SDK</a>. <b>No game files included</b>: bring your own Geometry Wars: Retro Evolved 2 Xbox Live Arcade package.</sub>
+<sub>The original Xbox 360 game, statically recompiled to native PC code with the <a href="https://github.com/rexglue/rexglue-sdk">ReXGlue SDK</a>. <b>No game files included</b>: you need your own Geometry Wars: Retro Evolved 2 Xbox Live Arcade package.</sub>
 
 </div>
 
 <img src="docs/screenshots/title-pc-plus.png" alt="The Geometry Wars 2 main menu, with PC PLUS+ in the logo under GEOMETRY" />
 
-## About PC Plus
+PC Plus builds on [saulob's excellent PC port](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled). It's not emulation: the game's own code runs natively, with high frame rates, high resolutions and modern options. PC Plus adds the things I missed playing it on a PC, especially with a keyboard and mouse.
 
-PC Plus is based on [saulob's PC port](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled). It's a great port, but I thought a few things were missing, and I wanted to really bring it into the current day and age, especially for playing on a keyboard and mouse. Everything from the original port is still here; PC Plus adds:
+**[Download the latest release](https://github.com/omenhachi/geometry-wars-2-pc-plus/releases/latest)**
 
-- **Mouse aim that feels like a modern twin-stick shooter.** Hold the left mouse button and your shots go straight to the cursor. The game's own aim sweeps round towards the stick like a controller would; with the mouse, the shot direction is set exactly, every frame, so it's instant. A controller still plays the original way.
-- **Right mouse button bombs**, and **Escape pauses** (and backs out of menus).
-- **An animated neon crosshair** that replaces the cursor during a round: four arms that fly in, spin, shift through the spectrum and pinch together while you fire, as thick as your bullets so it never gets lost in the chaos. `--gw2_crosshair_motion=false` keeps it still. In Pacifism, where your ship can't fire, the crosshair and cursor stay out of the way.
-- **Keyboard prompts everywhere.** With the keyboard or mouse in use, every menu shows the keys instead of Xbox buttons (Enter Select, Esc Back, H How To Play, L Leaderboard), and pressing a button on a controller switches them straight back.
-- **A keyboard and mouse controls screen.** The help screens show a neon keyboard and mouse diagram (WASD, Q/E, Esc and the mouse) in place of the controller, drawn in the game's own style.
-- X and Y on the keyboard default to H (How To Play) and L (Leaderboard).
-- **PC PLUS+ on the title screen**, under GEOMETRY in the menu logo, in the logo's own lettering and colours. It's added to your own logo when the game starts (a copy, `game\logo0_pcplus.tga`); the original `logo0.tga` is never changed, and if your logo isn't the expected one the original simply shows.
-- **Online leaderboards.** Choose a player name on the launcher's **Gameplay** page, and the game's own **Everyone** boards show the top PC Plus players for every mode, with your row highlighted. If the server can't be reached, the game quietly uses your local boards. Windows only for now.
-- **Players around you, in place of Xbox Live friends.** Each mode on the Single Player screen lists the PC Plus players whose scores are nearest yours (three just above, two below), the Leaderboards screen's **Nearby** filter shows them ranked, and during a run the corner shows the next one to beat, moving up as you pass each of them. They're kept in your user data, so they show straight away at the next start, and updated in the background. Your name can likewise appear on other players' screens as someone near them.
-- **Pick your colour.** In the game's **Help and options**, **Settings**, a new **Colour** row turns the menus, the HUD and the crosshair Green (the original), Blue, Purple, Pink, Gold or Rainbow (a slow drift through the spectrum), and the launcher's **Display** page adds any colour of your own from a colour wheel. It changes at once, glow and fades included, the mode icons on the Single Player screen follow it too, and the enemies keep their own colours.
-- **Your name in the game.** With a player name set, the menus, your leaderboard rows and your personal best show it instead of "User".
-- **A launcher that looks like Geometry Wars**: outlined violet frames, lime lettering, the game's orange double outline on the selection, line-drawn neon title lettering, and a Controls page that lists the keys by what they do.
+## What PC Plus adds
 
-Keyboard and mouse are on from the start (the launcher's **Keyboard** setting on the Controls page), and a controller works alongside them. Download the latest release from the [releases page](https://github.com/omenhachi/geometry-wars-2-pc-plus/releases/latest), or build it from source (below).
+- **Real mouse aim.** Shots go straight to the cursor, instantly, like a modern twin-stick shooter. Right-click bombs, Escape pauses. A controller still plays the original way.
+- **An animated neon crosshair** that spins and pinches as you fire, so it never gets lost in the chaos.
+- **Keyboard prompts and a keyboard and mouse controls screen**, drawn in the game's own style.
+- **Online leaderboards.** Pick a player name and the game's Everyone boards show PC Plus players from around the world.
+- **Nearby players, in place of Xbox Live friends.** Each mode lists the players just above and below you, and while you play, the corner shows the next score to beat, moving up as you pass each one.
+- **Pick your colour.** Green, Blue, Purple, Pink, Gold, Rainbow or any colour you like, for the menus, HUD, icons and crosshair, right from the game's Settings menu.
+- **A launcher that looks like Geometry Wars**, and PC PLUS+ on the title screen.
 
-A note on building: Windows Defender flags the official ReXGlue 0.10.0 Windows SDK zip that `tools\codegen.ps1` downloads (its `rexruntime.dll` is reported by about 28 of 71 engines on VirusTotal, while ReXGlue built from the same source tag is not). It is very likely a false positive, but you can avoid the prebuilt SDK entirely by building [ReXGlue v0.10.0](https://github.com/rexglue/rexglue-sdk/tree/v0.10.0) from source (`cmake --preset win-amd64`, then build the `install` target) and copying `out\install\win-amd64` to `tools\rexglue\win-amd64`.
+## From the original port
 
-## What's new in v0.5.0 (original port)
+saulob's port does the heavy lifting, and all of it is still here:
 
-- **High frame rates keep the original game speed**: above 60 FPS the game still updates 60 times per second, and the frames in between are interpolated ([#5](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled/issues/5))
-- **Launcher self-update**: the launcher can download and install a newer release for you
-- **Keyboard remapping** on the Controls page, and controller navigation in the launcher and overlays
-- **Exit game** in the main menu
-- the mouse cursor hides while you play with a controller or the keyboard and returns when you use the mouse
-- Windows performance work in the Direct3D 12 renderer, and a crash report in the log if the game crashes
+- Frame rates up to 240 or unlimited, with the game still running at its original speed
+- Up to 4x render resolution (5120×2880), ultrawide and other aspect ratios, FXAA and MSAA
+- All 12 achievements, local scores and progression, no Xbox Live needed
+- Optional cheats, controller vibration and keyboard remapping
+- A launcher that installs the game from your own package, and updates itself
+- An experimental native Linux and Steam Deck build
 
-The full list is in the [v0.5.0 release notes](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled/releases/tag/v0.5.0).
-## Features
+## Screenshots
 
-- Controller vibration for gameplay events, off by default (Controls > Vibration). It is a PC-port addition, not a restored original feature
-- Native static recompilation for Windows, plus an experimental native Linux / Steam Deck AppImage
-- TRG launcher that installs the game from your own package and remembers its window position, size, maximized and fullscreen state
-- High frame rate support: 30, 60 (the original), 90, 120, 144, 165, 240 or Unlimited, with gameplay updates capped at 60 Hz so enemy behavior and animations keep the original timing
-- Render resolution up to 4x (5120×2880), internal render resolution (100%, 75% or 50%), graphics card choice on Windows, FXAA, 2x or 4x (Compatibility) multisampling, texture filtering up to 16x, VSync and native aspect ratios (16:9, 16:10, 21:9, 32:9, 4:3, 5:4)
-- Improved frame pacing and performance, with less unnecessary GPU and CPU work, especially at higher render resolutions
-- Automatic discrete-GPU preference on hybrid systems, and a more reliable Exit Game
-- Frame rate in the window title, and an in-game frame rate counter (**F2**)
-- Local profile and progression, local scores, offline leaderboards, and all 12 achievements (**F7** overlay), with no Xbox Live connection
-- Cheats (Invincible, Infinite Shield, Infinite Bombs), set in the launcher or toggled in game with **F10**
-- Portable `user_data` folder next to the program, with automatic migration of v0.1.0 data
-- **F11** in the launcher and **F11** in the game are independent: the launcher's fullscreen never changes the game's Display mode
-- The mouse cursor shows on mouse activity and hides on keyboard or controller activity during gameplay
-- Xbox controllers without setup, and keyboard support
+**Nearby players.** The people closest to your score, in every mode.
 
-## What you need
+<img src="docs/screenshots/nearby-players.png" alt="The Single Player screen: the Deadline tile lists Omenhachi, Light and Luna with their scores" />
 
-- Windows 10 or 11, 64-bit, and a DirectX 12 graphics card, **or** 64-bit Linux / a Steam Deck with Vulkan (experimental)
-- **Your own Geometry Wars: Retro Evolved 2 Xbox Live Arcade package**, this exact game version:
+**Your next rival.** The corner shows the score to beat, and moves up the moment you pass it.
+
+<img src="docs/screenshots/next-rival.png" alt="A Deadline round, with OMENHACHI 12,018,660 in the top right corner as the score to beat" />
+
+**Your colour.** Help and options, Settings, Colour.
+
+<img src="docs/screenshots/interface-colours.png" alt="The game's Settings menu in six colours: Green, Blue, Purple, Pink, Gold and Rainbow" />
+
+<img src="docs/screenshots/hud-pink.png" alt="A Deadline round with a pink HUD and a pink crosshair; the enemies keep their own colours" />
+
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/nearby-board.png" alt="The Deadline Leaderboard - Nearby screen: 1. Omenhachi, 2. Light, 3. Luna" /><br><sub><b>The Nearby board</b>, in place of Friends.</sub></td>
+<td width="50%"><img src="docs/screenshots/player-name.png" alt="The launcher asking Choose your player name, with Save and Not now" /><br><sub><b>Choose your player name</b>. The launcher asks once.</sub></td>
+</tr>
+</table>
+
+## Getting started
+
+**You need:** Windows 10 or 11 (64-bit) with a DirectX 12 graphics card, the latest [Microsoft Visual C++ Redistributable (x64)](https://aka.ms/vs/17/release/vc_redist.x64.exe), and your own copy of **Geometry Wars: Retro Evolved 2** for Xbox Live Arcade (game version 0.0.1.2).
+
+1. Download the zip from the [latest release](https://github.com/omenhachi/geometry-wars-2-pc-plus/releases/latest) and extract it anywhere you can write to.
+2. Run `geometry_wars_retro_evolved_2.exe`. The launcher opens.
+3. On the **Play** page, click **Install from package...** and pick your game package. It's one file with a long hexadecimal name and no extension; on an Xbox 360 drive it's in `Content\0000000000000000\584108FF\000D0000\`.
+4. When it says **Ready to play**, press **PLAY**.
+
+The build isn't digitally signed, so Windows SmartScreen may warn the first time: choose **More info**, then **Run anyway**.
+
+**Updating:** use the launcher's update, or extract a new release over your current folder.
+
+**Your saves** live in a `user_data` folder next to the program, so each copy of the game has its own. Keep playing from the same folder, and copy the whole folder to move to another PC.
+
+**Handy keys:** F11 switches between windowed and fullscreen, F2 shows the frame rate, F7 opens achievements, F10 opens cheats. Hold Shift while starting to bring back the launcher if you've hidden it.
+
+## Online leaderboards and privacy
+
+Online leaderboards are on, but **nothing is sent until you choose a player name** (the launcher asks once; you can say Not now). After that, each finished run sends your player name, score, what you played with (mouse, keyboard or controller) and the game version. Runs with cheats on are never sent. There's no account, and no email or IP address is kept. **Delete my online scores** on the launcher's Gameplay page removes everything you've sent, and turning **Online leaderboards** off keeps everything local.
+
+Your name can appear on other players' screens as one of the players near their score. Scores come from players' own PCs, so these are community boards for fun, not a tournament.
+
+<details>
+<summary><b>All launcher settings</b></summary>
+
+The launcher opens before the game and saves your choices to `user_data\launcher\settings.toml`. Set **Show this launcher** to **Off** on the Play page to start straight into the game; hold **Shift** while starting to bring it back.
+
+**Play:** install or reinstall the game from your package (reinstalling keeps your settings and saves), and **Show this launcher**.
+
+**Display**
+- **Display mode**: Windowed or Borderless Fullscreen (F11 switches while playing)
+- **Window size** and **Monitor**
+- **Aspect Ratio**: 16:9, 16:10, 21:9, 32:9, 4:3 or 5:4. The game renders in that shape instead of stretching.
+- **VSync**: on or off
+- **Colour**: Green (the original), Blue, Purple, Pink, Gold, Rainbow, or **Custom** from a colour wheel. The game's **Help and options**, **Settings**, **Colour** row switches between them while you play.
+
+Window size, Monitor, VSync, Aspect Ratio and the graphics card apply when you press PLAY; if one changed, the game restarts once in a new window.
+
+**Graphics**
+- **Graphics card**: Automatic (recommended) or a specific GPU
+- **Render resolution**: Original (1280×720) up to 4x (5120×2880)
+- **Internal render resolution**: 100%, 75% or 50%, to lighten the load on slower GPUs
+- **Anti-aliasing**: Off, FXAA or FXAA Extreme
+- **Multisampling**: 2x MSAA, or 4x MSAA (Compatibility) if 2x shows problems on your GPU
+- **Texture filtering**: Game, Off, or 2x to 16x
+- **Bloom**: Original, Reduced or Off
+
+**Gameplay**
+- **Frame rate**: 30 to 240, or Unlimited (60 is the original). The game itself always runs at 60 updates per second; higher rates smooth the motion in between, with about 17 ms of extra visual delay.
+- **Frame rate in title**, **Render resolution in title**, and the **Frame counter** (F2)
+- **Online leaderboards**, **Player name** and **Delete my online scores** (see above)
+
+**Cheats:** Invincible, Infinite Shield and Infinite Bombs, all off by default. F10 toggles them in game for that session only. Runs with cheats on are never sent online.
+
+**Controls:** Xbox controllers work without setup. **Keyboard** is on by default, and the page lists the keys by what they do. **Vibration** (controller rumble) is off by default.
+
+**Achievements:** all 12 (200G) with their icons and your progress. The list appears after you've pressed PLAY once.
+
+**About:** versions, the game and saves folders, the settings file, and **Reset all settings**.
+
+</details>
+
+<details>
+<summary><b>Linux and Steam Deck (experimental)</b></summary>
+
+This is a native Linux build (Vulkan), not Proton or Wine, and it's still experimental: it has only been tried on a little real hardware, and online leaderboards are Windows only for now.
+
+1. Download the `.AppImage` from the release and mark it executable (`chmod +x`, or Properties, Permissions, Is executable).
+2. Run it and install your package from the **Play** page. The package picker needs `zenity` or `kdialog`.
+3. On a Steam Deck, do this in Desktop Mode, then add the AppImage with **Games**, **Add a Non-Steam Game to My Library** and play it from Game Mode.
+
+Saves go in `user_data` and logs in `logs`, next to the AppImage. More in [docs/linux.md](docs/linux.md).
+
+</details>
+
+<details>
+<summary><b>Which game version is needed</b></summary>
+
+The launcher checks the package when you pick it, and refuses any other version, because the port is built for this exact game code.
 
 | | |
 | --- | --- |
@@ -75,186 +151,46 @@ The full list is in the [v0.5.0 release notes](https://github.com/saulob/geometr
 | Game version | `0.0.1.2` |
 | `default.xex` | 704,512 bytes, CRC32 `5E9B6313`, SHA-1 `048B852E52A8C776C7AE752141591701B7EA5E69`, SHA-256 `6D5D9980A1D17DC74B9CCF540CEC16C2E144E7CEE3A74938E78C237B8ACEEB88` |
 
-The launcher checks the Title ID and content type when you pick the package, and checks `default.xex` after extracting it. Package containers can differ between copies, so `default.xex` is what identifies the version. Any other version is refused, because the port is built for this exact game code.
+</details>
 
-## Installing
+<details>
+<summary><b>Building it yourself</b></summary>
 
-1. Download **GeometryWarsRetroEvolved2-v…-windows-x64.zip** from the [latest release](https://github.com/omenhachi/geometry-wars-2-pc-plus/releases/latest) and extract it anywhere you can write to. To update, extract over your current folder or use the launcher's update.
-2. Run **geometry_wars_retro_evolved_2.exe**. The launcher opens.
-3. On the **Play** page click **Install from package...** and pick your package. It is one file with a long hexadecimal name and no extension. On an Xbox 360 drive it is in `Content\0000000000000000\584108FF\000D0000\`.
-4. Wait until **Ready to play** appears. The game files are copied into the `game` folder next to the program. The package file itself is not copied there.
-5. Press **PLAY**.
-
-**No game files are included** in the release.
-
-**Reinstall from package...** repairs the game files and keeps your settings and saves.
-
-### Saves and settings
-
-Your settings, profile, scores, achievements, saves and progression, and the shader cache are stored in a portable `user_data` folder next to the program (next to the AppImage file on Linux), beside `game` and `logs`. It is created the first time it is needed and is not part of the download. Copying the whole application folder to another PC takes your data with it. `--user_data_root=<folder>` still overrides the location.
-
-**Upgrading from v0.1.0:** v0.1.0 kept this data in `Documents\geometry_wars_retro_evolved_2` on Windows and in `~/.local/share/geometry_wars_retro_evolved_2` (or `$XDG_DATA_HOME`) on Linux. The first start of v0.2.0 moves it into `user_data` automatically: a rename when possible, otherwise a verified copy, and the old folder is removed only after that succeeds. If the move fails, the old folder is left untouched and used, and the move is tried again at the next start. If both locations already hold data, `user_data` is used and the old folder is left alone, never merged. If the program folder is read-only, the old location is used for that run. Details are in [docs/user-data.md](docs/user-data.md).
-
-### Linux and Steam Deck
-
-**Experimental.** This is a native Linux build (ReXGlue's Linux runtime with Vulkan), not Proton or Wine. Real-hardware testing so far is one report from a Steam Machine ([#1](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled/issues/1)), which found a very dark image and slow motion while the frame rate shows 60. The dark image was fixed in v0.2.3, and the reporter confirmed it. At about 30 FPS the game speed was mostly correct in v0.3.1, but short speed-ups were still seen when the frame rate rose toward about 45 FPS. v0.4.0 changes the game's timing to address that, but **it has not been confirmed on the affected Linux machine yet**, and why some Linux systems render around 30 FPS is still under investigation.
-
-If FUSE cannot mount the AppImage (for example in a restricted environment), it unpacks itself into a private temporary folder and runs from there. You do not need `APPIMAGE_EXTRACT_AND_RUN=1`.
-1. Download **GeometryWarsRetroEvolved2Recompiled-v…-x86_64.AppImage** from the release and mark it executable (right-click > **Properties** > **Permissions** > **Is executable**, or `chmod +x`).
-2. Run it, then install your package from the **Play** page as above. The game files go in a `game` folder next to the AppImage. The package picker needs `zenity` or `kdialog`.
-3. On a Steam Deck (intended flow, not yet tried on a Deck), do this in **Desktop Mode**, then add the AppImage with **Games > Add a Non-Steam Game to My Library** and play it from **Game Mode**.
-
-Settings and saves are in `user_data` and logs in `logs`, both next to the AppImage file (not inside it). Requirements, known limits and building the AppImage are in [docs/linux.md](docs/linux.md).
-
-### Windows SmartScreen
-
-Windows may warn the first time you run the program, because the release is not digitally signed. If you downloaded it from this repository's releases page, choose **More info**, then **Run anyway**.
-
-## The launcher
-
-The launcher opens before the game. Your choices are saved to `settings.toml` in the `launcher` folder of your user data (`user_data` next to the program). To turn the launcher off, set **Show this launcher** to **Off** on the Play page. Hold **Shift** while starting to bring it back. The launcher remembers its window position, size and whether it was maximized or in borderless fullscreen. **F11** in the launcher switches the launcher only, and **F11** in the game switches the game's Display mode only; neither changes the other. Window size and Monitor are game settings and never move the launcher.
-
-### Play
-- **Install from package...** with the Title ID and game version checks, and **Reinstall from package...**
-- The **Ready to play** status, and the **Show this launcher** setting
-
-### Display
-- **Display mode**: Windowed or Borderless Fullscreen. Press **F11** while playing to switch between them. In either mode, mouse activity shows the cursor and keyboard or controller activity hides it. Mouse-driven overlays and the launcher always show it.
-- **Window size** and **Monitor**
-- **VSync** on or off
-- **Colour**: the colour of the game's menus, HUD and crosshair: Green (the original), Blue, Purple, Pink, Gold, Rainbow, or **Custom** from a colour wheel (its hue and saturation, at the game's own brightness). The game's **Help and options**, **Settings**, **Colour** row switches between them while you play.
-- **Aspect Ratio**: 16:9 Original, 16:10, 21:9 Ultrawide, 32:9 Super Ultrawide, 4:3 or 5:4. The game renders in that shape (720 lines, the width follows the format) instead of stretching, and Window size lists the sizes of the chosen format. Render resolution and Internal render resolution scale from it. A window of another shape shows black bars
-
-Window size, monitor, VSync, Aspect Ratio and graphics card take effect when you press **PLAY**. If one differs from the launcher's window, the game restarts once in a new window.
-
-### Graphics
-- **Graphics card** (Windows): Automatic (recommended) or a specific GPU
-- **Render resolution**: Original (1280×720), 2x (2560×1440, recommended for 1440p), 3x (3840×2160) or 4x (5120×2880) at 16:9; the other Aspect Ratios change the width
-- **Internal render resolution**: 100% Native, 75% Performance or 50% Low-end. The GPU draws the game at that share of the Render resolution and scales it up, which lowers the GPU work at some cost in sharpness
-- **Anti-aliasing**: Off, FXAA or FXAA Extreme
-- **Multisampling**: 2x MSAA (default), or 4x MSAA (Compatibility) if 2x shows graphics problems on your GPU or driver
-- **Texture filtering**: Game, Off, 2x, 4x, 8x or 16x
-- **Bloom**: Original (the game's own glow), Reduced (lower glow) or Off (no glow). The bright geometry and colors are kept
-
-### Gameplay
-- **Frame rate**: 30, 60, 90, 120, 144, 165, 240 or Unlimited. 60 is the original game and the default. Above 60, presentation runs at the selected rate while the game simulation stays at 60 updates per second; frames between two updates show the moving gameplay objects interpolated between those updates, which adds one update (about 17 ms) of visual delay. A slower graphics card or heavier graphics settings lower the frame rate without changing the speed.
-- **Frame rate in title**: shows the frame rate in the window title, for example `Geometry Wars: Retro Evolved 2 | FPS: 60.00`
-- **Render resolution in title**: shows the render resolution in the window title, for example `Geometry Wars: Retro Evolved 2 | 2560x1440` at 2x on 16:9. It is off by default; with both title options on, the resolution comes before the frame rate.
-- **Frame counter**: shows the frame rate in the corner of the window. Press **F2** while playing to show or hide it.
-- **Online leaderboards** (Windows): On by default, but nothing is sent until you choose a **Player name**. Then each finished run's score is sent to the PC Plus leaderboard server under that name (up to 15 letters, digits, spaces, `_ . -`). Only your player name, scores, input device (mouse, keyboard or controller) and game version are sent; runs with cheats on are never sent, and no account, email or IP address is kept. **Delete my online scores** removes your name and every score you've sent. Scores come from players' own PCs, so these are community boards for fun, not a tournament.
-
-### Cheats
-- **Invincible**: the player cannot die. A shield or the short protection after a bomb still works as usual.
-- **Infinite Shield**: keeps the player's shield active.
-- **Infinite Bombs**: bombs are not used up when fired. It does not add bombs you do not have.
-
-All three are Off by default. The launcher's Cheats page saves them and they take effect when you press **PLAY**. Press **F10** while playing to open the Cheats menu: move with Up and Down (arrow keys, D-pad or left stick), toggle with Enter or **A**, close with **F10**, Escape or **B**. The game ignores input while the menu is open. Changes made in the menu last for the current session only; the launcher's saved values are not changed. Scores, leaderboards and achievements are not disabled by cheats.
-
-### Controls
-- Xbox controllers work without setup
-- **Keyboard**: On (the default) or Off. When On, the keyboard and mouse play the game alongside any controller, and the keys are listed on the page by what they do, with a Mouse section for aiming and bombing.
-- **Vibration**: Off or On (controller rumble). Off by default, with no strength setting. When On, the controller vibrates for bombs, deaths, respawns, game over, extra lives and bombs, shield hits, the King zone, Gravity Well explosions and overloads, and gate crossings. Windows has been tested with a physical controller; Linux and Steam Deck vibration has not been confirmed on real hardware yet.
-- Online multiplayer is not supported.
-
-### Achievements
-The launcher's **Achievements** page lists the game's 12 achievements (200G in total) with their icons, gamerscore and unlocked state, and a progress summary. The list appears after you have pressed **PLAY** once, from the next time the launcher opens.
-
-### Achievements, leaderboards and Xbox Live
-There is no Xbox Live connection or Microsoft sign-in. The only thing that goes online is the PC Plus leaderboard, and only once you've chosen a player name (or never, with **Online leaderboards** Off).
-- **Achievements**: the game's achievements menu item and **F7** open the same list in game. B, Escape or F7 closes it. Unlocks show the usual notification and are kept between runs on this PC, with no synchronization with Xbox Live.
-- **Leaderboards**: finished games are kept in a local file. With no player name, or **Online leaderboards** Off, the boards show your own scores only. Otherwise the **Everyone** boards show the top PC Plus players from the leaderboard server, and the local boards are used whenever the server can't be reached.
-- **Profile**: the game's profile and options are saved locally.
-
-[docs/offline-live.md](docs/offline-live.md) and [docs/offline-profile.md](docs/offline-profile.md) have the details.
-
-### About
-- The port version, game version and library versions
-- Open the game folder, or the saves and settings folder (the active `user_data`)
-- **Show settings file**, and **Reset all settings**
-
-## Screenshots
-
-**Nearby players.** Each mode lists the PC Plus players whose scores are nearest yours, with your own row lit up.
-
-<img src="docs/screenshots/nearby-players.png" alt="The Single Player screen: the Deadline tile lists Omenhachi, Light and Luna with their scores" />
-
-**Your next rival, while you play.** The corner shows the next score to beat, and moves up to the next player the moment you pass it.
-
-<img src="docs/screenshots/next-rival.png" alt="A Deadline round, with OMENHACHI 12,018,660 in the top right corner as the score to beat" />
-
-**Your colour.** Help and options, Settings, Colour: the menus, the HUD and the crosshair change at once.
-
-<img src="docs/screenshots/interface-colours.png" alt="The game's Settings menu in six colours: Green, Blue, Purple, Pink, Gold and Rainbow" />
-
-<img src="docs/screenshots/hud-pink.png" alt="A Deadline round with a pink HUD and a pink crosshair; the enemies keep their own colours" />
-
-<table>
-<tr>
-<td width="50%"><img src="docs/screenshots/nearby-board.png" alt="The Deadline Leaderboard - Nearby screen: 1. Omenhachi, 2. Light, 3. Luna" /><br><sub><b>The Nearby board</b>, ranked, in place of Friends.</sub></td>
-<td width="50%"><img src="docs/screenshots/player-name.png" alt="The launcher asking Choose your player name, with Save and Not now" /><br><sub><b>Choose your player name</b>: the launcher asks once.</sub></td>
-</tr>
-</table>
-
-From the original port:
-
-<img width="1887" height="1057" alt="2026-10-11_18-48" src="https://github.com/user-attachments/assets/c4351235-675b-4864-9371-d0346097c55f" />
-
-<img width="1881" height="1068" alt="2026-10-11_18-48_1" src="https://github.com/user-attachments/assets/13a3fc2f-6281-4170-95db-bd62a82cd1d7" />
-
-## Reporting problems
-
-If the game does not start or crashes, please open an [issue](https://github.com/omenhachi/geometry-wars-2-pc-plus/issues). Attach the newest `geometry_wars_retro_evolved_2_*.log` file from the `logs` folder next to the program, and say what you were doing when the problem happened.
-
-## Building it yourself
-
-The recompiled C++ is generated from your own game files, so the repository does not contain it. Clone with submodules, so the TRG launcher is included:
+The recompiled C++ is generated from your own game files, so it isn't in the repository. Clone with submodules so the launcher is included:
 
 ```powershell
 git clone --recurse-submodules https://github.com/omenhachi/geometry-wars-2-pc-plus.git
 ```
 
-In an existing clone, run `git submodule update --init --recursive`.
+1. Install Visual Studio with the C++ and LLVM/Clang components ([details](docs/minimal-native-build.md)).
+2. Extract your package into `game\extracted`: `.\tools\extract_stfs.ps1 -Package "<package file>" -OutDir game\extracted`
+3. `.\tools\codegen.ps1` checks `default.xex` and generates the C++ into `generated\`.
+4. `.\tools\build.ps1` builds `build\geometry_wars_retro_evolved_2.exe` (add `-Run` to start it).
+5. `.\tools\package-release.ps1` builds a release zip into `dist\`. It never uploads or publishes anything.
 
-1. Install Visual Studio with the C++ and LLVM/Clang components. See [docs/minimal-native-build.md](docs/minimal-native-build.md).
-2. Extract your package's files into `game\extracted` (`.\tools\extract_stfs.ps1 -Package "<package file>" -OutDir game\extracted`), so that `game\extracted\default.xex` exists.
-3. `.\tools\codegen.ps1` downloads the pinned ReXGlue SDK 0.10.0, checks `default.xex` and generates the C++ into `generated\`.
-4. `.\tools\build.ps1` builds `build\geometry_wars_retro_evolved_2.exe`. `.\tools\build.ps1 -Run` also starts it. The first build also builds the project's patched ReXGlue runtime (see [docs/rexglue-runtime-patch.md](docs/rexglue-runtime-patch.md)).
-5. `.\tools\package-release.ps1` builds a Release into `build-release\` (add `-Clean` for a clean build) and makes the release ZIP and its `.sha256` file in `dist\`.
+On Linux, use `tools/build.sh`, and `tools/package-linux.sh` for the AppImage ([docs/linux.md](docs/linux.md)).
 
-On Linux, `tools/build.sh` is the normal build and `tools/package-linux.sh` makes the AppImage. See [docs/linux.md](docs/linux.md).
+**A note on antivirus:** Windows Defender flags the prebuilt ReXGlue 0.10.0 Windows SDK that `codegen.ps1` downloads (about 28 of 71 engines on VirusTotal), while ReXGlue built from the same source is not flagged. It's very likely a false positive, but you can avoid it by building [ReXGlue v0.10.0](https://github.com/rexglue/rexglue-sdk/tree/v0.10.0) yourself (`cmake --preset win-amd64`, build the `install` target) and copying `out\install\win-amd64` to `tools\rexglue\win-amd64`.
 
-Both packaging scripts are local only: they build and write files under `dist/`, and never upload, tag or publish anything. The release version is the `project()` VERSION in `CMakeLists.txt`.
+Technical notes: [launcher](docs/launcher.md), [package analysis](docs/package-analysis.md), [first boot](docs/first-boot.md), [offline profile](docs/offline-profile.md), [offline Xbox Live and leaderboards](docs/offline-live.md), [cheats](docs/cheats.md), [saves](docs/user-data.md), [runtime patches](docs/rexglue-runtime-patch.md), [GPU patch](docs/rexglue-gpu-patch.md).
 
-How the launcher, settings and installer work is described in [docs/launcher.md](docs/launcher.md). The other technical notes:
+</details>
 
-- [Package analysis](docs/package-analysis.md)
-- [Minimal native build](docs/minimal-native-build.md)
-- [First boot](docs/first-boot.md)
-- [Offline profile and save](docs/offline-profile.md)
-- [Offline Xbox Live services](docs/offline-live.md)
-- [Cheats](docs/cheats.md)
-- [ReXGlue runtime patches](docs/rexglue-runtime-patch.md)
-- [ReXGlue GPU plugin patch](docs/rexglue-gpu-patch.md)
-- [Saves and settings: the portable user_data folder](docs/user-data.md)
-- [Linux and Steam Deck](docs/linux.md)
+## Reporting problems
+
+If the game won't start or crashes, please [open an issue](https://github.com/omenhachi/geometry-wars-2-pc-plus/issues) with the newest `geometry_wars_retro_evolved_2_*.log` from the `logs` folder, and say what you were doing when it happened.
 
 ## Credits
 
-- [saulob](https://github.com/saulob) for the [original PC port](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled) that PC Plus is built on: the recompilation setup, the runtime patches, the launcher and installer, offline Xbox Live, high frame rates and everything else under "Features" above
-- Geometry Wars: Retro Evolved 2 by Bizarre Creations, published by Microsoft Game Studios for Xbox Live Arcade (2008). This is an unofficial fan-made PC port. It is not affiliated with or endorsed by them or by any rights holder, and it contains none of their files.
+- [saulob](https://github.com/saulob), for the [original PC port](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled) that PC Plus is built on: the recompilation, runtime patches, launcher, installer, offline Xbox Live, high frame rates and much more
+- Geometry Wars: Retro Evolved 2 by Bizarre Creations, published by Microsoft Game Studios (2008). This is an unofficial fan project, not affiliated with or endorsed by them or any rights holder, and it contains none of their files.
 - [ReXGlue SDK](https://github.com/rexglue/rexglue-sdk) for the recompiler and runtime (BSD 3-Clause)
-- [TRG Launcher](https://github.com/TekRantGaming/trg-launcher), the launcher interface, pinned at v1.1.0. The referenced revision contains no explicit license file.
-- The launcher and package installer follow the approach of the [Hard Corps: Uprising PC port](https://github.com/saulob/hard-corps-uprising-recompiled) and the [Earthworm Jim HD PC port](https://github.com/TekRantGaming/earthworm-jim-hd-recompiled)
-- The licenses of the libraries the release includes are in the `licenses` folder of the ZIP
+- [TRG Launcher](https://github.com/TekRantGaming/trg-launcher) for the launcher interface (pinned at v1.1.0; that revision has no explicit license file)
+- The launcher and installer follow the [Hard Corps: Uprising](https://github.com/saulob/hard-corps-uprising-recompiled) and [Earthworm Jim HD](https://github.com/TekRantGaming/earthworm-jim-hd-recompiled) PC ports
+- The licenses of the libraries in the release are in the `licenses` folder of the zip
 
-## AI disclosure
-
-AI tools were used to assist with code analysis, development, debugging and documentation. Changes were directed, tested and reviewed by the maintainer. The PC Plus additions were developed with Claude (Anthropic) and play-tested by the maintainer.
+**AI disclosure:** AI tools were used to assist with code analysis, development, debugging and documentation, and changes were directed, tested and reviewed by the maintainer. The PC Plus additions were developed with Claude (Anthropic) and play-tested by me.
 
 ## License
 
-Original code in this project is licensed under the GNU General Public License v2.0 only (GPL-2.0-only). See [LICENSE](LICENSE).
-
-Third-party components retain their respective licenses and notices. See [licenses/ReXGlue-LICENSE.txt](packaging/licenses/ReXGlue-LICENSE.txt) and [licenses/THIRD-PARTY-LICENSES.txt](packaging/licenses/THIRD-PARTY-LICENSES.txt).
-
-No game files are included. Geometry Wars: Retro Evolved 2 and its assets are not covered by this project's license.
+Original code in this project is licensed under the GNU General Public License v2.0 only (GPL-2.0-only); see [LICENSE](LICENSE). Third-party components keep their own licenses: see [ReXGlue-LICENSE.txt](packaging/licenses/ReXGlue-LICENSE.txt) and [THIRD-PARTY-LICENSES.txt](packaging/licenses/THIRD-PARTY-LICENSES.txt). No game files are included, and Geometry Wars: Retro Evolved 2 and its assets are not covered by this project's license.
