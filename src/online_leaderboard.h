@@ -11,6 +11,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "live_stats.h"
 
@@ -57,6 +58,13 @@ inline uint64_t XuidForPublicId(std::string_view id) {
 std::optional<live::StatsView> ParseBoard(std::string_view json, uint32_t view, std::string_view my_id,
                                           uint64_t my_xuid);
 
+// Players shown around you: on each mode tile in place of the Xbox Live friends, and as the in-game "score to beat",
+// which the game takes as the lowest score above yours. Up to 3 just above `my_score` and up to 2 at or below it,
+// more from one side when the other runs short; a view never played (0) gets the board's lowest scores. Rows with
+// `my_xuid` are left out: the game's own row for the player is already there.
+inline constexpr size_t kNearbyRows = 5;
+std::vector<live::StatsRow> PickNearby(const live::StatsView& board, int64_t my_score, uint64_t my_xuid);
+
 // Called once at start with the file that keeps this PC's secret token and the local player's xuid.
 void Configure(std::filesystem::path token_file, uint64_t local_xuid);
 
@@ -72,6 +80,11 @@ void SubmitScore(uint32_t view, int64_t score);
 // Reads ranks first_rank .. first_rank + count - 1 of a board. Blocks for up to a few seconds: call it off the game
 // thread.
 std::optional<live::StatsView> FetchBoard(uint32_t view, uint32_t first_rank, uint32_t count);
+
+// The cached board a view's nearby players are picked from; nullopt until one has arrived. Starts a background fetch
+// of every board when nothing is cached yet; RefreshNearby (also run after each accepted score) fetches again.
+std::optional<live::StatsView> NearbyBoard(uint32_t view);
+void RefreshNearby();
 
 // Deletes this PC's player and every score from the server, then calls done(success, message) on another thread.
 void DeleteMyScores(std::function<void(bool, std::string)> done);

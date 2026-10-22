@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <deque>
+#include <functional>
 #include <map>
 #include <mutex>
 #include <optional>
@@ -120,8 +121,13 @@ uint32_t CreateEnumerator(uint8_t* base, EnumeratorRegistry& registry, StatsQuer
 uint32_t ServeEnumeration(uint8_t* base, const LocalLeaderboard& board, const StatsQuery& query, uint32_t buffer,
                           uint32_t size, uint32_t items_ptr, uint32_t overlapped);
 
-// XUserReadStats: fills the results buffer. False when it is missing or too small.
+// Other players to show beside the requested ones in a view, given the local player's score there (0 when none).
+using NearbyRows = std::function<std::vector<StatsRow>(uint32_t view, int64_t my_score)>;
+
+// XUserReadStats: fills the results buffer with the requested players' rows and then any nearby rows that fit,
+// dropping nearby rows from the last view back. False when the buffer is missing or too small for the requested.
 bool ServeReadStats(uint8_t* base, const LocalLeaderboard& board, uint32_t xuid_count, uint32_t xuids,
-                    uint32_t spec_count, uint32_t specs, uint32_t size, uint32_t results);
+                    uint32_t spec_count, uint32_t specs, uint32_t size, uint32_t results,
+                    const NearbyRows& nearby = {});
 
 }  // namespace gw2::live

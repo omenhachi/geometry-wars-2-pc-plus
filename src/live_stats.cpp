@@ -188,14 +188,31 @@ uint32_t ServeEnumeration(uint8_t* base, const LocalLeaderboard& board, const St
 }
 
 bool ServeReadStats(uint8_t* base, const LocalLeaderboard& board, uint32_t xuid_count, uint32_t xuids,
-                    uint32_t spec_count, uint32_t specs, uint32_t size, uint32_t results) {
+                    uint32_t spec_count, uint32_t specs, uint32_t size, uint32_t results, const NearbyRows& nearby) {
   if (!results || !specs || spec_count > kMaxSpecs) return false;
   std::vector<uint64_t> requested;
   if (xuids) {
     for (uint32_t i = 0; i < xuid_count && i < kMaxXuids; ++i) requested.push_back(LoadBE64(base, xuids + i * 8));
   }
   std::vector<StatsView> views;
-  for (const uint32_t view : ReadSpecViews(base, specs, spec_count)) views.push_back(board.Selected(view, requested));
+  std::vector<size_t> requested_rows;
+  for (const uint32_t view : ReadSpecViews(base, specs, spec_count)) {
+    StatsView selected = board.Selected(view, requested);
+    requested_rows.push_back(selected.rows.size());
+    if (nearby) {
+      int64_t mine = 0;
+      for (const StatsRow& row : selected.rows) {
+        if (row.xuid == board.user().xuid) mine = row.rating;
+      }
+      for (StatsRow& row : nearby(view, mine)) selected.rows.push_back(std::move(row));
+    }
+    views.push_back(std::move(selected));
+  }
+  // The game sized the buffer from the earlier size call; whatever was promised then, never write past it.
+  for (size_t i = views.size(); i-- > 0 && StatsResultsSize(views) > size;) {
+    while (views[i].rows.size() > requested_rows[i] && StatsResultsSize(views) > size) views[i].rows.pop_back();
+  }
+  for (StatsView& view : views) view.total_rows = static_cast<uint32_t>(view.rows.size());
   return WriteStatsResults(base, results, size, views);
 }
 

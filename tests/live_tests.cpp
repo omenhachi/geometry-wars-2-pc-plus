@@ -373,6 +373,36 @@ static void TestServe() {
   Check(m.U32(0x7800) == 3, "a stats read with only the local player works");
   ServeReadStats(m.base(), board, 500, 0x6800, 3, 0x6000, 4096, 0x7900);
   Check(m.U32(0x7900) == 3, "an absurd xuid count is clamped, not trusted");
+
+  // Players around the local one: after the requested rows, as many as the game's buffer holds.
+  const NearbyRows nearby = [](uint32_t, int64_t mine) {
+    std::vector<StatsRow> rows;
+    for (int i = 1; i <= 5; ++i) rows.push_back({0x0009000000000100ull + i, 0, mine + 1000 * i, "Other"});
+    return rows;
+  };
+  const uint32_t full = 8 + 3 * 16 + 3 * 6 * 48;
+  const uint32_t around = 0x8000;
+  Check(ServeReadStats(m.base(), board, 1, 0x6808, 3, 0x6000, full, around, nearby),
+        "room for five more per view: all of them are written");
+  const uint32_t around_views = m.U32(around + 4);
+  Check(m.U32(around_views + 8) == 6 && m.U32(around_views + 16 + 8) == 6 && m.U32(around_views + 32 + 8) == 6 &&
+            m.U32(around_views + 4) == 6,
+        "six rows per view, and the total says so");
+  const uint32_t view1_rows = m.U32(around_views + 16 + 12);
+  Check(m.U64(view1_rows) == kXuid && m.U64(view1_rows + 16) == 5000 && m.U64(view1_rows + 48 + 16) == 6000,
+        "the requested row comes first, then the others, picked around the local score");
+  Check(m.U64(m.U32(around_views + 12) + 48 + 16) == 1000, "a view never played is picked around zero");
+
+  Check(ServeReadStats(m.base(), board, 1, 0x6808, 3, 0x6000, full - 48, around, nearby),
+        "one row short: still written");
+  Check(m.U32(around_views + 8) == 6 && m.U32(around_views + 16 + 8) == 6 && m.U32(around_views + 32 + 8) == 5,
+        "the last view gives up a nearby row");
+  Check(ServeReadStats(m.base(), board, 1, 0x6808, 3, 0x6000, 8 + 3 * 16 + 3 * 48, around, nearby),
+        "the size the game asked for before: only the requested rows");
+  Check(m.U32(around_views + 8) == 1 && m.U32(around_views + 16 + 8) == 1 && m.U32(around_views + 32 + 8) == 1,
+        "no nearby rows fit, none are written");
+  Check(!ServeReadStats(m.base(), board, 1, 0x6808, 3, 0x6000, 8 + 3 * 16 + 3 * 48 - 1, around, nearby),
+        "too short for the requested rows: refused as before");
 }
 
 static void TestScoreWrites() {

@@ -1,4 +1,4 @@
-// Online leaderboards: player names, online xuids and reading the server's boards.
+// Online leaderboards: player names, online xuids, reading the server's boards and picking the players around you.
 // Run: online_tests
 
 #include <cstdio>
@@ -85,12 +85,47 @@ void TestBoards() {
   CHECK(!ParseBoard(R"({"total":1,"rows":[{"rank":1,"id":"0123456789abcdef","name":"X"}]})", 0, "", kLocalXuid));
 }
 
+// A board of players scoring 100, 200, ... (rank order), with the local player among them at `mine` when given.
+gw2::live::StatsView Board(int players, int64_t mine = -1) {
+  gw2::live::StatsView board;
+  for (int i = players; i >= 1; --i) {
+    board.rows.push_back({kOnlineXuidTag | uint64_t(i), 0, int64_t(i) * 100, "P" + std::to_string(i)});
+  }
+  if (mine >= 0) board.rows.push_back({kLocalXuid, 0, mine, "Me"});
+  return board;
+}
+
+std::string Scores(const std::vector<gw2::live::StatsRow>& rows) {
+  std::string out;
+  for (const auto& row : rows) out += std::to_string(row.rating) + " ";
+  return out;
+}
+
+void TestNearby() {
+  // 3 just above, 2 at or below; the local player's own server row is never repeated.
+  CHECK(Scores(PickNearby(Board(20, 1050), 1050, kLocalXuid)) == "1100 1200 1300 1000 900 ");
+  // Ties go below: the score to beat is strictly above.
+  CHECK(Scores(PickNearby(Board(20), 1000, kLocalXuid)) == "1100 1200 1300 1000 900 ");
+  // At the top: the five just below. Near the top: what is above, the rest below.
+  CHECK(Scores(PickNearby(Board(20), 5000, kLocalXuid)) == "2000 1900 1800 1700 1600 ");
+  CHECK(Scores(PickNearby(Board(20), 1950, kLocalXuid)) == "2000 1900 1800 1700 1600 ");
+  // At the bottom, or a mode never played: the lowest scores, the nearest first.
+  CHECK(Scores(PickNearby(Board(20), 50, kLocalXuid)) == "100 200 300 400 500 ");
+  CHECK(Scores(PickNearby(Board(20), 0, kLocalXuid)) == "100 200 300 400 500 ");
+  // Small boards give what they have; an empty board or only the player gives nothing.
+  CHECK(Scores(PickNearby(Board(2), 150, kLocalXuid)) == "200 100 ");
+  CHECK(PickNearby(Board(0), 0, kLocalXuid).empty());
+  CHECK(PickNearby(Board(0, 500), 500, kLocalXuid).empty());
+  for (const auto& row : PickNearby(Board(3, 150), 150, kLocalXuid)) CHECK(row.xuid != kLocalXuid);
+}
+
 }  // namespace
 
 int main() {
   TestNames();
   TestXuids();
   TestBoards();
+  TestNearby();
   std::printf("%d checks, %d failures\n", g_checks, g_failures);
   return g_failures == 0 ? 0 : 1;
 }

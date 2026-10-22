@@ -221,6 +221,10 @@ REX_HOOK_RAW(sub_820958D0) {
 
 // XUserReadStats(title, xuid count, xuids, spec count, specs, size ptr, results, overlapped): the
 // game's own scores and its friends'. ReXGlue accepts the request and leaves the results empty.
+// The game has no friends here, so with online leaderboards on the PC Plus players around the player
+// fill the friends' rows: on the mode tiles, and as the score to beat during a run. The game asks for
+// the size first (no results, ERROR_INSUFFICIENT_BUFFER) and allocates what that says, so the size
+// answer makes room for them; the game sorts the rows and highlights the player's own.
 REX_EXTERN(__imp__sub_820955D0);
 REX_HOOK_RAW(sub_820955D0) {
   const uint32_t xuid_count = ctx.r4.u32;
@@ -232,9 +236,19 @@ REX_HOOK_RAW(sub_820955D0) {
   const uint32_t overlapped = ctx.r10.u32;
   __imp__sub_820955D0(ctx, base);
   Services* services = Active();
+  if (services && !results && size_ptr && ctx.r3.u32 == kErrorInsufficientBuffer && spec_count <= kMaxSpecs &&
+      online::Enabled()) {
+    StoreBE32(base, size_ptr, LoadBE32(base, size_ptr) + spec_count * uint32_t(online::kNearbyRows) * kRowSize);
+    return;
+  }
   if (!services || !results || !size_ptr || !Succeeded(ctx, base, overlapped)) return;
 
-  ServeReadStats(base, services->board, xuid_count, xuids, spec_count, specs, LoadBE32(base, size_ptr), results);
+  const uint64_t local_xuid = services->board.user().xuid;
+  ServeReadStats(base, services->board, xuid_count, xuids, spec_count, specs, LoadBE32(base, size_ptr), results,
+                 [local_xuid](uint32_t view, int64_t my_score) {
+                   const auto board = online::NearbyBoard(view);
+                   return board ? online::PickNearby(*board, my_score, local_xuid) : std::vector<StatsRow>{};
+                 });
 }
 
 // XamShowAchievementsUI(user): opens the achievements overlay instead of ReXGlue's stub.

@@ -1,6 +1,7 @@
 #include "online_leaderboard.h"
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <cstring>
 #include <fstream>
@@ -53,6 +54,10 @@ std::mutex g_mutex;
 std::filesystem::path g_token_file;  // guarded by g_mutex
 std::string g_token;                 // guarded by g_mutex; created on first use
 uint64_t g_local_xuid = 0;
+// Every view's board for the players around you, fetched in the background (under g_mutex).
+constexpr uint32_t kViews = 6;
+std::array<std::optional<live::StatsView>, kViews> g_nearby;
+std::atomic<bool> g_nearby_fetching{false};
 std::atomic<bool> g_warned{false};
 
 struct Response {
@@ -236,6 +241,7 @@ void SubmitScore(uint32_t view, int64_t score) {
     const Response response = Send("POST", "/v1/scores", body);
     if (response.status == 200) {
       REXLOG_INFO("Online leaderboards: score {} sent for view {}", score, view);
+      RefreshNearby();  // so the tiles show where the run landed
     } else {
       WarnOnce(response.status == 0 ? "the server could not be reached"
                                     : "the server refused a score (HTTP " + std::to_string(response.status) + ")");
@@ -262,6 +268,32 @@ std::optional<live::StatsView> FetchBoard(uint32_t view, uint32_t first_rank, ui
   auto board = ParseBoard(response.body, view, PublicId(Token()), local_xuid);
   if (!board) WarnOnce("the server's board could not be read");
   return board;
+}
+
+std::optional<live::StatsView> NearbyBoard(uint32_t view) {
+  if (view >= kViews || !Enabled()) return std::nullopt;
+  {
+    std::lock_guard lock(g_mutex);
+    if (g_nearby[view]) return g_nearby[view];
+  }
+  RefreshNearby();
+  return std::nullopt;
+}
+
+void RefreshNearby() {
+  if (!Enabled() || g_nearby_fetching.exchange(true)) return;
+  std::thread([] {
+    uint32_t fetched = 0;
+    for (uint32_t view = 0; view < kViews; ++view) {
+      auto board = FetchBoard(view, 1, kMaxRows);
+      if (!board) break;
+      std::lock_guard lock(g_mutex);
+      g_nearby[view] = std::move(*board);
+      ++fetched;
+    }
+    REXLOG_INFO("Online leaderboards: players around you {}", fetched == kViews ? "updated" : "not updated");
+    g_nearby_fetching = false;
+  }).detach();
 }
 
 void DeleteMyScores(std::function<void(bool, std::string)> done) {
