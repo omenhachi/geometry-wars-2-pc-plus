@@ -485,7 +485,9 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
     // The title in line-drawn capitals like the game's own, kept about as wide as the font title was.
     c.branding.title_painter = [](ImDrawList* draw, ImVec2 pos, float size, float scale) {
       constexpr std::string_view kTitle = "GEOMETRY WARS: RETRO EVOLVED 2";
-      const float height = std::min(size * 0.8f, 780.0f * scale / line_font::Width(kTitle, 1.0f));
+      // At most 780 px at 100%, and never past ~58% of the window, where the header art starts.
+      const float width = std::min(780.0f * scale, ImGui::GetWindowWidth() * 0.58f);
+      const float height = std::min(size * 0.8f, width / line_font::Width(kTitle, 1.0f));
       line_font::Draw(draw, ImVec2(pos.x, pos.y + (size - height) * 0.5f), height, kTitle,
                       ImGui::ColorConvertFloat4ToU32(kAccent), std::max(2.0f, height * 0.075f));
     };

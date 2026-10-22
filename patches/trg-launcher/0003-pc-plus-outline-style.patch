@@ -22,7 +22,7 @@ index 00b405c..05d8487 100644
  
  // ------------------------------------------------------------------ pages ---
 diff --git a/src/launcher.cpp b/src/launcher.cpp
-index 81104f7..0c708e0 100644
+index 81104f7..7e6b952 100644
 --- a/src/launcher.cpp
 +++ b/src/launcher.cpp
 @@ -2,7 +2,9 @@
@@ -245,7 +245,7 @@ index 81104f7..0c708e0 100644
    const float subtitle_size = 16 * s_;
    const ImU32 subtitle_color = Col(b.subtitle_color.value_or(t.accent));
    const float subtitle_x = x + 2 * s_;
-@@ -943,6 +1018,11 @@ void Launcher::DrawHeader(ImVec2 origin, float w, float h) {
+@@ -943,8 +1018,17 @@ void Launcher::DrawHeader(ImVec2 origin, float w, float h) {
  void Launcher::DrawSidebar(ImVec2 size) {
    const Theme& t = config_.theme;
    ImGui::BeginChild("##sidebar", size, ImGuiChildFlags_None, ImGuiWindowFlags_NoScrollbar);
@@ -255,9 +255,16 @@ index 81104f7..0c708e0 100644
 +               ImVec2(a.x + size.x - 2 * s_, a.y + size.y - 2 * s_), t, s_);
 +  }
    const float pad = 10 * s_;
-   const float item_h = 46 * s_;
+-  const float item_h = 46 * s_;
++  // Shorter entries when the window is too short for every page at full height: the sidebar does not scroll.
++  const float count = float(std::max<size_t>(config_.pages.size(), 1));
++  // Each entry also takes the 2 px dummy after it and the item spacing after both.
++  const float per_entry = 2 * s_ + ImGui::GetStyle().ItemSpacing.y * 2;
++  const float item_h = std::clamp((size.y - pad * 2) / count - per_entry, 28 * s_, 46 * s_);
    ImGui::SetCursorPos(ImVec2(pad, pad));
-@@ -957,13 +1037,18 @@ void Launcher::DrawSidebar(ImVec2 size) {
+   ImGui::PushFont(config_.fonts.semibold, 0.0f);
+   for (int i = 0; i < int(config_.pages.size()); ++i) {
+@@ -957,13 +1041,18 @@ void Launcher::DrawSidebar(ImVec2 size) {
      if (ImGui::InvisibleButton("##page", item)) GoToPage(i);
      const bool hot = ImGui::IsItemHovered();
      ImDrawList* dl = ImGui::GetWindowDrawList();
@@ -282,7 +289,7 @@ index 81104f7..0c708e0 100644
      ImGui::PopID();
      ImGui::Dummy(ImVec2(0, 2 * s_));
    }
-@@ -973,6 +1058,11 @@ void Launcher::DrawSidebar(ImVec2 size) {
+@@ -973,6 +1062,11 @@ void Launcher::DrawSidebar(ImVec2 size) {
  
  void Launcher::DrawContent(ImVec2 size) {
    ImGui::BeginChild("##content", size, ImGuiChildFlags_None, ImGuiWindowFlags_NoScrollbar);
@@ -294,7 +301,7 @@ index 81104f7..0c708e0 100644
    if (config_.pages.empty()) {
      ImGui::EndChild();
      return;
-@@ -981,9 +1071,13 @@ void Launcher::DrawContent(ImVec2 size) {
+@@ -981,9 +1075,13 @@ void Launcher::DrawContent(ImVec2 size) {
    const float pad = 26 * s_;
    ImGui::SetCursorPos(ImVec2(pad, pad * 0.8f));
    ImGui::BeginGroup();
@@ -311,7 +318,7 @@ index 81104f7..0c708e0 100644
    if (!page.blurb.empty()) {
      ImGui::PushStyleColor(ImGuiCol_Text, config_.theme.dim);
      ImGui::TextUnformatted(page.blurb.c_str());
-@@ -1019,7 +1113,7 @@ void Launcher::DrawFooter(ImVec2 origin, float w, float h) {
+@@ -1019,7 +1117,7 @@ void Launcher::DrawFooter(ImVec2 origin, float w, float h) {
  
    const float right = origin.x + w;
    ImGui::SetCursorScreenPos(ImVec2(right - play_w - bw * 2 - 24 * s_, cy - bh * 0.5f));
@@ -320,7 +327,7 @@ index 81104f7..0c708e0 100644
    if (ImGui::Button("Quit", ImVec2(bw, bh))) want_quit_ = true;
    ImGui::SameLine(0, 12 * s_);
    if (ImGui::Button("Save", ImVec2(bw, bh))) Save();
-@@ -1036,26 +1130,28 @@ void Launcher::DrawPlayButton(ImVec2 size, bool can_play) {
+@@ -1036,26 +1134,28 @@ void Launcher::DrawPlayButton(ImVec2 size, bool can_play) {
    const bool clicked = ImGui::InvisibleButton("##play", size);
    const bool hot = ImGui::IsItemHovered();
    ImDrawList* dl = ImGui::GetWindowDrawList();
