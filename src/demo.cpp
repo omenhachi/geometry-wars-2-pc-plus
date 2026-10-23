@@ -72,6 +72,9 @@ constexpr uint32_t kPlayingPadOffset = 12;
 constexpr uint32_t kPadArray = 0x8219D3D4;  // count, then a pointer to the slots
 constexpr uint32_t kSlotStride = 24;        // user index, connected, then the 16-byte XINPUT_STATE
 constexpr uint32_t kSlotDataOffset = 4;
+constexpr uint32_t kSlotButtonsOffset = 12;  // the gamepad's buttons, after the packet number
+constexpr uint16_t kStartButton = 0x0010;
+constexpr uint16_t kBackButton = 0x0020;
 // How the Single Player screen starts a mode (sub_8208D410): the HUD screen, the mode's setup queued, then the start
 // asked for, for the pad that plays. kStartState is 0 or 3 in the menus, 1 while a round begins, 2 while it plays and
 // 4 at its Game Over.
@@ -86,7 +89,10 @@ struct State {
   file::Demo demo;
   uint32_t tick = 0;
   size_t shot = 0;
-  bool round_over = false;  // watching: the replay's round has ended; its Game Over may still show
+  bool round_over = false;  // watching: the replay's round has ended or was stopped; its Game Over may still show
+  bool stopped = false;     // the viewer pressed Start: the round is theirs now, and still counts for nothing
+  bool viewer_noted = false;
+  uint16_t viewer_buttons = 0;  // the viewer's own pads, the poll before
   bool out_of_step = false;
   uint32_t out_of_step_tick = 0;
 };
@@ -320,6 +326,21 @@ void AfterPadPoll(uint8_t* base) {
     }
     return;
   }
+  // The viewer's own Start or Back stops the replay: their pads then reach the game (its pause menu), and the rest of
+  // the round still counts for nothing. What they held as it began (the press that chose it) is only noted.
+  uint16_t viewer = 0;
+  const uint32_t count = std::min(LoadBE32(base, kPadArray), file::kMaxPads);
+  const uint32_t slots = LoadBE32(base, kPadArray + 4);
+  for (uint32_t i = 0; slots != 0 && i < count; ++i) viewer |= LoadBE16(base, slots + i * kSlotStride + kSlotButtonsOffset);
+  const uint16_t pressed = s.viewer_noted ? uint16_t(viewer & ~s.viewer_buttons) : 0;
+  s.viewer_buttons = viewer;
+  s.viewer_noted = true;
+  if (pressed & (kStartButton | kBackButton)) {
+    s.round_over = true;
+    s.stopped = true;
+    REXLOG_INFO("Replays: stopped by the viewer after {} of {} ticks", s.tick, s.demo.ticks());
+    return;
+  }
   if (s.demo.ticks() > 0) WritePads(base, s.demo.PadsAt(std::min(s.tick, s.demo.ticks() - 1)));
 }
 
@@ -373,7 +394,7 @@ ReplayStatus Status() {
   std::lock_guard lock(g_mutex);
   const State& s = g_state;
   if (s.phase != Phase::kWatching) return {};
-  return {true, s.demo.mode, s.demo.player_name, s.tick, s.demo.ticks(), s.out_of_step, s.out_of_step_tick};
+  return {true, s.demo.mode, s.demo.player_name, s.tick, s.demo.ticks(), s.out_of_step, s.out_of_step_tick, s.stopped};
 }
 
 void RegisterKeys() {

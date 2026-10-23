@@ -30,6 +30,7 @@ struct ReplayStatus {
   uint32_t ticks = 0;
   bool out_of_step = false;
   uint32_t out_of_step_tick = 0;
+  bool stopped = false;  // the viewer stopped it: the rest of the round is theirs, and counts for nothing
 };
 ReplayStatus Status();
 

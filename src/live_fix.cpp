@@ -17,6 +17,7 @@
 #include "guest_memory.h"
 #include "launcher_settings.h"
 #include "online_leaderboard.h"
+#include "replays_menu.h"
 #include "run_stats_hooks.h"
 
 REXCVAR_DEFINE_BOOL(gw2_local_live, true, "Geometry Wars",
@@ -270,6 +271,10 @@ RenamedText g_renamed_text[] = {{0x29, "Nearby"}, {0x67, "Nearby Players"}, {0x2
 REX_EXTERN(__imp__sub_820826D8);
 REX_HOOK_RAW(sub_820826D8) {
   const uint32_t id = ctx.r3.u32;
+  if (id == gw2::replays_menu::kWatchReplaysTextId) {
+    ctx.r3.u64 = gw2::replays_menu::WatchReplaysText();
+    return;
+  }
   __imp__sub_820826D8(ctx, base);
   for (RenamedText& renamed : g_renamed_text) {
     if (renamed.id != id || !online::Enabled()) continue;
@@ -304,4 +309,5 @@ REX_HOOK_RAW(sub_82094B60) {
   const uint32_t state = ctx.r4.u32;
   __imp__sub_82094B60(ctx, base);
   FilterGuestInput(ctx, base, user, state);
+  gw2::replays_menu::FilterPad(base, user, ctx.r3.u32 == 0 ? state : 0);
 }

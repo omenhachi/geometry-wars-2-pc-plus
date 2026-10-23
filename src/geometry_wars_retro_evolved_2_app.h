@@ -37,6 +37,7 @@
 #include "live_fix.h"
 #include "log_filter.h"
 #include "log_path.h"
+#include "replays_menu.h"
 #include "results_panel.h"
 #include "rumble.h"
 #include "session_log.h"
@@ -150,6 +151,7 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
     if (drawer) {
       gw2::CreateFrameCounter(drawer);
       gw2::CreateResultsPanel(drawer);
+      gw2::replays_menu::CreateReplaysMenu(drawer);
       gw2::demo::RegisterKeys();
       gw2::CreateMouseAim(drawer);
       gw2::CreateCursorSync(drawer);
