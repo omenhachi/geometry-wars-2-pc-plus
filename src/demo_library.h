@@ -6,6 +6,7 @@
 // there is nothing to tidy and no count to watch. Stars are kept in favourites.txt beside the replays, one file name
 // per line.
 
+#include <array>
 #include <cstdint>
 #include <filesystem>
 #include <optional>
@@ -13,6 +14,8 @@
 #include <string>
 #include <string_view>
 #include <vector>
+
+#include "demo_file.h"
 
 namespace gw2::demo_library {
 
@@ -27,6 +30,8 @@ struct Entry {
   int64_t recorded_at = 0;  // Unix seconds
   uint32_t ticks = 0;
   bool starred = false;
+  std::string custom_name;  // a custom mode's run (custom_modes.h); empty for the game's own modes
+  std::array<uint8_t, demo_file::kCustomRulesSize> custom_rules{};
 };
 
 // The files to delete so only the newest `recent`, each mode's best and the starred remain.

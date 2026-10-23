@@ -13,6 +13,8 @@
 #include <rex/system/xmemory.h>
 
 #include "achievements_overlay_rules.h"
+#include "custom_modes.h"
+#include "custom_modes_menu.h"
 #include "demo.h"
 #include "guest_memory.h"
 #include "launcher_settings.h"
@@ -162,7 +164,9 @@ REX_HOOK_RAW(sub_820E88F8) {
   const uint32_t overlapped = ctx.r7.u32;
   __imp__sub_820E88F8(ctx, base);
   gw2::run::OnScoreWritten(base);
-  if (gw2::demo::Watching()) return;  // a replay's score is never kept or sent
+  const bool counts = gw2::demo::CountsOfficially();
+  gw2::custom_modes::OnScoreWritten();  // only now may a custom mode end (custom_modes.h)
+  if (!counts) return;  // a replay's or a custom mode's score is never kept or sent
   Services* services = Active();
   if (!services || !Succeeded(ctx, base, overlapped)) return;
   if (xuid != services->board.user().xuid) return;
@@ -253,6 +257,8 @@ REX_HOOK_RAW(sub_820955D0) {
   const uint64_t local_xuid = services->board.user().xuid;
   ServeReadStats(base, services->board, xuid_count, xuids, spec_count, specs, LoadBE32(base, size_ptr), results,
                  [local_xuid](uint32_t view, int64_t my_score) {
+                   // A custom mode's scores aren't the official mode's: nobody around to beat.
+                   if (gw2::custom_modes::IsActive()) return Nearby{};
                    const auto board = online::NearbyBoard(view);
                    return board ? online::PickNearby(*board, my_score, local_xuid) : Nearby{};
                  });
@@ -273,6 +279,10 @@ REX_HOOK_RAW(sub_820826D8) {
   const uint32_t id = ctx.r3.u32;
   if (id == gw2::replays_menu::kWatchReplaysTextId) {
     ctx.r3.u64 = gw2::replays_menu::WatchReplaysText();
+    return;
+  }
+  if (id == gw2::custom_modes_menu::kCustomModesTextId) {
+    ctx.r3.u64 = gw2::custom_modes_menu::CustomModesText();
     return;
   }
   __imp__sub_820826D8(ctx, base);
@@ -310,4 +320,5 @@ REX_HOOK_RAW(sub_82094B60) {
   __imp__sub_82094B60(ctx, base);
   FilterGuestInput(ctx, base, user, state);
   gw2::replays_menu::FilterPad(base, user, ctx.r3.u32 == 0 ? state : 0);
+  gw2::custom_modes_menu::FilterPad(base, user, ctx.r3.u32 == 0 ? state : 0);
 }

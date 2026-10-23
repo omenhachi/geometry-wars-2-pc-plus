@@ -6,6 +6,7 @@
 #include "aim_camera.h"
 #include "cheat_rules.h"
 #include "cheats.h"
+#include "custom_modes.h"
 #include "guest_memory.h"
 #include "player_records.h"
 #include "rumble.h"
@@ -79,7 +80,7 @@ REX_HOOK_RAW(sub_8204F288) {
   const bool is_player = IsPlayer(base, player);
   const uint32_t index = is_player ? gw2::LoadBE32(base, player + gw2::cheats::kPlayerIndexOffset) : 0;
   const uint32_t counter = is_player ? gw2::cheats::BombCountAddress(index) : 0;
-  const bool infinite = counter != 0 && Enabled(Cheat::InfiniteBombs);
+  const bool infinite = counter != 0 && (Enabled(Cheat::InfiniteBombs) || gw2::custom_modes::InfiniteBombs());
   const uint32_t before = counter != 0 ? gw2::LoadBE32(base, counter) : 0;
   __imp__sub_8204F288(ctx, base);
   if (counter == 0 || !gw2::cheats::BombWasConsumed(before, gw2::LoadBE32(base, counter))) {

@@ -33,6 +33,9 @@ $Utf8NoBom = New-Object System.Text.UTF8Encoding $false
 $RootFiles = @('geometry_wars_retro_evolved_2.exe', 'trg-updater.exe', 'rexruntime.dll', 'rexgpu-xenos.dll', 'geometry_wars_retro_evolved_2.toml', 'README.txt', 'LICENSE')
 $LicenseFiles = @('ReXGlue-LICENSE.txt', 'THIRD-PARTY-LICENSES.txt')
 $AssetFiles = @('assets\launcher\header-art.png', 'assets\controls\controller_kbm.tga')
+# The example custom modes and the template: each a folder with one mode.toml.
+$ModeFolders = @(Get-ChildItem -LiteralPath (Join-Path (Split-Path $PSScriptRoot -Parent) 'assets\modes') -Directory | ForEach-Object { "assets\modes\$($_.Name)" })
+$AssetFiles += @($ModeFolders | ForEach-Object { "$_\mode.toml" })
 # Names that mean game data, a package, saves, settings, caches or logs.
 $ForbiddenNames = @('default.xex', 'Data.bin', 'game', 'game-install-temp', 'game-install-backup', 'user_data',
     'user_data.migrating', 'content', 'cache', 'logs', 'settings.toml', 'settings.toml.bak', 'ArcadeInfo.xml', 'nxeart', '584108FF', 'logo0_pcplus.tga')
@@ -76,7 +79,7 @@ function Test-ReleaseFolder([string]$Dir) {
             elseif ($RootFiles -notcontains $item.Name) { $problems.Add("unexpected file: $relative") }
         } elseif ($parts[0] -eq 'assets') {
             if ($item.PSIsContainer) {
-                if ($relative -notin @('assets\launcher', 'assets\controls')) { $problems.Add("unexpected folder: $relative") }
+                if ($relative -notin (@('assets\launcher', 'assets\controls', 'assets\modes') + $ModeFolders)) { $problems.Add("unexpected folder: $relative") }
             } elseif ($AssetFiles -notcontains $relative) {
                 $problems.Add("unexpected item: $relative")
             }
@@ -162,6 +165,10 @@ Copy-Item -LiteralPath (Join-Path $Root 'assets\launcher\header-art.png') $asset
 $controls_dir = Join-Path $Stage 'assets\controls'
 New-Item -ItemType Directory -Force $controls_dir | Out-Null
 Copy-Item -LiteralPath (Join-Path $Root 'assets\controls\controller_kbm.tga') $controls_dir
+foreach ($folder in $ModeFolders) {
+    New-Item -ItemType Directory -Force (Join-Path $Stage $folder) | Out-Null
+    Copy-Item -LiteralPath (Join-Path $Root "$folder\mode.toml") (Join-Path $Stage $folder)
+}
 $readme = (Get-Content (Join-Path $Packaging 'README.txt') -Raw).Replace('@VERSION@', $Version) -replace "\r?\n", "`r`n"
 [IO.File]::WriteAllText((Join-Path $Stage 'README.txt'), $readme, $Utf8NoBom)
 

@@ -1,7 +1,7 @@
 # SDK boilerplate lives in generated/rexglue.cmake.
 
 cmake_minimum_required(VERSION 3.25)
-project(geometry_wars_retro_evolved_2 VERSION 0.9.0 LANGUAGES C CXX)
+project(geometry_wars_retro_evolved_2 VERSION 0.10.0 LANGUAGES C CXX)
 set(GW2_VERSION_SUFFIX "")
 
 set(CMAKE_CXX_STANDARD 23)
@@ -189,6 +189,9 @@ set(GW2_SOURCES
     src/results_panel.cpp
     src/replays_menu.cpp
     src/demo.cpp
+    src/custom_modes.cpp
+    src/custom_modes_menu.cpp
+    src/custom_mode_rules.cpp
     src/demo_file.cpp
     src/demo_library.cpp
     src/effect_random.cpp
@@ -369,6 +372,9 @@ add_custom_command(TARGET geometry_wars_retro_evolved_2 POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${CMAKE_CURRENT_SOURCE_DIR}/assets/controls/controller_kbm.tga"
         "$<TARGET_FILE_DIR:geometry_wars_retro_evolved_2>/assets/controls/controller_kbm.tga"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_CURRENT_SOURCE_DIR}/assets/modes"
+        "$<TARGET_FILE_DIR:geometry_wars_retro_evolved_2>/assets/modes"
     VERBATIM
 )
 
@@ -415,6 +421,7 @@ gw2_add_test(run_stats_tests src/run_stats.cpp)
 gw2_add_test(demo_file_tests src/demo_file.cpp)
 gw2_add_test(demo_library_tests src/demo_library.cpp src/demo_file.cpp)
 gw2_add_test(replays_menu_tests)
+gw2_add_test(custom_mode_rules_tests src/custom_mode_rules.cpp)
 target_link_libraries(keyboard_tests PRIVATE gw2_trg_test_support)
 target_compile_definitions(keyboard_tests PRIVATE GW2_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src")
 gw2_add_test(launcher_shortcut_tests)

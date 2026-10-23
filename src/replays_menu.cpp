@@ -28,6 +28,7 @@
 #include <rex/system/xmemory.h>
 #include <rex/ui/imgui_dialog.h>
 
+#include "custom_modes.h"
 #include "demo.h"
 #include "demo_library.h"
 #include "guest_memory.h"
@@ -43,6 +44,7 @@ namespace {
 
 using namespace gw2::neon;
 namespace library = gw2::demo_library;
+namespace custom_mode = gw2::custom_mode;
 
 constexpr uint32_t kMultiplayerTextId = 2;
 constexpr uint32_t kMultiplayerAction = 0x8208F028;
@@ -310,8 +312,10 @@ class ReplaysMenu final : public rex::ui::ImGuiDialog {
                         row_thin);
         continue;
       }
-      line_font::Draw(draw, ImVec2(left + u * 4.5f, mid - text * 0.5f), text, ModeName(e.mode), Theme(), row_thin);
-      const std::string score = Grouped(int64_t(e.score));
+      const std::string mode = e.custom_name.empty() ? std::string(ModeName(e.mode)) : e.custom_name;
+      line_font::Draw(draw, ImVec2(left + u * 4.5f, mid - text * 0.5f), text, mode, Theme(), row_thin);
+      const auto custom = e.custom_name.empty() ? std::nullopt : custom_mode::Read(e.custom_rules);
+      const std::string score = custom ? custom_modes::ScoreText(*custom, e.score) : Grouped(int64_t(e.score));
       const float score_right = left + (right - left) * 0.58f;
       line_font::Draw(draw, ImVec2(score_right - line_font::Width(score, text), mid - text * 0.5f), text, score, white,
                       row_thin);

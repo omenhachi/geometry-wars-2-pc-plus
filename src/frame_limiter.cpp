@@ -12,6 +12,7 @@
 #include <rex/hook.h>
 
 #include "crash_report.h"
+#include "custom_modes.h"
 #include "demo.h"
 #include "guest_memory.h"
 #include "visual_interpolation.h"
@@ -219,8 +220,10 @@ REX_HOOK_RAW(sub_820A1FA0) {
 REX_EXTERN(__imp__sub_820366A0);
 REX_HOOK_RAW(sub_820366A0) {
   if (gw2::BeginSimulationTick(base, gw2::LimiterClock::now())) {
+    gw2::custom_modes::BeforeSimTick(base);
     gw2::demo::BeforeSimTick(base);
     __imp__sub_820366A0(ctx, base);
+    gw2::custom_modes::AfterSimTick(base);
     gw2::demo::OnSimTick(base);
     gw2::VisualInterpolationSimulationTick(gw2::SecondsSinceEpoch(gw2::LimiterClock::now()),
                                            gw2::SimulationRemainder());

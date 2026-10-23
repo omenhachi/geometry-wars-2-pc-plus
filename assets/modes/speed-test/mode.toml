@@ -1,0 +1,10 @@
+format = 1
+name = "Speed Test"
+author = "Light"
+description = "Light's test mode: Pacifism with no gates at 1.4x speed. Score is how long you last."
+base = "pacifism"
+
+[rules]
+game_speed = 1.4
+gates = false
+score = "time"

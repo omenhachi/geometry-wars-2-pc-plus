@@ -117,6 +117,11 @@ std::vector<uint8_t> Write(const Demo& demo) {
   w.U64(demo.final_score);
   w.U64(uint64_t(demo.recorded_at));
   w.U32(demo.flags);
+  if (demo.flags & kFlagCustom) {
+    w.String(demo.custom_name);
+    w.String(demo.custom_author);
+    w.Bytes(demo.custom_rules.data(), kCustomRulesSize);
+  }
   w.Bytes(demo.twister.data(), kTwisterSize);
   w.U32(demo.rand_seed);
   w.U32(demo.particle_seed);
@@ -148,7 +153,7 @@ ReadResult Read(std::span<const uint8_t> bytes) {
   }
   const uint32_t version = r.U32();
   if (r.ok() && version > kFormatVersion) return {std::nullopt, ReadError::kNewerFormat};
-  if (r.ok() && version != kFormatVersion) return {std::nullopt, ReadError::kDamaged};
+  if (r.ok() && version != 1 && version != kFormatVersion) return {std::nullopt, ReadError::kDamaged};
   Demo demo;
   demo.replay_rules = r.U32();
   if (r.ok() && demo.replay_rules != kReplayRules) return {std::nullopt, ReadError::kOtherRules};
@@ -159,6 +164,12 @@ ReadResult Read(std::span<const uint8_t> bytes) {
   demo.final_score = r.U64();
   demo.recorded_at = int64_t(r.U64());
   demo.flags = r.U32();
+  if (r.ok() && (demo.flags & ~(kFlagCheats | kFlagCustom) || (version == 1 && (demo.flags & kFlagCustom)))) r.Fail();
+  if (demo.flags & kFlagCustom) {
+    demo.custom_name = r.String();
+    demo.custom_author = r.String();
+    r.Bytes(demo.custom_rules.data(), kCustomRulesSize);
+  }
   r.Bytes(demo.twister.data(), kTwisterSize);
   demo.rand_seed = r.U32();
   demo.particle_seed = r.U32();

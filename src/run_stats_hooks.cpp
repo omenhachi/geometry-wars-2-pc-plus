@@ -14,6 +14,8 @@
 #include <rex/hook.h>
 #include <rex/logging.h>
 
+#include "custom_modes.h"
+#include "deadline_rank.h"
 #include "demo.h"
 #include "guest_memory.h"
 #include "king_records.h"
@@ -64,7 +66,10 @@ void Report(const char* why, const uint8_t* base, bool finished) {
   g_reported = true;
   g_run.Finish();
   g_results = g_run;
-  if (finished) demo::OnRunEnd(base);
+  if (finished) {
+    custom_modes::OnRunEnd(base);
+    demo::OnRunEnd(base);
+  }
   REXLOG_INFO("Run stats ({}), mode {}:", why, g_run.mode());
   for (const std::string& line : g_run.Describe()) REXLOG_INFO("  {}", line);
 }
@@ -108,8 +113,9 @@ void OnDeath(const uint8_t* base, uint32_t player, bool final_life) {
   if (!LocalPlayer(base, player)) return;
   std::lock_guard lock(g_mutex);
   g_run.Death(Elapsed(base));
-  // Timed modes (Deadline) have unlimited lives, so every death there looks like the last: their runs end on the timer.
-  if (final_life && LoadF(base, kLimitAddress) <= 0) {
+  // Deadline has unlimited lives, so every death there looks like the last: its runs end on the timer. Other modes can
+  // have a timer too (a custom mode's time limit), and their last death still ends the run.
+  if (final_life && LoadBE32(base, king::kModeAddress) != deadline_rank::kDeadlineMode) {
     REXLOG_INFO("Run stats: final life lost at {:.1f}s", Elapsed(base));
     Report("final life lost", base, true);
   }
@@ -159,6 +165,7 @@ REX_EXTERN(__imp__sub_8203E538);
 REX_HOOK_RAW(sub_8203E538) {
   gw2::demo::BeforeRoundStart(ctx, base);
   __imp__sub_8203E538(ctx, base);
+  gw2::custom_modes::OnRoundStart(base);
   gw2::run::OnRoundStart(base);
 }
 

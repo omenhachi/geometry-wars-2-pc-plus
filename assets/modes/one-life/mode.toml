@@ -1,0 +1,9 @@
+format = 1
+name = "One Life"
+author = "Luna"
+description = "Evolved with a single ship and no bombs. Make it count."
+base = "evolved"
+
+[rules]
+lives = 1
+bombs = 0

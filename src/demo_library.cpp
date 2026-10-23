@@ -46,10 +46,10 @@ std::vector<std::string> ToPrune(const std::vector<Entry>& entries, size_t recen
                    [](const Entry* a, const Entry* b) { return a->recorded_at > b->recorded_at; });
   std::set<std::string> keep;
   for (size_t i = 0; i < by_time.size() && i < recent; ++i) keep.insert(by_time[i]->file);
-  std::map<uint32_t, const Entry*> best;
+  std::map<std::pair<uint32_t, std::string>, const Entry*> best;  // each mode's, and each custom mode's, best
   for (const Entry* entry : by_time) {
     if (entry->starred) keep.insert(entry->file);
-    auto [it, added] = best.emplace(entry->mode, entry);
+    auto [it, added] = best.emplace(std::make_pair(entry->mode, entry->custom_name), entry);
     if (!added && entry->score > it->second->score) it->second = entry;
   }
   for (const auto& [mode, entry] : best) keep.insert(entry->file);
@@ -118,7 +118,9 @@ std::vector<Entry> Scan(const std::filesystem::path& folder) {
     if (!read.demo) continue;
     const std::string name = item.path().filename().string();
     entries.push_back({name, read.demo->mode, read.demo->final_score, read.demo->recorded_at, read.demo->ticks(),
-                       favourites.count(name) > 0});
+                       favourites.count(name) > 0,
+                       (read.demo->flags & demo_file::kFlagCustom) ? read.demo->custom_name : std::string(),
+                       read.demo->custom_rules});
   }
   std::stable_sort(entries.begin(), entries.end(),
                    [](const Entry& a, const Entry& b) { return a.recorded_at > b.recorded_at; });

@@ -18,6 +18,9 @@ std::filesystem::path Folder();
 // True from the moment a replay starts until the game is back in its menus after it.
 bool Watching();
 
+// False while a replay or a custom mode plays (custom_modes.h): nothing of it is kept, sent, unlocked or saved.
+bool CountsOfficially();
+
 enum class WatchResult { kStarted, kUnreadable, kNewer, kOtherVersion };
 // Plays a saved replay: its mode starts from the menus on the next frame.
 WatchResult Watch(const std::filesystem::path& path);

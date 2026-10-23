@@ -1,0 +1,10 @@
+format = 1
+name = "Bomb Party"
+author = "Light"
+description = "Waves, but your bombs never run out. Two minutes. Go wild."
+base = "waves"
+
+[rules]
+bombs = 3
+infinite_bombs = true
+time_limit = 120

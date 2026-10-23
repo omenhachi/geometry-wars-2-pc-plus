@@ -1,0 +1,9 @@
+format = 1
+name = "Pure Pacifism"
+author = "Light"
+description = "No gates, so no way to fight back. Your score is how long you last."
+base = "pacifism"
+
+[rules]
+gates = false
+score = "time"

@@ -9,7 +9,9 @@
 // Layout, all integers little-endian:
 //   "GW2DEMO" 0x1A, u32 format version, u32 replay rules
 //   string port version, string game SHA-256, string player name   (u8 length, then that many bytes)
-//   u32 mode, u64 final score, i64 recorded at (Unix seconds), u32 flags (bit 0: recorded with cheats on)
+//   u32 mode, u64 final score, i64 recorded at (Unix seconds), u32 flags (bit 0: recorded with cheats on, bit 1: a
+//   custom mode)
+//   format 2, a custom mode only: string name, string author, 24 bytes of its rules (custom_mode_rules.h)
 //   2500 bytes twister, u32 rand seed, u32 particle seed, 16 bytes input state
 //   u32 ticks, then ticks x u32 step
 //   u32 pad changes, then each: u32 tick, 80 bytes pads (the pads hold from that tick until the next change)
@@ -25,7 +27,7 @@
 
 namespace gw2::demo_file {
 
-inline constexpr uint32_t kFormatVersion = 1;
+inline constexpr uint32_t kFormatVersion = 2;  // 1 had no custom modes, and still reads
 // Bumped whenever a change to the port could make an older demo play differently. Demos with other rules are refused.
 inline constexpr uint32_t kReplayRules = 1;
 
@@ -41,6 +43,7 @@ inline constexpr uint32_t kMaxTicks = 60 * 60 * 60;
 inline constexpr uint32_t kMaxShotsPerTick = 8;
 inline constexpr size_t kMaxString = 64;
 inline constexpr size_t kMaxFileSize = 64u << 20;
+inline constexpr size_t kCustomRulesSize = 24;
 
 using Pads = std::array<uint8_t, kPadsSize>;
 
@@ -64,6 +67,10 @@ struct Demo {
   uint64_t final_score = 0;
   int64_t recorded_at = 0;
   uint32_t flags = 0;
+  // A custom mode's run (kFlagCustom): its name and author, and its rules as custom_mode::Write makes them.
+  std::string custom_name;
+  std::string custom_author;
+  std::array<uint8_t, kCustomRulesSize> custom_rules{};
   std::array<uint8_t, kTwisterSize> twister{};
   uint32_t rand_seed = 0;
   uint32_t particle_seed = 0;
@@ -79,6 +86,7 @@ struct Demo {
 };
 
 inline constexpr uint32_t kFlagCheats = 1;
+inline constexpr uint32_t kFlagCustom = 2;
 
 std::vector<uint8_t> Write(const Demo& demo);
 

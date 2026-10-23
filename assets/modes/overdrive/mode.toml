@@ -1,0 +1,8 @@
+format = 1
+name = "Overdrive"
+author = "Light"
+description = "Deadline at 1.3x speed. The same three minutes, over in 2:18."
+base = "deadline"
+
+[rules]
+game_speed = 1.3

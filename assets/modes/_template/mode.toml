@@ -1,0 +1,20 @@
+# A custom mode for Geometry Wars 2 PC Plus. Copy this folder, rename it, and edit this file.
+# The Custom modes list reads it fresh every time it opens, so there is no need to restart the game.
+# Lines starting with # are notes; remove the # in front of a rule to use it. docs/MODDING.md explains every key.
+
+format = 1
+name = "My mode"
+author = "You"
+description = "One line about what makes it different."
+
+# The mode it is built on: "deadline", "evolved", "sequence", "waves", "pacifism" or "king".
+base = "evolved"
+
+[rules]
+# lives = 1               # ships at the start, 1 to 99
+# bombs = 0               # bombs at the start, 0 to 99
+# infinite_bombs = true   # bombs never run out
+# time_limit = 120        # seconds, 10 to 3600; the round ends when it runs out
+# game_speed = 1.2        # 0.5 to 1.5; everything moves this much faster (or slower)
+# gates = false           # no gates spawn
+# score = "time"          # "points", or "time": the score is how long you survive

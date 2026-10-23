@@ -20,6 +20,8 @@
 #include "aim_camera.h"
 #include "active_log.h"
 #include "cheat_menu.h"
+#include "custom_modes.h"
+#include "custom_modes_menu.h"
 #include "demo.h"
 #include "diagnostics.h"
 #include "frame_counter.h"
@@ -152,7 +154,9 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
       gw2::CreateFrameCounter(drawer);
       gw2::CreateResultsPanel(drawer);
       gw2::replays_menu::CreateReplaysMenu(drawer);
+      gw2::custom_modes_menu::CreateCustomModesMenu(drawer);
       gw2::demo::RegisterKeys();
+      gw2::custom_modes::RegisterKeys();
       gw2::CreateMouseAim(drawer);
       gw2::CreateCursorSync(drawer);
     }
@@ -261,6 +265,8 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
     const auto* profile = kernel ? kernel->user_profile() : nullptr;
     if (!profile) return;
     gw2::demo::SetFolder(std::filesystem::absolute(user_data_root()) / "demos");
+    gw2::custom_modes::SetFolders(rex::filesystem::GetExecutableFolder() / "assets" / "modes",
+                                  std::filesystem::absolute(user_data_root()) / "mods");
     gw2::live::Install({
         .stats_file = gw2::StatsFilePath(std::filesystem::absolute(user_data_root()), kernel->title_id()),
         .user = {profile->xuid(), profile->name()},

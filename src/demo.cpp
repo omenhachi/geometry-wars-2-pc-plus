@@ -39,6 +39,7 @@
 #include <rex/ui/keybinds.h>
 
 #include "cheats.h"
+#include "custom_modes.h"
 #include "demo_file.h"
 #include "demo_library.h"
 #include "game_files.h"
@@ -58,6 +59,7 @@ namespace gw2::demo {
 namespace {
 
 namespace file = gw2::demo_file;
+namespace custom_mode = gw2::custom_mode;
 namespace library = gw2::demo_library;
 
 constexpr uint32_t kTwister = 0x821A1E28;
@@ -175,6 +177,10 @@ bool Watching() {
   return g_watching.load(std::memory_order_relaxed);
 }
 
+bool CountsOfficially() {
+  return !Watching() && !custom_modes::IsActive();
+}
+
 WatchResult Watch(const std::filesystem::path& path) {
   std::error_code error;
   const uintmax_t size = std::filesystem::file_size(path, error);
@@ -194,6 +200,10 @@ WatchResult Watch(const std::filesystem::path& path) {
       return WatchResult::kUnreadable;
   }
   if (read.demo->ticks() == 0 || read.demo->mode >= std::size(kModeSetups)) return WatchResult::kUnreadable;
+  if (read.demo->flags & file::kFlagCustom) {
+    const auto rules = custom_mode::Read(read.demo->custom_rules);
+    if (!rules || rules->base != read.demo->mode) return WatchResult::kUnreadable;
+  }
   std::lock_guard lock(g_mutex);
   g_requested = std::move(read.demo);
   return WatchResult::kStarted;
@@ -213,6 +223,14 @@ void StartRequested(PPCContext& ctx, uint8_t* base) {
     g_requested.reset();
     g_watching.store(true, std::memory_order_relaxed);
     mode = g_state.demo.mode;
+    std::optional<custom_mode::Mode> custom;
+    if (g_state.demo.flags & file::kFlagCustom) {
+      custom.emplace();
+      custom->name = g_state.demo.custom_name;
+      custom->author = g_state.demo.custom_author;
+      custom->rules = *custom_mode::Read(g_state.demo.custom_rules);  // checked by Watch
+    }
+    custom_modes::ForReplay(std::move(custom));
     std::memcpy(&pad, g_state.demo.input_state.data() + kPlayingPadOffset, 4);
     pad = std::byteswap(pad);  // kept as the game keeps it, big-endian
     if (pad > 3) pad = 0;
@@ -262,6 +280,14 @@ void BeforeRoundStart(PPCContext& ctx, uint8_t* base) {
   if (!single_player || !REXCVAR_GET(gw2_replays)) return;
   g_state.phase = Phase::kRecording;
   file::Demo& demo = g_state.demo;
+  if (const auto custom = custom_modes::Active()) {
+    // A custom mode's run keeps its rules, so it plays back without the mode file.
+    demo.flags |= file::kFlagCustom;
+    demo.custom_name = custom->mode.name;
+    demo.custom_author = custom->mode.author;
+    const std::vector<uint8_t> rules = custom_mode::Write(custom->mode.rules);
+    std::copy(rules.begin(), rules.end(), demo.custom_rules.begin());
+  }
   demo.port_version = GW2_PORT_VERSION;
   demo.game_sha256 = kSupportedGame.xex_sha256;
   demo.player_name = REXCVAR_GET(gw2_player_name);
@@ -323,6 +349,7 @@ void AfterPadPoll(uint8_t* base) {
     if (start == 0 || start == 3) {
       s = State{};
       g_watching.store(false, std::memory_order_relaxed);
+      custom_modes::ForReplay(std::nullopt);
     }
     return;
   }
@@ -420,17 +447,19 @@ REX_HOOK_RAW(sub_82038300) {
   __imp__sub_82038300(ctx, base);
   gw2::demo::AfterPadPoll(base);
   gw2::demo::StartRequested(ctx, base);
+  gw2::custom_modes::StartRequested(ctx, base);
+  gw2::custom_modes::EachFrame(base);
 }
 
-// XUserWriteAchievements (count, achievements, overlapped): a replay unlocks nothing. With no achievements the request
+// XUserWriteAchievements (count, achievements, overlapped): a replay or a custom mode unlocks nothing. With no achievements the request
 // still completes as usual.
 REX_EXTERN(__imp__sub_820954A0);
 REX_HOOK_RAW(sub_820954A0) {
-  if (gw2::demo::Watching()) ctx.r3.u64 = 0;
+  if (!gw2::demo::CountsOfficially()) ctx.r3.u64 = 0;
   __imp__sub_820954A0(ctx, base);
 }
 
-// XamUserWriteProfileSettings (user, count, settings, overlapped): a replay saves no progress. The game's settings are
+// XamUserWriteProfileSettings (user, count, settings, overlapped): a replay or a custom mode saves no progress. The game's settings are
 // swapped for a copy marked unset, which ReXGlue skips and still answers as saved.
 REX_EXTERN(__imp__sub_820E8A20);
 REX_HOOK_RAW(sub_820E8A20) {
@@ -439,13 +468,13 @@ REX_HOOK_RAW(sub_820E8A20) {
   constexpr uint32_t kMaxSettings = 8;
   static uint32_t scratch = 0;
   const uint32_t count = ctx.r4.u32;
-  if (gw2::demo::Watching() && count > 0 && count <= kMaxSettings && ctx.r5.u32 != 0) {
+  if (!gw2::demo::CountsOfficially() && count > 0 && count <= kMaxSettings && ctx.r5.u32 != 0) {
     if (scratch == 0) scratch = rex::system::kernel_memory()->SystemHeapAlloc(kSettingSize * kMaxSettings);
     if (scratch != 0) {
       std::memcpy(base + scratch, base + ctx.r5.u32, kSettingSize * count);
       for (uint32_t i = 0; i < count; ++i) base[scratch + i * kSettingSize + kTypeOffset] = 0;
       ctx.r5.u64 = scratch;
-      REXLOG_INFO("Replays: a profile save during a replay was skipped");
+      REXLOG_INFO("Replays: a profile save during a replay or custom mode was skipped");
     }
   }
   __imp__sub_820E8A20(ctx, base);

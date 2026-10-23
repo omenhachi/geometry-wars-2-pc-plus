@@ -63,7 +63,8 @@ bool Same(const Demo& a, const Demo& b) {
          a.player_name == b.player_name && a.mode == b.mode && a.final_score == b.final_score &&
          a.recorded_at == b.recorded_at && a.flags == b.flags && a.twister == b.twister && a.rand_seed == b.rand_seed &&
          a.particle_seed == b.particle_seed && a.input_state == b.input_state && a.steps == b.steps &&
-         a.checkpoints == b.checkpoints;
+         a.checkpoints == b.checkpoints && a.custom_name == b.custom_name && a.custom_author == b.custom_author &&
+         a.custom_rules == b.custom_rules;
 }
 
 void PutU32(std::vector<uint8_t>& bytes, size_t at, uint32_t v) {
@@ -191,8 +192,36 @@ void TestFuzz() {
 
 }  // namespace
 
+// A custom mode's run carries its name, author and rules; a format 1 file (no custom block) still reads, and one that
+// claims to be custom is refused.
+void TestCustom() {
+  Demo demo = Sample();
+  demo.flags = kFlagCustom;
+  demo.custom_name = "Pure Pacifism";
+  demo.custom_author = "Light";
+  for (size_t i = 0; i < kCustomRulesSize; ++i) demo.custom_rules[i] = uint8_t(i * 7);
+  const auto bytes = Write(demo);
+  const ReadResult read = Read(bytes);
+  CHECK(read.error == ReadError::kNone && read.demo && Same(*read.demo, demo));
+
+  Demo plain = Sample();
+  auto v1 = Write(plain);
+  PutU32(v1, 8, 1);
+  const ReadResult old = Read(v1);
+  CHECK(old.error == ReadError::kNone && old.demo && Same(*old.demo, plain));
+
+  auto claims = bytes;
+  PutU32(claims, 8, 1);
+  CHECK(Read(claims).error == ReadError::kDamaged);
+
+  Demo unknown = Sample();
+  unknown.flags = 8;
+  CHECK(Read(Write(unknown)).error == ReadError::kDamaged);
+}
+
 int main() {
   TestRoundTrip();
+  TestCustom();
   TestPadsAt();
   TestRefusals();
   TestHostileCounts();
