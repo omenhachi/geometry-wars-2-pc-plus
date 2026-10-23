@@ -26,6 +26,7 @@ PC Plus builds on [saulob's excellent PC port](https://github.com/saulob/geometr
 - **Nearby players, in place of Xbox Live friends.** Each mode lists the players just above and below you, and while you play, the corner shows the next score to beat, moving up as you pass each one.
 - **Pick your colour.** Green, Blue, Purple, Pink, Gold, Rainbow or any colour you like, for the menus, HUD, icons and crosshair, right from the game's Settings menu.
 - **A results screen after every single-player run**, inspired by Pac-Man CE DX: your score over time with deaths, bombs and your best moment marked, the enemies you destroyed, and what your black holes and gates were worth. It sits over the Game Over screen and never slows a retry.
+- **Watch your runs again.** Every single-player run is saved as a replay, and **Watch replays** on the main menu plays them back exactly, at any frame rate. Star the ones you love to keep them. A replay never counts: no score, stats or achievements.
 - **Deadline's hidden spawn rank, if you want it.** Turn on **Deadline rank info** and the HUD shows K (weighted kills), G (geoms) and the rank the next wave will set, with a little pop when a wave raises it. Off by default; it only shows information, so runs still count online.
 - **A launcher that looks like Geometry Wars**, and PC PLUS+ on the title screen.
 
@@ -41,6 +42,10 @@ saulob's port does the heavy lifting, and all of it is still here:
 - An experimental native Linux build, which you can build from source for now (see below)
 
 ## Screenshots
+
+**Watch replays.** Every run, ready to watch again, right on the main menu.
+
+<img src="docs/screenshots/watch-replays-menu.png" alt="The main menu: Single player, Multiplayer, Watch replays, Leaderboards, Achievements, Help and options, Exit game" />
 
 **Nearby players.** The people closest to your score, in every mode.
 
