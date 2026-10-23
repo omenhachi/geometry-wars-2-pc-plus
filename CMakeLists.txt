@@ -188,6 +188,8 @@ set(GW2_SOURCES
     src/run_stats_hooks.cpp
     src/results_panel.cpp
     src/demo.cpp
+    src/demo_file.cpp
+    src/demo_library.cpp
     src/effect_random.cpp
     src/online_board.cpp
     src/online_leaderboard.cpp
@@ -409,6 +411,8 @@ gw2_add_test(title_logo_tests src/title_logo.cpp)
 gw2_add_test(hud_colour_tests src/hud_colour.cpp)
 gw2_add_test(deadline_rank_tests src/deadline_rank.cpp)
 gw2_add_test(run_stats_tests src/run_stats.cpp)
+gw2_add_test(demo_file_tests src/demo_file.cpp)
+gw2_add_test(demo_library_tests src/demo_library.cpp src/demo_file.cpp)
 target_link_libraries(keyboard_tests PRIVATE gw2_trg_test_support)
 target_compile_definitions(keyboard_tests PRIVATE GW2_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src")
 gw2_add_test(launcher_shortcut_tests)

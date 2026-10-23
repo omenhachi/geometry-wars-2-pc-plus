@@ -58,12 +58,13 @@ bool g_reported = false;
 bool g_timer_logged = false;
 std::set<std::pair<int32_t, int32_t>> g_first_kills;  // (type, killer type) pairs already logged this run
 
-void Report(const char* why) {
+// `finished`: the run ended in play (its last life, or the timer), so its replay is kept.
+void Report(const char* why, const uint8_t* base, bool finished) {
   if (g_reported || !g_run.active()) return;
   g_reported = true;
   g_run.Finish();
   g_results = g_run;
-  demo::OnRunEnd();
+  if (finished) demo::OnRunEnd(base);
   REXLOG_INFO("Run stats ({}), mode {}:", why, g_run.mode());
   for (const std::string& line : g_run.Describe()) REXLOG_INFO("  {}", line);
 }
@@ -77,7 +78,7 @@ bool LocalPlayer(const uint8_t* base, uint32_t player) {
 
 void OnRoundStart(const uint8_t* base) {
   std::lock_guard lock(g_mutex);
-  Report("a new round started");
+  Report("a new round started", base, false);
   const uint32_t mode = LoadBE32(base, king::kModeAddress);
   g_run.Start(mode, Elapsed(base));
   g_results.reset();
@@ -110,7 +111,7 @@ void OnDeath(const uint8_t* base, uint32_t player, bool final_life) {
   // Timed modes (Deadline) have unlimited lives, so every death there looks like the last: their runs end on the timer.
   if (final_life && LoadF(base, kLimitAddress) <= 0) {
     REXLOG_INFO("Run stats: final life lost at {:.1f}s", Elapsed(base));
-    Report("final life lost");
+    Report("final life lost", base, true);
   }
 }
 
@@ -129,14 +130,14 @@ void OnHud(const uint8_t* base) {
   if (!g_timer_logged && limit > 0 && elapsed >= limit) {
     g_timer_logged = true;
     REXLOG_INFO("Run stats: the round timer ran out at {:.1f}s", elapsed);
-    Report("timer ran out");
+    Report("timer ran out", base, true);
   }
 }
 
 void OnScoreWritten(const uint8_t* base) {
   std::lock_guard lock(g_mutex);
   REXLOG_INFO("Run stats: score written, elapsed {:.1f}s, score {}", Elapsed(base), Score(base));
-  Report("score written");
+  Report("score written", base, true);
 }
 
 void OnGameOverScreen() {

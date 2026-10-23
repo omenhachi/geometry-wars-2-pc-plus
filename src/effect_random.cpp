@@ -14,8 +14,6 @@
 #include <rex/system/kernel_state.h>
 #include <rex/system/xmemory.h>
 
-#include "demo.h"
-
 namespace {
 
 constexpr uint32_t kGameplayTwister = 0x821A1E28;
@@ -53,8 +51,6 @@ REX_EXTERN(__imp__sub_82030058);
 REX_HOOK_RAW(sub_82030058) {
   if (g_effect_depth > 0 && ctx.r3.u32 == kGameplayTwister) {
     if (const uint32_t effects = EffectTwister(base)) ctx.r3.u64 = effects;
-  } else {
-    gw2::demo::OnTwisterDraw(uint32_t(ctx.lr));
   }
   __imp__sub_82030058(ctx, base);
 }

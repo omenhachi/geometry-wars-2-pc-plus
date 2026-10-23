@@ -258,6 +258,7 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
     auto* kernel = runtime()->kernel_state();
     const auto* profile = kernel ? kernel->user_profile() : nullptr;
     if (!profile) return;
+    gw2::demo::SetFolder(std::filesystem::absolute(user_data_root()) / "demos");
     gw2::live::Install({
         .stats_file = gw2::StatsFilePath(std::filesystem::absolute(user_data_root()), kernel->title_id()),
         .user = {profile->xuid(), profile->name()},

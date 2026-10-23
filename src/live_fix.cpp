@@ -13,6 +13,7 @@
 #include <rex/system/xmemory.h>
 
 #include "achievements_overlay_rules.h"
+#include "demo.h"
 #include "guest_memory.h"
 #include "launcher_settings.h"
 #include "online_leaderboard.h"
@@ -160,6 +161,7 @@ REX_HOOK_RAW(sub_820E88F8) {
   const uint32_t overlapped = ctx.r7.u32;
   __imp__sub_820E88F8(ctx, base);
   gw2::run::OnScoreWritten(base);
+  if (gw2::demo::Watching()) return;  // a replay's score is never kept or sent
   Services* services = Active();
   if (!services || !Succeeded(ctx, base, overlapped)) return;
   if (xuid != services->board.user().xuid) return;

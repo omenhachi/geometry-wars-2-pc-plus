@@ -328,8 +328,9 @@ class MouseAimOverlay final : public rex::ui::ImGuiDialog {
     const bool bomb = io.MouseDown[1];
     const aim::CameraState& camera = state.cameras[size_t(aim::kGameplayCamera)];
     const bool pacifism = state.mode == aim::kPacifismMode;
-    const bool active =
-        keyboard && in_round && usable && mouse_valid && !pacifism && camera.has_view && camera.has_proj;
+    // A replay aims for itself: no crosshair following the viewer's mouse.
+    const bool active = keyboard && in_round && usable && mouse_valid && !pacifism && !demo::Watching() &&
+                        camera.has_view && camera.has_proj;
 
     if (active && fire) {
       const auto target = aim::UnprojectToArena(camera.view, camera.proj,
