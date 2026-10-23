@@ -19,10 +19,14 @@ void BeforeSimTick(uint8_t* base);
 void OnSimTick(uint8_t* base);
 // After the frame's pad poll (sub_82038300) filled the slots.
 void AfterPadPoll(uint8_t* base);
+// On the game thread each frame: starts a requested demo's mode.
+void StartWatching(PPCContext& ctx, uint8_t* base);
 // Player::Fire, with the aim direction it is about to use.
 void OnFire(uint8_t* base, uint32_t player, uint32_t direction);
 // A draw from the Mersenne Twister, by the function at `caller`.
 void OnTwisterDraw(uint32_t caller);
+// SPIKE: F9 starts the demo's mode from the menus, as the Single Player screen would (replay mode only).
+void RegisterKeys();
 // The run finished (run_stats_hooks.cpp).
 void OnRunEnd();
 

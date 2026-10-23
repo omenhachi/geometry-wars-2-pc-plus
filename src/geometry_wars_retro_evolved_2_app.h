@@ -20,6 +20,7 @@
 #include "aim_camera.h"
 #include "active_log.h"
 #include "cheat_menu.h"
+#include "demo.h"
 #include "diagnostics.h"
 #include "frame_counter.h"
 #include "game_files.h"
@@ -149,6 +150,7 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
     if (drawer) {
       gw2::CreateFrameCounter(drawer);
       gw2::CreateResultsPanel(drawer);
+      gw2::demo::RegisterKeys();
       gw2::CreateMouseAim(drawer);
       gw2::CreateCursorSync(drawer);
     }

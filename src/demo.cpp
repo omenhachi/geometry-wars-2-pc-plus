@@ -15,6 +15,8 @@
 #include "demo.h"
 
 #include <algorithm>
+#include <atomic>
+#include <bit>
 #include <cstring>
 #include <format>
 #include <fstream>
@@ -25,6 +27,7 @@
 #include <rex/cvar.h>
 #include <rex/hook.h>
 #include <rex/logging.h>
+#include <rex/ui/keybinds.h>
 
 #include "guest_memory.h"
 #include "player_records.h"
@@ -33,6 +36,9 @@ REXCVAR_DEFINE_STRING(gw2_demo, "", "Geometry Wars", "SPIKE: record or replay si
 REXCVAR_DEFINE_STRING(gw2_demo_file, "", "Geometry Wars", "SPIKE: the demo file to write or play");
 
 REX_EXTERN(sub_82131318);  // the C runtime's per-thread data block
+REX_EXTERN(sub_8208FFF0);  // switches the screen (here to the in-game HUD, sub_8207CA48)
+REX_EXTERN(sub_82032F90);  // queues the function that sets up the next round
+REX_EXTERN(sub_820334F8);  // asks for a round to start, for the pad in r3
 
 namespace gw2::demo {
 namespace {
@@ -44,6 +50,12 @@ constexpr uint32_t kRandSeedOffset = 20;
 constexpr uint32_t kElapsedAddress = 0x8219CE68;
 constexpr uint32_t kModeAddress = 0x8219D254;
 constexpr uint32_t kStepAddress = 0x8219D280;  // the game's step in seconds (float)
+// The per-frame input state (sub_82033E18): two hold counters, the buttons of the frame before (against which new
+// presses are found: a round started from the menus begins with the button that started it still held), then the
+// pad that plays, the only one read during the round.
+constexpr uint32_t kInputStateAddress = 0x821993E0;
+constexpr uint32_t kInputStateSize = 16;
+constexpr uint32_t kPlayingPadOffset = 12;
 constexpr uint32_t kPadArray = 0x8219D3D4;  // count, then a pointer to the slots
 constexpr uint32_t kMaxPads = 4;
 constexpr uint32_t kSlotStride = 24;         // user index, connected, then the 16-byte XINPUT_STATE
@@ -68,6 +80,7 @@ struct Demo {
   uint8_t twister[kTwisterSize] = {};
   uint32_t rand_seed = 0;
   uint32_t particle_seed = 0;
+  uint8_t input_state[kInputStateSize] = {};
   std::vector<Pads> pads;  // one per tick
   std::vector<Fire> fires;
   std::vector<uint32_t> steps;  // one per tick
@@ -77,6 +90,13 @@ struct Demo {
   std::vector<uint32_t> draw_starts;  // per tick, where its draws begin in `draws`
   std::vector<Check> checks;    // one per tick
 };
+
+// How the Single Player screen starts a mode (sub_8208D410): the HUD screen, the mode's setup queued, then the
+// start asked for. The start state must be idle.
+constexpr uint32_t kStartStateAddress = 0x821993F0;  // 0 or 3 menus, 1 begin, 2 playing, 4 game over
+constexpr uint32_t kHudScreen = 0x8207CA48;
+constexpr uint32_t kModeSetups[] = {0x82034EA0, 0x82034F38, 0x82034FA8, 0x82035030, 0x820350B0, 0x82035130};
+std::atomic<bool> g_watch_requested{false};
 
 std::mutex g_mutex;
 Demo g_demo;
@@ -119,6 +139,7 @@ void Save(const Demo& demo) {
   out.write(reinterpret_cast<const char*>(demo.twister), kTwisterSize);
   Put(out, demo.rand_seed);
   Put(out, demo.particle_seed);
+  out.write(reinterpret_cast<const char*>(demo.input_state), kInputStateSize);
   Put(out, uint32_t(demo.pads.size()));
   out.write(reinterpret_cast<const char*>(demo.pads.data()), std::streamsize(demo.pads.size() * sizeof(Pads)));
   Put(out, uint32_t(demo.fires.size()));
@@ -143,6 +164,7 @@ bool Load(Demo& demo) {
   if (!in.read(magic, 4) || std::memcmp(magic, "GW2D", 4) != 0) return false;
   if (!Get(in, demo.mode) || !in.read(reinterpret_cast<char*>(demo.twister), kTwisterSize)) return false;
   if (!Get(in, demo.rand_seed) || !Get(in, demo.particle_seed)) return false;
+  if (!in.read(reinterpret_cast<char*>(demo.input_state), kInputStateSize)) return false;
   constexpr uint32_t kLimit = 10'000'000;
   if (!Get(in, n) || n > kLimit) return false;
   demo.pads.resize(n);
@@ -220,6 +242,7 @@ void BeforeRoundStart(PPCContext& ctx, uint8_t* base) {
     std::memcpy(base + kTwister, g_demo.twister, kTwisterSize);
     StoreBE32(base, rand_seed, g_demo.rand_seed);
     StoreBE32(base, kParticleSeed, g_demo.particle_seed);
+    std::memcpy(base + kInputStateAddress, g_demo.input_state, kInputStateSize);
     if (!g_demo.steps.empty()) StoreBE32(base, kStepAddress, g_demo.steps[0]);
     if (!g_demo.pads.empty()) WritePads(base, g_demo.pads[0]);
     REXLOG_INFO("Demo: replaying {} ticks (mode {}, this round's mode {})", g_demo.checks.size(), g_demo.mode,
@@ -230,6 +253,7 @@ void BeforeRoundStart(PPCContext& ctx, uint8_t* base) {
     std::memcpy(g_demo.twister, base + kTwister, kTwisterSize);
     g_demo.rand_seed = LoadBE32(base, rand_seed);
     g_demo.particle_seed = LoadBE32(base, kParticleSeed);
+    std::memcpy(g_demo.input_state, base + kInputStateAddress, kInputStateSize);
     g_demo.steps.push_back(LoadBE32(base, kStepAddress));
     g_demo.pads.push_back(ReadPads(base));
     REXLOG_INFO("Demo: recording mode {}", g_demo.mode);
@@ -286,6 +310,40 @@ void OnSimTick(uint8_t* base) {
   ++g_tick;
 }
 
+void StartWatching(PPCContext& ctx, uint8_t* base) {
+  if (!g_watch_requested.exchange(false)) return;
+  Demo demo;
+  if (!Replaying() || !Load(demo) || demo.mode >= std::size(kModeSetups)) {
+    REXLOG_WARN("Demo: nothing to watch");
+    return;
+  }
+  if (LoadBE32(base, kStartStateAddress) != 0) {
+    REXLOG_WARN("Demo: the game is not idle (start state {})", LoadBE32(base, kStartStateAddress));
+    return;
+  }
+  PPCContext call = ctx;
+  call.r3.u64 = 0;
+  call.r4.u64 = 0;
+  call.r5.u64 = kHudScreen;
+  call.r6.u64 = 0;
+  call.r7.u64 = 0;
+  call.r8.u64 = 0;
+  sub_8208FFF0(call, base);
+  call = ctx;
+  call.r3.u64 = kModeSetups[demo.mode];
+  sub_82032F90(call, base);
+  uint32_t pad = 0;
+  std::memcpy(&pad, demo.input_state + kPlayingPadOffset, 4);
+  call = ctx;
+  call.r3.u64 = std::byteswap(pad);  // stored as the game keeps it, big-endian
+  sub_820334F8(call, base);
+  // The frame that begins the round (sub_82033E18, later this frame) keeps its pads as the ones held before the round,
+  // as when Start or A on the Single Player screen begins one: the recording's first pads are still held then, so a
+  // round started with Start does not begin with a fresh Start press, which would pause it.
+  if (!demo.pads.empty()) WritePads(base, demo.pads[0]);
+  REXLOG_INFO("Demo: starting mode {} to watch, pad {}", demo.mode, std::byteswap(pad));
+}
+
 void AfterPadPoll(uint8_t* base) {
   std::lock_guard lock(g_mutex);
   if (!g_active || !g_replay || g_demo.pads.empty()) return;
@@ -307,6 +365,10 @@ void OnFire(uint8_t* base, uint32_t player, uint32_t direction) {
   const Fire& fire = g_demo.fires[g_fire++];
   StoreBE32(base, direction, fire.x);
   StoreBE32(base, direction + 4, fire.y);
+}
+
+void RegisterKeys() {
+  rex::ui::RegisterBind("bind_gw2_demo_watch", "F9", "Watch the demo", [] { g_watch_requested.store(true); });
 }
 
 void OnRunEnd() {
@@ -336,4 +398,5 @@ REX_EXTERN(__imp__sub_82038300);
 REX_HOOK_RAW(sub_82038300) {
   __imp__sub_82038300(ctx, base);
   gw2::demo::AfterPadPoll(base);
+  gw2::demo::StartWatching(ctx, base);
 }
