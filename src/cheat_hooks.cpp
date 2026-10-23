@@ -9,6 +9,7 @@
 #include "guest_memory.h"
 #include "player_records.h"
 #include "rumble.h"
+#include "run_stats_hooks.h"
 
 namespace {
 
@@ -85,6 +86,7 @@ REX_HOOK_RAW(sub_8204F288) {
     return;
   }
   gw2::rumble::RequestBombPulse(index);
+  gw2::run::OnBomb(base, player);
   if (infinite) {
     gw2::StoreBE32(base, counter, before);
   }

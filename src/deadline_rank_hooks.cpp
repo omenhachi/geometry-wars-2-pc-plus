@@ -21,6 +21,7 @@
 #include "guest_memory.h"
 #include "king_records.h"
 #include "launcher_cvars.h"
+#include "run_stats_hooks.h"
 
 namespace {
 
@@ -155,6 +156,7 @@ REX_EXTERN(__imp__sub_8207CA48);
 REX_HOOK_RAW(sub_8207CA48) {
   const PPCContext hud = ctx;
   __imp__sub_8207CA48(ctx, base);
+  gw2::run::OnHud(base);
   if (!REXCVAR_GET(gw2_deadline_rank_info) || LoadBE32(base, gw2::king::kModeAddress) != rank::kDeadlineMode) return;
   DrawReadout(hud, base);
 }
@@ -171,6 +173,6 @@ REX_HOOK_RAW(sub_8203DED0) {
     REXLOG_WARN("Deadline rank: predicted {} but the wave set {} (K {}, G {}, rank {})", predicted, after.rank,
                 before.k, before.g, before.rank);
   } else {
-    REXLOG_INFO("Deadline rank: wave {} set rank {} (K {}, G {})", after.waves, after.rank, before.k, before.g);
+    REXLOG_DEBUG("Deadline rank: wave {} set rank {} (K {}, G {})", after.waves, after.rank, before.k, before.g);
   }
 }

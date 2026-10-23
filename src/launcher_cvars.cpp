@@ -46,6 +46,8 @@ REXCVAR_DEFINE_BOOL(gw2_show_frame_counter, gw2::kShowFrameCounterDefault, "Geom
                     "Show the frame counter in the corner (F2 toggles it)");
 REXCVAR_DEFINE_BOOL(gw2_deadline_rank_info, gw2::kDeadlineRankDefault, "Geometry Wars",
                     "Show Deadline's spawn rank under the score: K, G, the rank and what the next wave makes it");
+REXCVAR_DEFINE_BOOL(gw2_results_screen, gw2::kResultsScreenDefault, "Geometry Wars",
+                    "Show the results screen after a single-player run: score over time, enemies, black holes and gates");
 // The launcher usually opens after the render target caches have read native_2x_msaa, so a change takes a new process.
 REXCVAR_DEFINE_BOOL(gw2_msaa_compatibility, false, "Geometry Wars",
                     "Draw the game's 2x MSAA render targets with 4x MSAA, for GPUs or drivers whose native 2x MSAA "

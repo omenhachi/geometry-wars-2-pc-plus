@@ -16,6 +16,7 @@
 #include "guest_memory.h"
 #include "launcher_settings.h"
 #include "online_leaderboard.h"
+#include "run_stats_hooks.h"
 
 REXCVAR_DEFINE_BOOL(gw2_local_live, true, "Geometry Wars",
                     "Serve the game's Xbox Live scores and leaderboards from a local file; nothing goes online")
@@ -158,6 +159,7 @@ REX_HOOK_RAW(sub_820E88F8) {
   const uint32_t views = ctx.r6.u32;
   const uint32_t overlapped = ctx.r7.u32;
   __imp__sub_820E88F8(ctx, base);
+  gw2::run::OnScoreWritten(base);
   Services* services = Active();
   if (!services || !Succeeded(ctx, base, overlapped)) return;
   if (xuid != services->board.user().xuid) return;

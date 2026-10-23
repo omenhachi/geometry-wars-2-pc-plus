@@ -51,6 +51,7 @@ std::vector<ManagedSetting> BuildManagedSettings() {
       {kShowResolutionKey, ValueKind::kBool},
       {kShowFrameCounterKey, ValueKind::kBool},
       {kDeadlineRankKey, ValueKind::kBool},
+      {kResultsScreenKey, ValueKind::kBool},
       {kDetailedLoggingKey, ValueKind::kBool},
       {cheats::kInvincibleKey, ValueKind::kBool},
       {cheats::kInfiniteShieldKey, ValueKind::kBool},

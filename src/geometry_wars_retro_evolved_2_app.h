@@ -36,6 +36,7 @@
 #include "live_fix.h"
 #include "log_filter.h"
 #include "log_path.h"
+#include "results_panel.h"
 #include "rumble.h"
 #include "session_log.h"
 #include "system_info.h"
@@ -147,6 +148,7 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
   void OnCreateDialogs(rex::ui::ImGuiDrawer* drawer) override {
     if (drawer) {
       gw2::CreateFrameCounter(drawer);
+      gw2::CreateResultsPanel(drawer);
       gw2::CreateMouseAim(drawer);
       gw2::CreateCursorSync(drawer);
     }

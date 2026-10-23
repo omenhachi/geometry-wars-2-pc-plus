@@ -21,6 +21,7 @@ REXCVAR_DECLARE(bool, gw2_show_fps);
 REXCVAR_DECLARE(bool, gw2_show_render_resolution);
 REXCVAR_DECLARE(bool, gw2_show_frame_counter);
 REXCVAR_DECLARE(bool, gw2_deadline_rank_info);
+REXCVAR_DECLARE(bool, gw2_results_screen);
 REXCVAR_DECLARE(bool, gw2_msaa_compatibility);
 REXCVAR_DECLARE(std::string, gw2_graphics_adapter);
 REXCVAR_DECLARE(std::string, gw2_aspect_ratio);

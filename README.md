@@ -25,6 +25,7 @@ PC Plus builds on [saulob's excellent PC port](https://github.com/saulob/geometr
 - **Online leaderboards.** Pick a player name and the game's Everyone boards show PC Plus players from around the world.
 - **Nearby players, in place of Xbox Live friends.** Each mode lists the players just above and below you, and while you play, the corner shows the next score to beat, moving up as you pass each one.
 - **Pick your colour.** Green, Blue, Purple, Pink, Gold, Rainbow or any colour you like, for the menus, HUD, icons and crosshair, right from the game's Settings menu.
+- **A results screen after every single-player run**, inspired by Pac-Man CE DX: your score over time with deaths, bombs and your best moment marked, the enemies you destroyed, and what your black holes and gates were worth. It sits over the Game Over screen and never slows a retry.
 - **Deadline's hidden spawn rank, if you want it.** Turn on **Deadline rank info** and the HUD shows K (weighted kills), G (geoms) and the rank the next wave will set, with a little pop when a wave raises it. Off by default; it only shows information, so runs still count online.
 - **A launcher that looks like Geometry Wars**, and PC PLUS+ on the title screen.
 
@@ -113,7 +114,7 @@ Window size, Monitor, VSync, Aspect Ratio and the graphics card apply when you p
 **Gameplay**
 - **Frame rate**: 30 to 240, or Unlimited (60 is the original). The game itself always runs at 60 updates per second; higher rates smooth the motion in between, with about 17 ms of extra visual delay.
 - **Frame rate in title**, **Render resolution in title**, and the **Frame counter** (F2)
-- **Deadline rank info**: Hidden or Shown (see above)
+- **Results screen**: On or Off, and **Deadline rank info**: Hidden or Shown (see above)
 - **Online leaderboards**, **Player name** and **Delete my online scores** (see above)
 
 **Cheats:** Invincible, Infinite Shield and Infinite Bombs, all off by default. F10 toggles them in game for that session only. Runs with cheats on are never sent online.

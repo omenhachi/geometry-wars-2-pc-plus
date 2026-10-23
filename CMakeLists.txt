@@ -1,7 +1,7 @@
 # SDK boilerplate lives in generated/rexglue.cmake.
 
 cmake_minimum_required(VERSION 3.25)
-project(geometry_wars_retro_evolved_2 VERSION 0.8.1 LANGUAGES C CXX)
+project(geometry_wars_retro_evolved_2 VERSION 0.8.2 LANGUAGES C CXX)
 set(GW2_VERSION_SUFFIX "")
 
 set(CMAKE_CXX_STANDARD 23)
@@ -184,6 +184,9 @@ set(GW2_SOURCES
     src/hud_colour_hooks.cpp
     src/deadline_rank.cpp
     src/deadline_rank_hooks.cpp
+    src/run_stats.cpp
+    src/run_stats_hooks.cpp
+    src/results_panel.cpp
     src/online_board.cpp
     src/online_leaderboard.cpp
     src/cheat_menu.cpp
@@ -403,6 +406,7 @@ gw2_add_test(keyboard_tests)
 gw2_add_test(title_logo_tests src/title_logo.cpp)
 gw2_add_test(hud_colour_tests src/hud_colour.cpp)
 gw2_add_test(deadline_rank_tests src/deadline_rank.cpp)
+gw2_add_test(run_stats_tests src/run_stats.cpp)
 target_link_libraries(keyboard_tests PRIVATE gw2_trg_test_support)
 target_compile_definitions(keyboard_tests PRIVATE GW2_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src")
 gw2_add_test(launcher_shortcut_tests)
