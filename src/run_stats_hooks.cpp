@@ -14,6 +14,7 @@
 #include <rex/hook.h>
 #include <rex/logging.h>
 
+#include "demo.h"
 #include "guest_memory.h"
 #include "king_records.h"
 #include "player_records.h"
@@ -62,6 +63,7 @@ void Report(const char* why) {
   g_reported = true;
   g_run.Finish();
   g_results = g_run;
+  demo::OnRunEnd();
   REXLOG_INFO("Run stats ({}), mode {}:", why, g_run.mode());
   for (const std::string& line : g_run.Describe()) REXLOG_INFO("  {}", line);
 }
@@ -154,6 +156,7 @@ std::optional<run_stats::Run> ResultsToShow() {
 // The round setup: resets the round's state, including Deadline's rank (deadline_rank.h), before every mode's round.
 REX_EXTERN(__imp__sub_8203E538);
 REX_HOOK_RAW(sub_8203E538) {
+  gw2::demo::BeforeRoundStart(ctx, base);
   __imp__sub_8203E538(ctx, base);
   gw2::run::OnRoundStart(base);
 }

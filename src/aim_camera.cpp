@@ -20,6 +20,7 @@
 
 #include "aspect_ratio.h"
 #include "cheat_menu.h"
+#include "demo.h"
 #include "guest_memory.h"
 #include "hud_colour.h"
 #include "king_records.h"
@@ -150,6 +151,7 @@ REX_HOOK_RAW(sub_8204EFD0) {
     gw2::StoreBE32(base, direction, std::bit_cast<uint32_t>(x));
     gw2::StoreBE32(base, direction + 4, std::bit_cast<uint32_t>(y));
   }
+  gw2::demo::OnFire(base, player, direction);
   __imp__sub_8204EFD0(ctx, base);
 }
 

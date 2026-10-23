@@ -187,6 +187,8 @@ set(GW2_SOURCES
     src/run_stats.cpp
     src/run_stats_hooks.cpp
     src/results_panel.cpp
+    src/demo.cpp
+    src/effect_random.cpp
     src/online_board.cpp
     src/online_leaderboard.cpp
     src/cheat_menu.cpp
