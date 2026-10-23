@@ -11,7 +11,7 @@
 
 </div>
 
-<img src="docs/screenshots/title-pc-plus.png" alt="The Geometry Wars 2 main menu, with PC PLUS+ in the logo under GEOMETRY" />
+<img src="docs/screenshots/watch-replays-menu.png" alt="The Geometry Wars 2 main menu, with PC PLUS+ in the logo and Watch replays between Multiplayer and Leaderboards" />
 
 PC Plus builds on [saulob's excellent PC port](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled). It's not emulation: the game's own code runs natively, with high frame rates, high resolutions and modern options. PC Plus adds the things I missed playing it on a PC, especially with a keyboard and mouse.
 
@@ -42,10 +42,6 @@ saulob's port does the heavy lifting, and all of it is still here:
 - An experimental native Linux build, which you can build from source for now (see below)
 
 ## Screenshots
-
-**Watch replays.** Every run, ready to watch again, right on the main menu.
-
-<img src="docs/screenshots/watch-replays-menu.png" alt="The main menu: Single player, Multiplayer, Watch replays, Leaderboards, Achievements, Help and options, Exit game" />
 
 **Nearby players.** The people closest to your score, in every mode.
 
