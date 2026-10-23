@@ -58,6 +58,8 @@ inline constexpr char kLauncherMaximizedKey[] = "gw2_launcher_maximized";
 inline constexpr char kLauncherFullscreenKey[] = "gw2_launcher_fullscreen";
 inline constexpr char kShowFrameCounterKey[] = "gw2_show_frame_counter";
 inline constexpr bool kShowFrameCounterDefault = false;
+inline constexpr char kDeadlineRankKey[] = "gw2_deadline_rank_info";
+inline constexpr bool kDeadlineRankDefault = false;
 inline constexpr char kDetailedLoggingKey[] = "detailed_logging";
 
 using Values = std::map<std::string, std::string, std::less<>>;

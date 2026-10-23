@@ -81,6 +81,9 @@ constexpr char kFrameRateHelp[] =
     "60 FPS is the original game rate. Higher frame rates use automatic visual interpolation while gameplay simulation "
     "remains at 60 Hz.";
 constexpr char kFrameCounterHelp[] = "Shows the game's frame rate in the corner. F2 toggles it while playing.";
+constexpr char kDeadlineRankHelp[] =
+    "Shows Deadline's hidden spawn rank under your score. K counts weighted kills and G the geoms you collect; at "
+    "each wave they decide the rank, which is how much the next wave spawns.";
 constexpr char kOnlineLeaderboardsHelp[] =
     "Sends your finished runs' scores to the PC Plus leaderboards and shows other players on the Everyone boards.";
 constexpr char kOnlinePrivacyHelp[] =
@@ -861,6 +864,7 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
     ui.Toggle("Render resolution in title", kShowResolutionHelp, kShowResolutionKey, kShowResolutionDefault,
               "Off", "On");
     ui.Toggle("Frame counter", kFrameCounterHelp, kShowFrameCounterKey, kShowFrameCounterDefault, "Hidden", "Shown");
+    ui.Toggle("Deadline rank info", kDeadlineRankHelp, kDeadlineRankKey, kDeadlineRankDefault, "Hidden", "Shown");
     PageOnlineLeaderboards(ui);
   }
 
