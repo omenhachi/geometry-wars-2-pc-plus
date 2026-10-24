@@ -85,7 +85,7 @@ The build isn't digitally signed, so Windows SmartScreen may warn the first time
 
 **Your saves** live in a `user_data` folder next to the program, so each copy of the game has its own. Keep playing from the same folder, and copy the whole folder to move to another PC.
 
-**On a laptop, or the frame rate is low?** In the launcher, open **Graphics** and set **Render path** to **Fast**. On Intel graphics the game otherwise uses a much slower path. If anything then looks wrong, set it back to **Automatic**. Lowering **Internal render resolution** to 50% helps too.
+**On a laptop, or the frame rate is low?** In the launcher, open **Graphics** and set **Render path** to **Fast**. On Intel graphics the game otherwise uses a much slower path. If anything then looks wrong, set it back to **Automatic**. Lowering **Internal render resolution** to 50% can help too. **Run benchmark**, at the bottom of the same page, plays the same one-minute replay on every PC and copies the result, so you can share it on the [Discord](https://discord.gg/ZJtcwYPN7) and compare.
 
 **Handy keys:** F11 switches between windowed and fullscreen, F2 shows the frame rate, F7 opens achievements, F10 opens cheats. Hold Shift while starting to bring back the launcher if you've hidden it.
 

@@ -30,6 +30,14 @@ inline InternalRenderSplit SplitInternalRenderScale(int resolution_scale, int pe
   return {host_quarters, (host_quarters + 3) / 4};
 }
 
+// Whether a share draws faster than 100% at this Render resolution. The resolve scale is a whole number, and the cost
+// follows it: a share that leaves it where 100% has it (75% at 1x to 3x) is no faster, and can be slower.
+inline bool InternalRenderScaleHelps(int resolution_scale, int percent) {
+  return NormalizeInternalRenderScale(percent) == kInternalRenderScaleNative ||
+         SplitInternalRenderScale(resolution_scale, percent).resolve_scale <
+             SplitInternalRenderScale(resolution_scale, kInternalRenderScaleNative).resolve_scale;
+}
+
 // A side of the picture the host draws at: the canvas side times the Render resolution times the share.
 inline int InternalRenderSize(int canvas_side, int resolution_scale, int percent) {
   return canvas_side * resolution_scale * NormalizeInternalRenderScale(percent) / 100;

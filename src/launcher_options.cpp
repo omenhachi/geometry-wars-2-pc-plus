@@ -103,10 +103,15 @@ std::vector<SettingChoice> AspectRatioChoices() {
   return choices;
 }
 
-std::vector<SettingChoice> InternalRenderScaleChoices() {
-  return {{std::to_string(kInternalRenderScaleNative), "100% Native"},
-          {std::to_string(kInternalRenderScalePerformance), "75% Performance"},
-          {std::to_string(kInternalRenderScaleLowEnd), "50% Low-end"}};
+std::vector<SettingChoice> InternalRenderScaleChoices(int resolution_scale, int current) {
+  std::vector<SettingChoice> choices{{std::to_string(kInternalRenderScaleNative), "100% Native"}};
+  if (InternalRenderScaleHelps(resolution_scale, kInternalRenderScalePerformance)) {
+    choices.push_back({std::to_string(kInternalRenderScalePerformance), "75% Performance"});
+  } else if (NormalizeInternalRenderScale(current) == kInternalRenderScalePerformance) {
+    choices.push_back({std::to_string(kInternalRenderScalePerformance), "75% (no faster at this resolution)"});
+  }
+  choices.push_back({std::to_string(kInternalRenderScaleLowEnd), "50% Low-end"});
+  return choices;
 }
 
 std::vector<SettingChoice> GraphicsAdapterChoices(const std::vector<GraphicsAdapter>& adapters,

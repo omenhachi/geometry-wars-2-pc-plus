@@ -821,7 +821,17 @@ void TestInternalRenderScaleSetting() {
     CHECK(NormalizeInternalRenderScale(odd) == 100);
   }
 
-  const std::vector<SettingChoice> choices = InternalRenderScaleChoices();
+  // 75% is only faster where it lowers the resolve scale (measured: slower at 3x, no gain at 2x, +55% at 4x).
+  CHECK(!InternalRenderScaleHelps(1, 75) && !InternalRenderScaleHelps(2, 75) && !InternalRenderScaleHelps(3, 75));
+  CHECK(InternalRenderScaleHelps(4, 75));
+  CHECK(InternalRenderScaleHelps(2, 50) && InternalRenderScaleHelps(3, 50) && InternalRenderScaleHelps(4, 50));
+  CHECK(InternalRenderScaleHelps(1, 100));
+  CHECK(InternalRenderScaleChoices(1).size() == 2);
+  CHECK(InternalRenderScaleChoices(3).size() == 2);
+  const std::vector<SettingChoice> kept = InternalRenderScaleChoices(3, 75);
+  CHECK(kept.size() == 3 && kept[1].value == "75" && kept[1].label == "75% (no faster at this resolution)");
+
+  const std::vector<SettingChoice> choices = InternalRenderScaleChoices(4);
   CHECK(choices.size() == 3);
   CHECK(choices[0].value == "100" && choices[0].label == "100% Native");
   CHECK(choices[1].value == "75" && choices[1].label == "75% Performance");

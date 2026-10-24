@@ -1,7 +1,7 @@
 # SDK boilerplate lives in generated/rexglue.cmake.
 
 cmake_minimum_required(VERSION 3.25)
-project(geometry_wars_retro_evolved_2 VERSION 0.10.1 LANGUAGES C CXX)
+project(geometry_wars_retro_evolved_2 VERSION 0.10.2 LANGUAGES C CXX)
 set(GW2_VERSION_SUFFIX "")
 
 set(CMAKE_CXX_STANDARD 23)
@@ -373,6 +373,9 @@ add_custom_command(TARGET geometry_wars_retro_evolved_2 POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${CMAKE_CURRENT_SOURCE_DIR}/assets/controls/controller_kbm.tga"
         "$<TARGET_FILE_DIR:geometry_wars_retro_evolved_2>/assets/controls/controller_kbm.tga"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_CURRENT_SOURCE_DIR}/assets/benchmark"
+        "$<TARGET_FILE_DIR:geometry_wars_retro_evolved_2>/assets/benchmark"
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${CMAKE_CURRENT_SOURCE_DIR}/assets/modes"
         "$<TARGET_FILE_DIR:geometry_wars_retro_evolved_2>/assets/modes"

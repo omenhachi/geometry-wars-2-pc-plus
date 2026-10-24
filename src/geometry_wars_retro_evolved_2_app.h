@@ -156,6 +156,7 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
       gw2::CreateResultsPanel(drawer);
       gw2::replays_menu::CreateReplaysMenu(drawer);
       gw2::custom_modes_menu::CreateCustomModesMenu(drawer);
+      gw2::benchmark::CreateOverlay(drawer);
       gw2::demo::RegisterKeys();
       gw2::custom_modes::RegisterKeys();
       gw2::CreateMouseAim(drawer);
@@ -383,7 +384,8 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
   // The new process owns the game, so this one hard-exits like OnClosing, without the subsystem teardown.
   // Deferred, so the launcher has saved its placement first.
   bool RestartInNewWindow() {
-    if (!gw2::RelaunchSelf(L"--gw2_skip_launcher=true")) {
+    // A benchmark asked for from the launcher goes with the game into the new window.
+    if (!gw2::RelaunchSelf(L"--gw2_skip_launcher=true" + gw2::benchmark::RelaunchArgs())) {
       return false;
     }
     app_context().CallInUIThreadDeferred([] {

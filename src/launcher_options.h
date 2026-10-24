@@ -6,6 +6,7 @@
 
 #include "aspect_ratio.h"
 #include "graphics_adapters.h"
+#include "internal_render_scale.h"
 #include "launcher_platform.h"
 
 namespace gw2 {
@@ -39,7 +40,9 @@ std::vector<SettingChoice> AspectRatioChoices();
 std::vector<SettingChoice> RenderScaleChoices(AspectRatio aspect = AspectRatio::k16x9);
 std::string RenderScaleLabel(int scale, AspectRatio aspect = AspectRatio::k16x9);
 
-std::vector<SettingChoice> InternalRenderScaleChoices();
+// The shares worth choosing at this Render resolution: 75% only where it is faster. The current one stays listed, marked,
+// so a saved choice never vanishes from the list.
+std::vector<SettingChoice> InternalRenderScaleChoices(int resolution_scale = 4, int current = kInternalRenderScaleNative);
 
 // Automatic, then each adapter (numbered when two share a name), then the saved one if it is not present.
 std::vector<SettingChoice> GraphicsAdapterChoices(const std::vector<GraphicsAdapter>& adapters,

@@ -33,6 +33,7 @@
 #include "trg/launcher.h"
 #include "trg/platform.h"
 
+#include "benchmark.h"
 #include "cheats.h"
 #include "diagnostics.h"
 #include "dpi.h"
@@ -867,7 +868,9 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
     ui.Combo("Internal render resolution",
              "Draws the game at a share of the render resolution, then scales it up. Lower values reduce GPU work "
              "but are less sharp.",
-             kInternalRenderScaleKey, "100", ToTrgOptions(InternalRenderScaleChoices()));
+             kInternalRenderScaleKey, "100",
+             ToTrgOptions(InternalRenderScaleChoices(settings_.GetInt(kRenderScaleKey, 1),
+                                                     settings_.GetInt(kInternalRenderScaleKey, 100))));
     ui.Choice("Render path",
               "How the Xbox 360's graphics memory is reproduced. Fast is quicker on most graphics; Compatible draws "
               "at 100% internal resolution. A change restarts the game once when you press Play.",
@@ -890,6 +893,13 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
               kTextureFilteringKey, "-1", ToTrgOptions(TextureFilteringChoices()), 6);
     ui.Choice("Bloom", "Controls the intensity of the game's original bloom/glow effect.", kBloomKey, "original",
               ToTrgOptions(BloomChoices()));
+    if (!benchmark::BundledReplay().empty() &&
+        ui.ButtonRow("Benchmark",
+                     "Plays the same one-minute replay on every PC, with these settings. The result is copied to share.",
+                     "Run benchmark")) {
+      benchmark::Request();
+      RequestPlay();
+    }
     ui.EndRows();
   }
 
