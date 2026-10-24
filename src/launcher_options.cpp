@@ -42,6 +42,8 @@ std::string_view PageName(PageId page) {
       return "Achievements";
     case PageId::kAbout:
       return "About";
+    case PageId::kDiscord:
+      return "Discord";
   }
   return "";
 }

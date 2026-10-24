@@ -1,6 +1,7 @@
 #include "launcher.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cfloat>
 #include <cstdio>
 #include <cmath>
@@ -39,6 +40,7 @@
 #include "game_files.h"
 #include "hud_colour.h"
 #include "imgui_gamepad.h"
+#include "internal_render_scale.h"
 #include "keybinds.h"
 #include "launcher_achievements.h"
 #include "launcher_options.h"
@@ -59,10 +61,14 @@ namespace {
 // The violet of the Geometry Wars logo (#943CFF).
 // The game's menu lime: headings, page names, chosen options and links.
 const ImVec4 kAccent = ImVec4(0.490f, 1.0f, 0.290f, 1.0f);
+const ImVec4 kSelection = ImVec4(1.000f, 0.560f, 0.120f, 1.0f);  // the theme's selection orange
 constexpr double kPlayFeedbackSeconds = 0.4;
 constexpr ImGuiConfigFlags kNavFlags = ImGuiConfigFlags_NavEnableKeyboard | ImGuiConfigFlags_NavEnableGamepad;
 constexpr char kAuthorUrl[] = "https://github.com/omenhachi";
 constexpr char kRepositoryUrl[] = "https://github.com/omenhachi/geometry-wars-2-pc-plus";
+constexpr uint32_t kIntelVendorId = 0x8086;
+constexpr char kDiscordUrl[] = "https://discord.gg/ZJtcwYPN7";
+constexpr char kDiscordText[] = "   \xC2\xB7   DISCORD";
 constexpr char kAuthorText[] = "BY OMENHACHI";
 // PC Plus builds on saulob's port, credited beside the author.
 constexpr char kOriginalAuthorUrl[] = "https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled";
@@ -118,7 +124,7 @@ trg::Theme LauncherTheme() {
   t.warn = ImVec4(0.900f, 0.420f, 0.080f, 1.0f);
   t.warn_dot = ImVec4(1.000f, 0.560f, 0.120f, 1.0f);
   t.line = ImVec4(0.470f, 0.300f, 1.000f, 0.90f);
-  t.selection = ImVec4(1.000f, 0.560f, 0.120f, 1.0f);
+  t.selection = kSelection;
   return t;
 }
 
@@ -261,7 +267,9 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
         game_(game),
         callbacks_(std::move(callbacks)),
         monitors_(ListMonitors()),
-        graphics_adapters_(ListGraphicsAdapters()) {
+        graphics_adapters_(ListGraphicsAdapters()),
+        intel_graphics_(EffectiveGraphicsAdapter(std::atoi(settings_.Get(kD3D12AdapterKey, "-1").c_str())).vendor_id ==
+                        kIntelVendorId) {
     files_ = CheckAndLogGameFiles(paths_.game_dir);
     if (game_.achievements) {
       entries_ = LoadAchievementEntries(*game_.achievements);
@@ -493,19 +501,29 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
     c.fonts = g_fonts;
     c.branding.title = "GEOMETRY WARS: RETRO EVOLVED 2";
     // The title in line-drawn capitals like the game's own, kept about as wide as the font title was.
-    c.branding.title_painter = [](ImDrawList* draw, ImVec2 pos, float size, float scale) {
+    c.branding.title_painter = [this](ImDrawList* draw, ImVec2 pos, float size, float scale) {
       constexpr std::string_view kTitle = "GEOMETRY WARS: RETRO EVOLVED 2";
       // At most 780 px at 100%, and never past ~58% of the window, where the header art starts.
       const float width = std::min(780.0f * scale, ImGui::GetWindowWidth() * 0.58f);
       const float height = std::min(size * 0.8f, width / line_font::Width(kTitle, 1.0f));
-      line_font::Draw(draw, ImVec2(pos.x, pos.y + (size - height) * 0.5f), height, kTitle,
-                      ImGui::ColorConvertFloat4ToU32(kAccent), std::max(2.0f, height * 0.075f));
+      const float y = pos.y + (size - height) * 0.5f;
+      const float end = line_font::Draw(draw, ImVec2(pos.x, y), height, kTitle, ImGui::ColorConvertFloat4ToU32(kAccent),
+                                        std::max(2.0f, height * 0.075f));
+      // The player's leaderboard name after the title, on every page, as the boards would show it.
+      const std::string name = online::ValidName(settings_.Get(kPlayerNameKey));
+      if (name.empty()) return;
+      std::string upper = name;
+      std::transform(upper.begin(), upper.end(), upper.begin(), [](unsigned char ch) { return char(std::toupper(ch)); });
+      const float name_size = height * 0.5f;
+      line_font::Draw(draw, ImVec2(pos.x + end + height * 0.7f, y + height - name_size), name_size, upper,
+                      ImGui::ColorConvertFloat4ToU32(kSelection), std::max(1.5f, name_size * 0.09f));
     };
     c.branding.subtitle_segments = {
         {"PC PLUS   \xC2\xB7   ", ""},
         {"v" GW2_PORT_VERSION "   \xC2\xB7   ", ""},
         {kAuthorText, kAuthorUrl},
         {kOriginalAuthorText, kOriginalAuthorUrl},
+        {kDiscordText, kDiscordUrl},
     };
     c.branding.subtitle_color = kAccent;
     const float art_aspect =
@@ -560,6 +578,8 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
       case PageId::kAbout:
         return {name, "This port, and where your files and settings live.", [this](trg::Ui& ui) { PageAbout(ui); },
                 nullptr};
+      case PageId::kDiscord:
+        return {name, "The PC Plus community.", [](trg::Ui& ui) { PageDiscord(ui); }, nullptr};
     }
     return {};
   }
@@ -848,6 +868,18 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
              "Draws the game at a share of the render resolution, then scales it up. Lower values reduce GPU work "
              "but are less sharp.",
              kInternalRenderScaleKey, "100", ToTrgOptions(InternalRenderScaleChoices()));
+    ui.Choice("Render path",
+              "How the Xbox 360's graphics memory is reproduced. Fast is quicker on most graphics; Compatible draws "
+              "at 100% internal resolution. A change restarts the game once when you press Play.",
+              kRenderPathKey, kRenderPathAutomatic.data(),
+              {{std::string(kRenderPathAutomatic), "Automatic"},
+               {std::string(kRenderPathFast), "Fast"},
+               {std::string(kRenderPathCompatible), "Compatible"}});
+    if (intel_graphics_ && ParseRenderPath(settings_.Get(kRenderPathKey, kRenderPathAutomatic.data())) ==
+                               RenderPath::kAutomatic) {
+      ui.Help("Intel graphics: Automatic uses Compatible here, which is much slower. Try Fast: it can run a lot "
+              "faster. If anything looks wrong, switch back.");
+    }
     ui.Choice("Anti-aliasing", "Post-process anti-aliasing applied to the final picture.", kAntiAliasingKey, "none",
               ToTrgOptions(AntiAliasingChoices()));
     ui.Toggle("Multisampling", "Use 2x MSAA for best performance. Try 4x only if you see graphics problems with 2x.",
@@ -1075,6 +1107,18 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
     ui.Link(DisplayUrl(kRepositoryUrl).c_str(), kRepositoryUrl);
   }
 
+  // Opening the tab never opens the browser by itself, so stepping through the pages with the keyboard stays put.
+  static void PageDiscord(trg::Ui& ui) {
+    ui.Paragraph(
+        "Come and say hi: share your scores and custom modes, find people to race on the leaderboards, report "
+        "problems and hear about new versions first.");
+    ui.Spacer(4);
+    if (ui.ButtonRow("Discord server", "Opens the invite in your browser.", "Join the Discord", true)) {
+      trg::OpenUrl(kDiscordUrl);
+    }
+    ui.Link(DisplayUrl(kDiscordUrl).c_str(), kDiscordUrl);
+  }
+
   void OpenLogsFolder() {
     std::error_code ec;
     std::filesystem::path folder = paths_.logs_dir;
@@ -1216,6 +1260,7 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
   std::unique_ptr<rex::ui::AchievementIconCache> icons_;
   std::vector<MonitorInfo> monitors_;
   std::vector<GraphicsAdapter> graphics_adapters_;
+  bool intel_graphics_ = false;  // the game will draw on Intel graphics, where Automatic takes the slower path
   std::unique_ptr<trg::Launcher> launcher_;
   std::unique_ptr<rex::ui::ImmediateTexture> header_art_;
   ImGuiGamepad gamepad_;

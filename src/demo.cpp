@@ -38,6 +38,7 @@
 #include <rex/system/xmemory.h>
 #include <rex/ui/keybinds.h>
 
+#include "benchmark.h"
 #include "cheats.h"
 #include "custom_modes.h"
 #include "demo_file.h"
@@ -449,6 +450,7 @@ REX_HOOK_RAW(sub_82038300) {
   gw2::demo::StartRequested(ctx, base);
   gw2::custom_modes::StartRequested(ctx, base);
   gw2::custom_modes::EachFrame(base);
+  gw2::benchmark::EachFrame(base);
 }
 
 // XUserWriteAchievements (count, achievements, overlapped): a replay or a custom mode unlocks nothing. With no achievements the request

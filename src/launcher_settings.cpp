@@ -46,6 +46,7 @@ std::vector<ManagedSetting> BuildManagedSettings() {
       {kPlayerNameAskedKey, ValueKind::kBool},
       {kHudColourKey, ValueKind::kString},
       {kHudColourCustomKey, ValueKind::kString},
+      {kRenderPathKey, ValueKind::kString},
       {kFrameRateKey, ValueKind::kInt},
       {kShowFpsKey, ValueKind::kBool},
       {kShowResolutionKey, ValueKind::kBool},
@@ -185,9 +186,14 @@ bool ApplyInternalRenderPath(CvarAccess& cvars) {
   if (!cvars.IsRegistered(kInternalRenderScaleKey) || !cvars.IsRegistered(kD3D12RenderTargetPathKey)) {
     return false;
   }
-  const std::optional<std::string_view> path = RequiredRenderTargetPath(
-      std::atoi(cvars.Value(kInternalRenderScaleKey).c_str()), cvars.Value(kD3D12RenderTargetPathKey));
-  return path && cvars.Assign(kD3D12RenderTargetPathKey, *path);
+  const RenderPath choice =
+      ParseRenderPath(cvars.IsRegistered(kRenderPathKey) ? cvars.Value(kRenderPathKey) : std::string());
+  const RenderPathPlan plan = PlanRenderPath(choice, std::atoi(cvars.Value(kInternalRenderScaleKey).c_str()),
+                                             cvars.Value(kD3D12RenderTargetPathKey));
+  bool changed = false;
+  if (plan.internal_scale) changed |= cvars.Assign(kInternalRenderScaleKey, std::to_string(*plan.internal_scale));
+  if (plan.target_path) changed |= cvars.Assign(kD3D12RenderTargetPathKey, *plan.target_path);
+  return changed;
 }
 
 GameSettings::GameSettings(CvarAccess& cvars, std::filesystem::path player_file,

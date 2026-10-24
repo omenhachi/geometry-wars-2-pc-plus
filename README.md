@@ -6,6 +6,7 @@
 
 [![Latest release](https://img.shields.io/github/v/release/omenhachi/geometry-wars-2-pc-plus?style=for-the-badge&label=release&color=943cff&labelColor=07101f&cacheSeconds=300)](https://github.com/omenhachi/geometry-wars-2-pc-plus/releases/latest)
 ![Platforms](https://img.shields.io/badge/platform-Windows-00acc1?style=for-the-badge&labelColor=07101f)
+[![Discord](https://img.shields.io/badge/discord-join%20us-5865f2?style=for-the-badge&logo=discord&logoColor=white&labelColor=07101f)](https://discord.gg/ZJtcwYPN7)
 
 <sub>The original Xbox 360 game, statically recompiled to native PC code with the <a href="https://github.com/rexglue/rexglue-sdk">ReXGlue SDK</a>. <b>No game files included</b>: you need your own Geometry Wars: Retro Evolved 2 Xbox Live Arcade package.</sub>
 
@@ -15,7 +16,7 @@
 
 PC Plus builds on [saulob's excellent PC port](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled). It's not emulation: the game's own code runs natively, with high frame rates, high resolutions and modern options. PC Plus adds the things I missed playing it on a PC, especially with a keyboard and mouse.
 
-**[Download the latest release](https://github.com/omenhachi/geometry-wars-2-pc-plus/releases/latest)**
+**[Download the latest release](https://github.com/omenhachi/geometry-wars-2-pc-plus/releases/latest)** · **[Join the Discord](https://discord.gg/ZJtcwYPN7)** to share scores and custom modes, and hear about new versions first.
 
 ## What PC Plus adds
 
@@ -83,6 +84,8 @@ The build isn't digitally signed, so Windows SmartScreen may warn the first time
 **Updating:** use the launcher's update, or extract a new release over your current folder.
 
 **Your saves** live in a `user_data` folder next to the program, so each copy of the game has its own. Keep playing from the same folder, and copy the whole folder to move to another PC.
+
+**On a laptop, or the frame rate is low?** In the launcher, open **Graphics** and set **Render path** to **Fast**. On Intel graphics the game otherwise uses a much slower path. If anything then looks wrong, set it back to **Automatic**. Lowering **Internal render resolution** to 50% helps too.
 
 **Handy keys:** F11 switches between windowed and fullscreen, F2 shows the frame rate, F7 opens achievements, F10 opens cheats. Hold Shift while starting to bring back the launcher if you've hidden it.
 
@@ -183,7 +186,7 @@ Technical notes: [launcher](docs/launcher.md), [package analysis](docs/package-a
 
 ## Reporting problems
 
-If the game won't start or crashes, please [open an issue](https://github.com/omenhachi/geometry-wars-2-pc-plus/issues) with the newest `geometry_wars_retro_evolved_2_*.log` from the `logs` folder, and say what you were doing when it happened.
+If the game won't start or crashes, please [open an issue](https://github.com/omenhachi/geometry-wars-2-pc-plus/issues) with the newest `geometry_wars_retro_evolved_2_*.log` from the `logs` folder, and say what you were doing when it happened. You can also ask on the [Discord](https://discord.gg/ZJtcwYPN7).
 
 ## Credits
 

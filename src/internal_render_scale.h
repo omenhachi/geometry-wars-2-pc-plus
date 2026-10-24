@@ -44,4 +44,38 @@ inline std::optional<std::string_view> RequiredRenderTargetPath(int percent, std
   return "rtv";
 }
 
+// The launcher's Render path (gw2_render_path). Automatic leaves the choice to ReXGlue, which takes the slower
+// rasterizer-ordered path on Intel (a 2021 driver workaround) and host render targets elsewhere; Fast always uses host
+// render targets; Compatible always uses the rasterizer-ordered path, which draws at 100%.
+enum class RenderPath { kAutomatic, kFast, kCompatible };
+inline constexpr std::string_view kRenderPathAutomatic = "auto";
+inline constexpr std::string_view kRenderPathFast = "fast";
+inline constexpr std::string_view kRenderPathCompatible = "compatible";
+
+inline RenderPath ParseRenderPath(std::string_view value) {
+  if (value == kRenderPathFast) return RenderPath::kFast;
+  if (value == kRenderPathCompatible) return RenderPath::kCompatible;
+  return RenderPath::kAutomatic;
+}
+
+struct RenderPathPlan {
+  std::optional<std::string_view> target_path;   // render_target_path_d3d12 to set, if any
+  std::optional<int> internal_scale;              // gw2_internal_render_scale to use instead, if any
+};
+
+inline RenderPathPlan PlanRenderPath(RenderPath path, int percent, std::string_view configured) {
+  switch (path) {
+    case RenderPath::kFast:
+      return {configured == "rtv" ? std::nullopt : std::optional<std::string_view>("rtv"), std::nullopt};
+    case RenderPath::kCompatible:
+      return {configured == "rov" ? std::nullopt : std::optional<std::string_view>("rov"),
+              NormalizeInternalRenderScale(percent) == kInternalRenderScaleNative
+                  ? std::nullopt
+                  : std::optional<int>(kInternalRenderScaleNative)};
+    case RenderPath::kAutomatic:
+      break;
+  }
+  return {RequiredRenderTargetPath(percent, configured), std::nullopt};
+}
+
 }  // namespace gw2

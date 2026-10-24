@@ -16,10 +16,11 @@ struct SettingChoice {
   std::string label;
 };
 
-enum class PageId { kPlay, kDisplay, kGraphics, kGameplay, kCheats, kControls, kAchievements, kAbout };
+enum class PageId { kPlay, kDisplay, kGraphics, kGameplay, kCheats, kControls, kAchievements, kAbout, kDiscord };
 
-inline constexpr PageId kPageOrder[] = {PageId::kPlay,   PageId::kDisplay,  PageId::kGraphics,     PageId::kGameplay,
-                                        PageId::kCheats, PageId::kControls, PageId::kAchievements, PageId::kAbout};
+inline constexpr PageId kPageOrder[] = {PageId::kPlay,     PageId::kDisplay,      PageId::kGraphics,
+                                        PageId::kGameplay, PageId::kCheats,       PageId::kControls,
+                                        PageId::kAchievements, PageId::kAbout,    PageId::kDiscord};
 
 std::string_view PageName(PageId page);
 

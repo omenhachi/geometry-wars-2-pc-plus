@@ -20,6 +20,7 @@
 #include "aim_camera.h"
 #include "active_log.h"
 #include "cheat_menu.h"
+#include "benchmark.h"
 #include "custom_modes.h"
 #include "custom_modes_menu.h"
 #include "demo.h"
@@ -181,9 +182,10 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
     gw2::ApplyMultisampling(cvars_);
     REXLOG_INFO("Multisampling: {}", REXCVAR_GET(gw2_msaa_compatibility) ? "4x MSAA (Compatibility)" : "2x MSAA");
     // Before the runtime builds the render target cache, which reads the path once; the launcher may open after it.
-    if (gw2::ApplyInternalRenderPath(cvars_)) {
-      REXLOG_INFO("Internal render resolution: using D3D12 host render targets");
-    }
+    gw2::ApplyInternalRenderPath(cvars_);
+    REXLOG_INFO("Render path: {} (render_target_path_d3d12 \"{}\", internal render {}%)",
+                rex::cvar::GetFlagByName(gw2::kRenderPathKey), rex::cvar::GetFlagByName(gw2::kD3D12RenderTargetPathKey),
+                rex::cvar::GetFlagByName(gw2::kInternalRenderScaleKey));
     const bool game_ready = gw2::CheckGameFiles(defaults.game_data_root).state == gw2::GameFileState::kValid;
     // Before the runtime mounts the game folder, which it lists once.
     if (game_ready) {
@@ -265,6 +267,7 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
     const auto* profile = kernel ? kernel->user_profile() : nullptr;
     if (!profile) return;
     gw2::demo::SetFolder(std::filesystem::absolute(user_data_root()) / "demos");
+    gw2::benchmark::SetResultsFile(std::filesystem::absolute(user_data_root()) / "benchmark.txt");
     gw2::custom_modes::SetFolders(rex::filesystem::GetExecutableFolder() / "assets" / "modes",
                                   std::filesystem::absolute(user_data_root()) / "mods");
     gw2::live::Install({

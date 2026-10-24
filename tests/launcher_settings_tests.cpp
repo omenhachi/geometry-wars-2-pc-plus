@@ -418,7 +418,7 @@ void TestGraphicsOptions() {
 
 void TestPagesAndKeyList() {
   Section("pages and key list");
-  CHECK(std::size(kPageOrder) == 8);
+  CHECK(std::size(kPageOrder) == 9);
   CHECK(PageName(kPageOrder[0]) == "Play");
   CHECK(PageName(kPageOrder[1]) == "Display");
   CHECK(PageName(kPageOrder[2]) == "Graphics");
@@ -427,6 +427,7 @@ void TestPagesAndKeyList() {
   CHECK(PageName(kPageOrder[5]) == "Controls");
   CHECK(PageName(kPageOrder[6]) == "Achievements");
   CHECK(PageName(kPageOrder[7]) == "About");
+  CHECK(PageName(kPageOrder[8]) == "Discord");
   CHECK(KeyList("Semicolon,Space") == "Semicolon or Space");
   CHECK(KeyList("") == "None");
 }
@@ -757,6 +758,37 @@ int ManagedCount(std::string_view key, ValueKind kind) {
     }
   }
   return count;
+}
+
+// Render path: Automatic keeps the old behaviour (host render targets only for a reduced scale, any configured path
+// kept), Fast always asks for host render targets, Compatible for the rasterizer-ordered path at 100%.
+void TestRenderPathSetting() {
+  CHECK(std::string_view(kRenderPathKey) == "gw2_render_path");
+  CHECK(ManagedCount(kRenderPathKey, ValueKind::kString) == 1);
+  CHECK(ParseRenderPath("fast") == RenderPath::kFast);
+  CHECK(ParseRenderPath("compatible") == RenderPath::kCompatible);
+  CHECK(ParseRenderPath("auto") == RenderPath::kAutomatic);
+  CHECK(ParseRenderPath("") == RenderPath::kAutomatic);
+  CHECK(ParseRenderPath("sparkly") == RenderPath::kAutomatic);
+
+  RenderPathPlan plan = PlanRenderPath(RenderPath::kAutomatic, 100, "");
+  CHECK(!plan.target_path && !plan.internal_scale);
+  plan = PlanRenderPath(RenderPath::kAutomatic, 50, "");
+  CHECK(plan.target_path && *plan.target_path == "rtv" && !plan.internal_scale);
+  plan = PlanRenderPath(RenderPath::kAutomatic, 50, "rov");
+  CHECK(!plan.target_path && !plan.internal_scale);
+
+  plan = PlanRenderPath(RenderPath::kFast, 100, "");
+  CHECK(plan.target_path && *plan.target_path == "rtv" && !plan.internal_scale);
+  plan = PlanRenderPath(RenderPath::kFast, 100, "rov");
+  CHECK(plan.target_path && *plan.target_path == "rtv");
+  plan = PlanRenderPath(RenderPath::kFast, 50, "rtv");
+  CHECK(!plan.target_path && !plan.internal_scale);
+
+  plan = PlanRenderPath(RenderPath::kCompatible, 100, "");
+  CHECK(plan.target_path && *plan.target_path == "rov" && !plan.internal_scale);
+  plan = PlanRenderPath(RenderPath::kCompatible, 50, "");
+  CHECK(plan.target_path && *plan.target_path == "rov" && plan.internal_scale && *plan.internal_scale == 100);
 }
 
 void TestInternalRenderScaleSetting() {
@@ -1296,6 +1328,7 @@ int main() {
   TestBloomSetting();
   TestMultisamplingSetting();
   TestInternalRenderScaleSetting();
+  TestRenderPathSetting();
   TestAspectRatioSetting();
   TestGraphicsAdapterSetting();
   TestLauncherPlacementSettings();

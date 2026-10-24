@@ -38,6 +38,10 @@ REXCVAR_DEFINE_BOOL(gw2_player_name_asked, false, "Geometry Wars",
 REXCVAR_DEFINE_STRING(gw2_hud_colour, "green", "Geometry Wars",
                       "Menu and HUD colour: green, blue, purple, pink, gold, rainbow or custom");
 REXCVAR_DEFINE_STRING(gw2_hud_colour_custom, "", "Geometry Wars", "The custom menu and HUD colour, as #RRGGBB");
+// The render target cache reads its path once, as it is built, so a change takes a new process.
+REXCVAR_DEFINE_STRING(gw2_render_path, "auto", "Geometry Wars",
+                      "Render path: auto, fast (host render targets) or compatible (rasterizer-ordered, Intel's default)")
+    .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);
 REXCVAR_DEFINE_BOOL(gw2_show_fps, gw2::kShowFpsDefault, "Geometry Wars",
                     "Show the frame rate in the window title");
 REXCVAR_DEFINE_BOOL(gw2_show_render_resolution, gw2::kShowResolutionDefault, "Geometry Wars",

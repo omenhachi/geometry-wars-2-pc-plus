@@ -29,6 +29,8 @@ inline constexpr char kD3D12AdapterKey[] = "d3d12_adapter";
 inline constexpr char kRenderScaleKey[] = "resolution_scale";
 inline constexpr char kInternalRenderScaleKey[] = "gw2_internal_render_scale";
 inline constexpr char kD3D12RenderTargetPathKey[] = "render_target_path_d3d12";
+// The launcher's Render path (internal_render_scale.h): auto, fast or compatible.
+inline constexpr char kRenderPathKey[] = "gw2_render_path";
 inline constexpr char kAntiAliasingKey[] = "swap_post_effect";
 inline constexpr char kMultisamplingKey[] = "gw2_msaa_compatibility";
 inline constexpr char kNative2xMsaaKey[] = "native_2x_msaa";
