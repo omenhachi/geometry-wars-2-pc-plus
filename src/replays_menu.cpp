@@ -1,9 +1,8 @@
-// Watch replays: a main menu row, the list it opens, and the badge while a replay plays.
+// Watch replays: the list the main menu's left panel opens (main_menu_panels.h), and the badge while a replay plays.
 //
-// The row is added after Multiplayer by the one hook on sub_820900A8, with a text id the game does not have (answered
-// by the text hook in live_fix.cpp) and a host function as its action. The list is drawn over the main menu; while it
-// is open the game is given a neutral pad and the list reads the real one (replays_menu_rules.h), so a controller and
-// the keyboard (through the game's keyboard-to-pad bindings) both work, and nothing reaches the menu behind.
+// The list is drawn over the main menu; while it is open the game is given a neutral pad and the list reads the real
+// one (replays_menu_rules.h), so a controller and the keyboard (through the game's keyboard-to-pad bindings) both work,
+// and nothing reaches the menu behind.
 //
 // Newest first, on an All tab with the cursor on the top row: Enter or A watches, nothing to decide. Y stars a replay,
 // which keeps it; X asks once, then deletes. Nothing counts replays or asks for tidying.
@@ -48,8 +47,6 @@
 #include "online_leaderboard.h"
 #include "replays_menu_rules.h"
 
-REX_EXTERN(__imp__sub_820900A8);  // adds a menu row
-
 namespace gw2::replays_menu {
 namespace {
 
@@ -57,9 +54,6 @@ using namespace gw2::neon;
 namespace library = gw2::demo_library;
 namespace custom_mode = gw2::custom_mode;
 
-constexpr uint32_t kMultiplayerTextId = 2;
-constexpr uint32_t kMultiplayerAction = 0x8208F028;
-constexpr uint32_t kMainMenu = 0x8208FD00;  // the caller the row's thunk is routed for
 constexpr uint32_t kGamepadOffset = 4;      // XINPUT_STATE: packet number, then the gamepad
 constexpr uint32_t kGamepadSize = 12;
 
@@ -67,7 +61,6 @@ std::mutex g_mutex;
 ListInput g_input;
 std::vector<Action> g_actions;     // from the game thread, applied as the list draws
 bool g_opened = false;             // the list was opened and has not drawn yet
-uint32_t g_row_action = 0;
 
 constexpr int kOnlineTab = 100;
 // Seconds a fetched board is shown before it is asked for again.
@@ -148,13 +141,6 @@ int JustAbove(const std::vector<online::TopRun>& runs) {
     if (runs[i].mine) return int(i) - 1;
   }
   return -1;
-}
-
-void RowAction(PPCContext&, uint8_t*) {
-  std::lock_guard lock(g_mutex);
-  g_input.SetOpen(true);
-  g_actions.clear();
-  g_opened = true;
 }
 
 bool KeyboardMode() {
@@ -756,18 +742,16 @@ class ReplaysMenu final : public rex::ui::ImGuiDialog {
 
 }  // namespace
 
-uint32_t WatchReplaysText() {
-  static uint32_t text = 0;
-  if (text == 0) {
-    // A whole slot, as the game's are, in case anything writes into it.
-    constexpr uint32_t kSlot = 520;
-    text = rex::system::kernel_memory()->SystemHeapAlloc(kSlot);
-    if (text == 0) return 0;
-    uint8_t* host = rex::system::kernel_memory()->TranslateVirtual<uint8_t*>(text);
-    std::memset(host, 0, kSlot);
-    std::memcpy(host, "Watch replays", std::strlen("Watch replays"));
-  }
-  return text;
+void Open() {
+  std::lock_guard lock(g_mutex);
+  g_input.SetOpen(true);
+  g_actions.clear();
+  g_opened = true;
+}
+
+bool IsOpen() {
+  std::lock_guard lock(g_mutex);
+  return g_input.open();
 }
 
 bool WatchOnline(uint32_t board, const std::string& id) {
@@ -776,24 +760,6 @@ bool WatchOnline(uint32_t board, const std::string& id) {
 
 void CreateReplaysMenu(rex::ui::ImGuiDrawer* drawer) {
   new ReplaysMenu(drawer);  // retained by the drawer for the session
-}
-
-void AfterMenuRowAdded(const PPCContext& row, uint8_t* base) {
-  if (row.r3.u32 != kMultiplayerTextId || row.r4.u32 != kMultiplayerAction) return;
-  if (g_row_action == 0) {
-    auto* state = rex::system::kernel_state();
-    auto* dispatcher = state ? state->function_dispatcher() : nullptr;
-    if (!dispatcher) return;
-    g_row_action = dispatcher->AllocateThunk(RowAction, kMainMenu);
-    if (g_row_action == 0) {
-      REXLOG_WARN("Replays: the Watch replays row could not be added");
-      return;
-    }
-  }
-  PPCContext replays_row = row;
-  replays_row.r3.u64 = kWatchReplaysTextId;
-  replays_row.r4.u64 = g_row_action;
-  __imp__sub_820900A8(replays_row, base);
 }
 
 void FilterPad(uint8_t* base, uint32_t user, uint32_t state) {

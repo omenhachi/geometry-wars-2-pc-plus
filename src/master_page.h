@@ -34,6 +34,9 @@ void EachFrame(PPCContext& ctx, uint8_t* base);
 // The page marks over the Single Player screen.
 void CreateOverlay(rex::ui::ImGuiDrawer* drawer);
 
+// The main menu is showing, in the menus (main_menu_panels.h).
+bool OnMainMenu();
+
 // The screen switch (sub_8208FFF0), from its hook.
 void OnScreenSwitch(uint32_t screen);
 // A Single Player tile was pressed (sub_8208D548, its row in r4).

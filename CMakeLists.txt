@@ -1,7 +1,7 @@
 # SDK boilerplate lives in generated/rexglue.cmake.
 
 cmake_minimum_required(VERSION 3.25)
-project(geometry_wars_retro_evolved_2 VERSION 0.12.2 LANGUAGES C CXX)
+project(geometry_wars_retro_evolved_2 VERSION 1.0.0 LANGUAGES C CXX)
 set(GW2_VERSION_SUFFIX "")
 
 set(CMAKE_CXX_STANDARD 23)
@@ -193,6 +193,7 @@ set(GW2_SOURCES
     src/benchmark.cpp
     src/custom_modes_menu.cpp
     src/master_page.cpp
+    src/main_menu_panels.cpp
     src/custom_mode_rules.cpp
     src/demo_file.cpp
     src/demo_library.cpp

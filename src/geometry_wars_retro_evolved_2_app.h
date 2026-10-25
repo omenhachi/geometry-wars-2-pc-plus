@@ -23,6 +23,7 @@
 #include "benchmark.h"
 #include "custom_modes.h"
 #include "custom_modes_menu.h"
+#include "main_menu_panels.h"
 #include "master_page.h"
 #include "demo.h"
 #include "diagnostics.h"
@@ -159,6 +160,7 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
       gw2::custom_modes_menu::CreateCustomModesMenu(drawer);
       gw2::benchmark::CreateOverlay(drawer);
       gw2::master_page::CreateOverlay(drawer);
+      gw2::main_menu_panels::CreateOverlay(drawer);
       gw2::demo::RegisterKeys();
       gw2::custom_modes::RegisterKeys();
       gw2::CreateMouseAim(drawer);

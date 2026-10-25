@@ -1,7 +1,8 @@
-// Custom modes: a main menu row, the list it opens, the title card that opens each round and the tag while it plays.
+// Custom modes: the list the main menu's right panel opens (main_menu_panels.h), the title card that opens each round
+// and the tag while it plays.
 //
-// The row is added after Watch replays by the one hook on sub_820900A8, as Watch replays is (replays_menu.cpp), and the
-// list reads the pad the same way (replays_menu_rules.h): while it is open the game is given a neutral pad.
+// The list reads the pad as Watch replays' does (replays_menu_rules.h): while it is open the game is given a neutral
+// pad.
 //
 // The player's own modes first, then the examples, with the cursor on the top row: A plays, nothing to decide. A mode
 // that can't be read stays in the list with its first error and the line it is on, so a typo is never silent. Y opens
@@ -40,8 +41,6 @@
 #include "replays_menu.h"
 #include "replays_menu_rules.h"
 
-REX_EXTERN(__imp__sub_820900A8);  // adds a menu row
-
 namespace gw2::custom_modes_menu {
 namespace {
 
@@ -50,12 +49,9 @@ using replays_menu::Action;
 using replays_menu::ListInput;
 namespace rules = gw2::custom_mode;
 
-constexpr uint32_t kMultiplayerTextId = 2;
-constexpr uint32_t kMultiplayerAction = 0x8208F028;
-constexpr uint32_t kMainMenu = 0x8208FD00;  // the caller the row's thunk is routed for
 constexpr uint32_t kGamepadOffset = 4;      // XINPUT_STATE: packet number, then the gamepad
 constexpr uint32_t kGamepadSize = 12;
-constexpr char kRowText[] = "Custom modes";
+constexpr char kTitle[] = "Custom modes";
 
 // The title card: in, held while the rules flash in, then out to the tag.
 constexpr double kCardIn = 0.25;
@@ -66,14 +62,6 @@ std::mutex g_mutex;
 ListInput g_input;
 std::vector<Action> g_actions;  // from the game thread, applied as the list draws
 bool g_opened = false;          // the list was opened and has not drawn yet
-uint32_t g_row_action = 0;
-
-void RowAction(PPCContext&, uint8_t*) {
-  std::lock_guard lock(g_mutex);
-  g_input.SetOpen(true);
-  g_actions.clear();
-  g_opened = true;
-}
 
 bool KeyboardMode() {
   return rex::cvar::GetFlagByName(kKeyboardKey) == "true";
@@ -236,7 +224,7 @@ class CustomModesMenu final : public rex::ui::ImGuiDialog {
     draw->AddRect(p0, p1, Theme(0.0, 0.9f), u * 1.2f, 0, u * 0.25f);
     const float pad = u * 3.0f;
     const float title = u * 4.6f;
-    line_font::Draw(draw, ImVec2(p0.x + pad, p0.y + pad), title, kRowText, Theme(), std::max(1.2f, title * 0.06f));
+    line_font::Draw(draw, ImVec2(p0.x + pad, p0.y + pad), title, kTitle, Theme(), std::max(1.2f, title * 0.06f));
 
     const float left = p0.x + pad, right = p1.x - pad;
     {
@@ -421,39 +409,20 @@ class CustomModesMenu final : public rex::ui::ImGuiDialog {
 
 }  // namespace
 
-uint32_t CustomModesText() {
-  static uint32_t text = 0;
-  if (text == 0) {
-    constexpr uint32_t kSlot = 520;  // a whole slot, as the game's are
-    text = rex::system::kernel_memory()->SystemHeapAlloc(kSlot);
-    if (text == 0) return 0;
-    uint8_t* host = rex::system::kernel_memory()->TranslateVirtual<uint8_t*>(text);
-    std::memset(host, 0, kSlot);
-    std::memcpy(host, kRowText, std::strlen(kRowText));
-  }
-  return text;
+void Open() {
+  std::lock_guard lock(g_mutex);
+  g_input.SetOpen(true);
+  g_actions.clear();
+  g_opened = true;
+}
+
+bool IsOpen() {
+  std::lock_guard lock(g_mutex);
+  return g_input.open();
 }
 
 void CreateCustomModesMenu(rex::ui::ImGuiDrawer* drawer) {
   new CustomModesMenu(drawer);  // retained by the drawer for the session
-}
-
-void AfterMenuRowAdded(const PPCContext& row, uint8_t* base) {
-  if (row.r3.u32 != kMultiplayerTextId || row.r4.u32 != kMultiplayerAction) return;
-  if (g_row_action == 0) {
-    auto* state = rex::system::kernel_state();
-    auto* dispatcher = state ? state->function_dispatcher() : nullptr;
-    if (!dispatcher) return;
-    g_row_action = dispatcher->AllocateThunk(RowAction, kMainMenu);
-    if (g_row_action == 0) {
-      REXLOG_WARN("Custom modes: the Custom modes row could not be added");
-      return;
-    }
-  }
-  PPCContext modes_row = row;
-  modes_row.r3.u64 = kCustomModesTextId;
-  modes_row.r4.u64 = g_row_action;
-  __imp__sub_820900A8(modes_row, base);
 }
 
 void FilterPad(uint8_t* base, uint32_t user, uint32_t state) {
@@ -468,30 +437,3 @@ void FilterPad(uint8_t* base, uint32_t user, uint32_t state) {
 }
 
 }  // namespace gw2::custom_modes_menu
-
-// Draws the current menu's rows (sub_820924A0). Each row is as tall as the menu font's size (+32 in the font at
-// 0x821F45A8), and with Custom modes the main menu has eight, one more than fits under the logo: while it draws them,
-// that size is seven eighths, so the eight take the room the seven did.
-REX_EXTERN(__imp__sub_820924A0);
-REX_HOOK_RAW(sub_820924A0) {
-  constexpr uint32_t kRowCount = 0x821EBA84;
-  constexpr uint32_t kRows = 0x821EBA88;  // 28 bytes each, the action at +8 (sub_820900A8)
-  constexpr uint32_t kRowSize = 28;
-  constexpr uint32_t kMultiplayerAction = 0x8208F028;
-  constexpr uint32_t kFontSize = 0x821F45A8 + 32;
-  constexpr uint32_t kRowsThatFit = 7;
-  const uint32_t count = gw2::LoadBE32(base, kRowCount);
-  bool main_menu = false;
-  for (uint32_t i = 0; i < count && i < 24; ++i) {
-    if (gw2::LoadBE32(base, kRows + i * kRowSize + 8) == kMultiplayerAction) main_menu = true;
-  }
-  if (!main_menu || count <= kRowsThatFit) {
-    __imp__sub_820924A0(ctx, base);
-    return;
-  }
-  const uint32_t saved = gw2::LoadBE32(base, kFontSize);
-  const float scaled = std::bit_cast<float>(saved) * float(kRowsThatFit) / float(count);
-  gw2::StoreBE32(base, kFontSize, std::bit_cast<uint32_t>(scaled));
-  __imp__sub_820924A0(ctx, base);
-  gw2::StoreBE32(base, kFontSize, saved);
-}

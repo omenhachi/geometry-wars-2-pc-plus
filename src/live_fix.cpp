@@ -19,6 +19,7 @@
 #include "demo.h"
 #include "guest_memory.h"
 #include "launcher_settings.h"
+#include "main_menu_panels.h"
 #include "online_leaderboard.h"
 #include "replays_menu.h"
 #include "run_stats_hooks.h"
@@ -335,16 +336,8 @@ uint32_t GuestCopy(uint8_t* base, RenamedText& renamed) {
 REX_EXTERN(__imp__sub_820826D8);
 REX_HOOK_RAW(sub_820826D8) {
   const uint32_t id = ctx.r3.u32;
-  if (id == gw2::replays_menu::kWatchReplaysTextId) {
-    ctx.r3.u64 = gw2::replays_menu::WatchReplaysText();
-    return;
-  }
   if (const std::optional<uint32_t> master = gw2::master_page::Text(id)) {
     ctx.r3.u64 = *master;
-    return;
-  }
-  if (id == gw2::custom_modes_menu::kCustomModesTextId) {
-    ctx.r3.u64 = gw2::custom_modes_menu::CustomModesText();
     return;
   }
   __imp__sub_820826D8(ctx, base);
@@ -397,4 +390,5 @@ REX_HOOK_RAW(sub_82094B60) {
   gw2::replays_menu::FilterPad(base, user, ctx.r3.u32 == 0 ? state : 0);
   gw2::custom_modes_menu::FilterPad(base, user, ctx.r3.u32 == 0 ? state : 0);
   gw2::master_page::FilterPad(base, user, ctx.r3.u32 == 0 ? state : 0);
+  gw2::main_menu_panels::FilterPad(base, user, ctx.r3.u32 == 0 ? state : 0);
 }

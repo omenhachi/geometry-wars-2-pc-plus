@@ -12,7 +12,7 @@
 
 </div>
 
-<img src="docs/screenshots/watch-replays-menu.png" alt="The Geometry Wars 2 main menu, with PC PLUS+ in the logo and Watch replays between Multiplayer and Leaderboards" />
+<img src="docs/screenshots/main-menu.png" alt="The Geometry Wars 2 main menu, with PC PLUS+ in the logo, the game's own six rows, and Watch replays and Custom modes in panels either side" />
 
 PC Plus builds on [saulob's excellent PC port](https://github.com/saulob/geometry-wars-retro-evolved-2-recompiled). It's not emulation: the game's own code runs natively, with high frame rates, high resolutions and modern options. PC Plus adds the things I missed playing it on a PC, especially with a keyboard and mouse.
 
@@ -27,9 +27,9 @@ PC Plus builds on [saulob's excellent PC port](https://github.com/saulob/geometr
 - **Nearby players, in place of Xbox Live friends.** Each mode lists the players just above and below you, and while you play, the corner shows the next score to beat, moving up as you pass each one.
 - **Pick your colour.** Green, Blue, Purple, Pink, Gold, Rainbow or any colour you like, for the menus, HUD, icons and crosshair, right from the game's Settings menu.
 - **A results screen after every single-player run**, inspired by Pac-Man CE DX: your score over time with deaths, bombs and your best moment marked, the enemies you destroyed, and what your black holes and gates were worth. It sits over the Game Over screen and never slows a retry.
-- **Watch your runs again.** Every single-player run is saved as a replay, and **Watch replays** on the main menu plays them back exactly, at any frame rate. Star the ones you love to keep them. A replay never counts: no score, stats or achievements.
+- **Watch your runs again.** Every single-player run is saved as a replay, and **Watch replays**, in the panel left of the main menu, plays them back exactly, at any frame rate. Star the ones you love to keep them. A replay never counts: no score, stats or achievements.
 - **Watch the top runs.** **Watch replays** has an **Online** tab: every leaderboard's top 50, and any run with a replay plays from there, or from **Watch Replay** on the game's own leaderboard screen. It opens on the run just above yours. When your best makes a top 50, its replay is shared too; **Share my top runs as replays** in the launcher turns that off.
-- **Make your own modes.** **Custom modes** on the main menu plays the game's modes with new rules: no gates, a score that's how long you survive, more or fewer lives and bombs, endless bombs, a time limit, faster or slower play. Five come with it (Pure Pacifism, Overdrive, One Life, Bomb Party and Speed Test), and making your own is a small text file in `user_data/mods`: see [docs/MODDING.md](docs/MODDING.md). Custom runs keep their own bests and replays, and never count for leaderboards, achievements or unlocks.
+- **Make your own modes.** **Custom modes**, in the panel right of the main menu, plays the game's modes with new rules: no gates, a score that's how long you survive, more or fewer lives and bombs, endless bombs, a time limit, faster or slower play. Five come with it (Pure Pacifism, Overdrive, One Life, Bomb Party and Speed Test), and making your own is a small text file in `user_data/mods`: see [docs/MODDING.md](docs/MODDING.md). Custom runs keep their own bests and replays, and never count for leaderboards, achievements or unlocks.
 - **Master Deadline and Master Evolved.** One life, and the only help is a bonus bomb at 100K, 1M, 10M and 100M. Press **RB** (or **3** on the keyboard) on the Single Player screen to turn to the Master page. Both are always open and have their own online leaderboards, and their leaderboard opens from the Master page.
 - **Every mode open from the start.** No unlocking, no "Game mode unlocked!" and no first-time rules screens: this one is for veterans.
 - **Deadline's hidden spawn rank, if you want it.** Turn on **Deadline rank info** and the HUD shows K (weighted kills), G (geoms) and the rank the next wave will set, with a little pop when a wave raises it. Off by default; it only shows information, so runs still count online.

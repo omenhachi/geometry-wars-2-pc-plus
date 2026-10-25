@@ -269,6 +269,10 @@ void OnScreenSwitch(uint32_t screen) {
   if (screen == kMainMenuScreen) g_page_two.store(false, std::memory_order_relaxed);
 }
 
+bool OnMainMenu() {
+  return g_screen.load(std::memory_order_relaxed) == kMainMenuScreen && g_in_menus.load(std::memory_order_relaxed);
+}
+
 void OnTile(const uint8_t* base, uint32_t row) {
   if (g_page_two.load(std::memory_order_relaxed) && row != 0) {
     g_chosen.store(LoadBE32(base, row + 4), std::memory_order_relaxed);
