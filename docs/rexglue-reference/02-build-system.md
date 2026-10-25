@@ -44,7 +44,7 @@ Windows: `-flto=thin`, lld-link `/opt:lldlto=3` (Release; lld-link defaults to O
 - Linux: post-build copies `rex::runtime` beside the program because the SDK stages it only on Windows/macOS; the executable RPATH is `$ORIGIN`.
 - The shipped cvar file `config/geometry_wars_retro_evolved_2.toml` is copied next to the executable after each build.
 - `GW2_PORT_VERSION` (from `project(VERSION)`) and `GW2_TRG_LAUNCHER_VERSION` are compile definitions; packagers parse the same `project(... VERSION x.y.z)` line.
-- TRG launcher: git submodule `third_party/trg-launcher` (pin `b384a28`, version 1.1.0). It must use the runtime's own ImGui: an `INTERFACE` library `gw2_imgui` links `rex::runtime`, and TRG options set `TRG_LAUNCHER_IMGUI_TARGET`, `TRG_LAUNCHER_STANDALONE=OFF`, `TRG_LAUNCHER_FETCH_DEPS=OFF` as forced cache values.
+- TRG launcher: git submodule `third_party/trg-launcher` (pin `1a6ef30`, version 1.2.0). It must use the runtime's own ImGui: an `INTERFACE` library `gw2_imgui` links `rex::runtime`, and TRG options set `TRG_LAUNCHER_IMGUI_TARGET`, `TRG_LAUNCHER_STANDALONE=OFF`, `TRG_LAUNCHER_FETCH_DEPS=OFF` as forced cache values.
 
 ## Tests in the build
 - `gw2_tests` (EXCLUDE_FROM_ALL): `gw2_add_test()` builds `tests/<name>.cpp` with only what it needs from `src/`; no game files, no runtime. `tools/test.ps1` builds the same set on Windows with clang++ and also runs `package-release.ps1 -VerifyOnly` on scratch folders.

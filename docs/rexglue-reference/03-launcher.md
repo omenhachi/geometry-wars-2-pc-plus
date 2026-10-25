@@ -5,7 +5,7 @@ Long-form behavior doc: `docs/launcher.md`. This file is the architecture and po
 ## Architecture (`REUSABLE_INFRASTRUCTURE` unless noted)
 
 The launcher is [TRG Launcher](https://github.com/TekRantGaming/trg-launcher) (submodule `third_party/trg-launcher`,
-pin `b384a28`, v1.1.0) drawn as an ImGui dialog inside the game's own ReXGlue window and ImGui frame. There is no
+pin `1a6ef30`, v1.2.0) drawn as an ImGui dialog inside the game's own ReXGlue window and ImGui frame. There is no
 separate process or window. Consequences: it shares one ImGui context (so the CMake `gw2_imgui` shim, see
 [02](02-build-system.md)), it can be shown before the runtime exists (for installation) or after (to read the
 game's achievements), and "starting the game" means closing the dialog and calling `ReXApp::LaunchModule`.
