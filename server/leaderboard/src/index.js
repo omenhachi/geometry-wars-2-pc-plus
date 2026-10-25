@@ -17,9 +17,10 @@ const GAME_MODES = 6;
 const NAME = /^[A-Za-z0-9 _.\-]{1,15}$/;
 const TOKEN = /^[0-9a-f]{64}$/;
 const INPUTS = new Set(["mouse", "keyboard", "controller"]);
-// Builds older than this are refused, in case scoring ever changes. The Master modes came with 0.11.0.
-const MIN_VERSION = [0, 6, 7];
-const MASTER_MIN_VERSION = [0, 11, 0];
+// Builds older than this are refused, in case scoring ever changes. Before 1.0.1, watching a replay to its end sent its
+// score as the viewer's own, so every board needs 1.0.1 or newer.
+const MIN_VERSION = [1, 0, 1];
+const MASTER_MIN_VERSION = MIN_VERSION;
 // Far above any real score; tighten per mode as the boards show what is plausible.
 const MAX_SCORE = [
   100_000_000_000, 100_000_000_000, 100_000_000_000, 100_000_000_000, 100_000_000_000, 100_000_000_000,
@@ -30,7 +31,7 @@ const SUBMIT_INTERVAL_SECONDS = 20;
 const MAX_COUNT = 50;
 // Replays are kept for the top of each board only, and taken only from builds that ask before sharing them.
 const REPLAY_RANKS = 50;
-const REPLAY_MIN_VERSION = [0, 12, 0];
+const REPLAY_MIN_VERSION = MIN_VERSION;
 const MAX_REPLAY_BYTES = 24 << 20;
 const PIECE_BYTES = 1 << 20; // a D1 row holds at most 2 MB
 // The game's replay rules (kReplayRules in src/demo_file.h): a replay with others would play differently.

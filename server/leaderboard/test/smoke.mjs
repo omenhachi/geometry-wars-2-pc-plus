@@ -3,6 +3,8 @@
 //   node test/smoke.mjs        (BASE=http://127.0.0.1:8787 by default)
 import { randomBytes } from "node:crypto";
 
+// The oldest build the server takes scores from (MIN_VERSION in src/index.js).
+const CURRENT = "1.0.1";
 const BASE = process.env.BASE ?? "http://127.0.0.1:8787";
 let failures = 0;
 let checks = 0;
@@ -25,7 +27,7 @@ async function board(mode, query = "") {
   return { status: r.status, body: await r.json() };
 }
 const score = (t, name, mode, value, extra = {}) =>
-  post({ token: t, name, mode, score: value, input: "mouse", version: "0.6.7", ...extra });
+  post({ token: t, name, mode, score: value, input: "mouse", version: CURRENT, ...extra });
 
 const alice = token();
 const bob = token();
@@ -34,14 +36,14 @@ const mode = 5; // King
 console.log("master modes");
 {
   const master = token();
-  let m = await score(master, "Master", 6, 1234);
-  check(m.status === 426, "a Master Deadline score from a build before 0.11.0 is refused");
-  m = await score(master, "Master", 6, 1234, { version: "0.11.0" });
-  check(m.status === 200, "a Master Deadline score from 0.11.0 is accepted");
+  let m = await score(master, "Master", 6, 1234, { version: "0.11.0" });
+  check(m.status === 426, "a Master Deadline score from a build before 1.0.1 is refused");
+  m = await score(master, "Master", 6, 1234);
+  check(m.status === 200, "a Master Deadline score from 1.0.1 is accepted");
   const six = await board(6);
   check(six.status === 200 && six.body.rows.some((row) => row.score === 1234), "board 6 lists it");
   check((await board(7)).status === 200, "board 7 (Master Evolved) can be read");
-  check((await score(token(), "Eight", 8, 1, { version: "0.11.0" })).status === 400, "board 8 does not exist");
+  check((await score(token(), "Eight", 8, 1, {})).status === 400, "board 8 does not exist");
 }
 
 console.log("submission");
@@ -63,6 +65,7 @@ check((await score(token(), "Eve", mode, -1)).status === 400, "negative scores a
 check((await score(token(), "Eve", mode, 1e12)).status === 400, "absurd scores are refused");
 check((await score(token(), "Eve", mode, 1, { input: "aimbot" })).status === 400, "unknown inputs are refused");
 check((await score(token(), "Eve", mode, 1, { version: "0.5.0" })).status === 426, "old versions are refused");
+check((await score(token(), "Eve", mode, 1, { version: "1.0.0" })).status === 426, "1.0.0, which counted watched replays, is refused");
 
 console.log("rate limit and best score");
 check((await score(alice, "Alice", mode, 9999)).status === 429, "a second submission within 20 s is refused");
@@ -103,7 +106,7 @@ console.log("replays");
     parts.push(Buffer.alloc(size, 7));
     return Buffer.concat(parts);
   };
-  const upload = (t, board, bytes, version = "0.12.0") =>
+  const upload = (t, board, bytes, version = CURRENT) =>
     fetch(`${BASE}/v1/replays/${board}`, {
       method: "POST",
       headers: { authorization: `Bearer ${t}`, "x-gw2-version": version, "content-type": "application/octet-stream" },
@@ -116,11 +119,11 @@ console.log("replays");
 
   const carol = token();
   players.push(carol);
-  let s = await score(carol, "Carol", 2, top, { version: "0.12.0" });
+  let s = await score(carol, "Carol", 2, top);
   check(s.status === 200 && s.body.replay === true, "a top-50 best asks for its replay");
   const carolId = s.body.id;
   check((await wanted(carol)).some((w) => w.mode === 2 && w.score === top), "wanted lists the board");
-  check((await upload(carol, 2, demo({ mode: 2, score: top }), "0.11.0")).status === 426, "builds before 0.12.0 can't upload");
+  check((await upload(carol, 2, demo({ mode: 2, score: top }), "1.0.0")).status === 426, "builds before 1.0.1 can't upload");
   check((await upload(carol, 2, demo({ mode: 2, score: top - 1 }))).status === 409, "a replay of another score is refused");
   check((await upload(carol, 2, demo({ mode: 3, score: top }))).status === 400, "a replay of another mode is refused");
   check((await upload(carol, 2, demo({ mode: 2, score: top, flags: 1 }))).status === 400, "a run with cheats is refused");
@@ -142,7 +145,7 @@ console.log("replays");
   // A Master board takes only that Master mode's runs.
   const dave = token();
   players.push(dave);
-  s = await score(dave, "Dave", 6, top, { version: "0.12.0" });
+  s = await score(dave, "Dave", 6, top);
   const daveId = s.body.id;
   check(s.body.replay === true, "a Master best asks for its replay");
   check((await upload(dave, 6, demo({ mode: 0, score: top }))).status === 400, "an official Deadline run is not Master");
@@ -151,7 +154,7 @@ console.log("replays");
 
   // A new best makes the old replay stale.
   await new Promise((done) => setTimeout(done, 21_000));
-  s = await score(carol, "Carol", 2, top + 5, { version: "0.12.0" });
+  s = await score(carol, "Carol", 2, top + 5);
   check(s.body.replay === true, "a new best asks again");
   row = (await board(2, "?count=50")).body.rows.find((r) => r.id === carolId);
   check(row && !row.replay, "the stale replay is gone from the board");
@@ -162,12 +165,12 @@ console.log("replays");
   for (let i = 0; i < 50; i++) {
     const t = token();
     players.push(t);
-    await score(t, `Top ${i}`, 2, top + 100 + i, { version: "0.12.0" });
+    await score(t, `Top ${i}`, 2, top + 100 + i);
   }
   check((await fetch(`${BASE}/v1/replays/2/${carolId}`)).status === 404, "a replay out of the top 50 goes");
   const late = token();
   players.push(late);
-  s = await score(late, "Late", 2, 1, { version: "0.12.0" });
+  s = await score(late, "Late", 2, 1);
   check(s.body.replay === false, "a best outside the top 50 asks for nothing");
 
   const del = await fetch(`${BASE}/v1/players`, { method: "DELETE", body: JSON.stringify({ token: dave }) });

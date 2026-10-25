@@ -53,7 +53,8 @@ s.score DESC LIMIT 20`.
 - Replays: only of a player's best, while it is in the board's top 50, from 0.12.0 or newer, with no cheats, of the
   board's own mode (a Master board takes only its Master mode), at most 24 MB. They are kept in 1 MB pieces and go
   quietly when the best is beaten or falls out of the top 50.
-- Versions older than `MIN_VERSION` in `src/index.js` are refused, in case scoring ever changes.
+- Versions older than `MIN_VERSION` in `src/index.js` are refused, in case scoring ever changes. It is 1.0.1: before it,
+  watching a replay to its end sent the replay's score as the viewer's own. Older builds still read the boards.
 
 Scores come from players' own PCs, and the game is open source, so a determined player can fake one. These are
 community boards for fun, not a tournament.
