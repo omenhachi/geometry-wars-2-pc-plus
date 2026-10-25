@@ -11,7 +11,8 @@
 //   string port version, string game SHA-256, string player name   (u8 length, then that many bytes)
 //   u32 mode, u64 final score, i64 recorded at (Unix seconds), u32 flags (bit 0: recorded with cheats on, bit 1: a
 //   custom mode)
-//   format 2, a custom mode only: string name, string author, 24 bytes of its rules (custom_mode_rules.h)
+//   a custom mode only: string name, string author, then its rules (custom_mode_rules.h): 24 bytes in format 2,
+//   u8 length and that many bytes from format 3
 //   2500 bytes twister, u32 rand seed, u32 particle seed, 16 bytes input state
 //   u32 ticks, then ticks x u32 step
 //   u32 pad changes, then each: u32 tick, 80 bytes pads (the pads hold from that tick until the next change)
@@ -27,7 +28,7 @@
 
 namespace gw2::demo_file {
 
-inline constexpr uint32_t kFormatVersion = 2;  // 1 had no custom modes, and still reads
+inline constexpr uint32_t kFormatVersion = 3;  // 1 had no custom modes, 2 fixed-size custom rules; both still read
 // Bumped whenever a change to the port could make an older demo play differently. Demos with other rules are refused.
 inline constexpr uint32_t kReplayRules = 1;
 
@@ -43,7 +44,8 @@ inline constexpr uint32_t kMaxTicks = 60 * 60 * 60;
 inline constexpr uint32_t kMaxShotsPerTick = 8;
 inline constexpr size_t kMaxString = 64;
 inline constexpr size_t kMaxFileSize = 64u << 20;
-inline constexpr size_t kCustomRulesSize = 24;
+inline constexpr size_t kCustomRulesSize = 24;     // format 2
+inline constexpr size_t kMaxCustomRulesSize = 128;
 
 using Pads = std::array<uint8_t, kPadsSize>;
 
@@ -70,7 +72,7 @@ struct Demo {
   // A custom mode's run (kFlagCustom): its name and author, and its rules as custom_mode::Write makes them.
   std::string custom_name;
   std::string custom_author;
-  std::array<uint8_t, kCustomRulesSize> custom_rules{};
+  std::vector<uint8_t> custom_rules;
   std::array<uint8_t, kTwisterSize> twister{};
   uint32_t rand_seed = 0;
   uint32_t particle_seed = 0;

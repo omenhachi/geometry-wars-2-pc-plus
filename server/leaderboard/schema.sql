@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS players (
 );
 
 -- Best score per player and mode. Modes are the game's view ids: 0 Deadline, 1 Evolved, 2 Sequence, 3 Waves,
--- 4 Pacifism, 5 King.
+-- 4 Pacifism, 5 King, then PC Plus's own Master modes: 6 Master Deadline, 7 Master Evolved.
 CREATE TABLE IF NOT EXISTS scores (
   player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
   mode INTEGER NOT NULL,

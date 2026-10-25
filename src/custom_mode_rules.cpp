@@ -12,14 +12,13 @@ namespace gw2::custom_mode {
 namespace {
 
 constexpr std::string_view kTopKeys[] = {"format", "name", "author", "description", "base", "rules"};
-constexpr std::string_view kRuleKeys[] = {"lives", "bombs", "time_limit", "game_speed", "gates", "infinite_bombs",
-                                          "score"};
+constexpr std::string_view kRuleKeys[] = {"lives",          "bombs", "time_limit",  "game_speed",  "gates",
+                                          "infinite_bombs", "score", "extra_lives", "extra_bombs", "bonus_bombs_at"};
 constexpr std::string_view kScores[] = {"points", "time"};
 constexpr size_t kMaxText = 64;
 constexpr size_t kMaxDescription = 200;
 
-// Each base mode's own lives and bombs (its setup function, 0x82034EA0..0x82035130), so chips show only changes.
-constexpr int32_t kBaseLives[kModeCount] = {0, 3, 3, 0, 0, 0};
+// Each base mode's own bombs (its setup function, 0x82034EA0..0x82035130), so chips show only changes.
 constexpr int32_t kBaseBombs[kModeCount] = {3, 3, 3, 0, 0, 0};
 
 uint32_t LineOf(const toml::node& node) {
@@ -114,6 +113,33 @@ void ReadRules(Reader& reader, const toml::table& table, Rules& rules) {
       rules.gates = reader.Flag(node, k).value_or(true);
     } else if (k == "infinite_bombs") {
       rules.infinite_bombs = reader.Flag(node, k).value_or(false);
+    } else if (k == "extra_lives") {
+      rules.extra_lives = reader.Flag(node, k).value_or(true);
+    } else if (k == "extra_bombs") {
+      rules.extra_bombs = reader.Flag(node, k).value_or(true);
+    } else if (k == "bonus_bombs_at") {
+      const auto* list = node.as_array();
+      if (!list) {
+        reader.Error(LineOf(node), "\"bonus_bombs_at\" should be a list of scores, like [100000, 1000000]");
+        continue;
+      }
+      std::vector<uint64_t> scores;
+      for (const toml::node& item : *list) {
+        const auto* value = item.as_integer();
+        if (!value || value->get() < 1 || uint64_t(value->get()) > kMaxBonusScore) {
+          reader.Error(LineOf(item), std::format("\"bonus_bombs_at\" scores should be whole numbers from 1 to {}",
+                                                 kMaxBonusScore));
+          continue;
+        }
+        scores.push_back(uint64_t(value->get()));
+      }
+      std::sort(scores.begin(), scores.end());
+      scores.erase(std::unique(scores.begin(), scores.end()), scores.end());
+      if (scores.size() > kMaxBonusBombs) {
+        reader.Warn(LineOf(node), std::format("bonus_bombs_at keeps its first {} scores", kMaxBonusBombs));
+        scores.resize(kMaxBonusBombs);
+      }
+      rules.bonus_bombs_at = std::move(scores);
     } else if (k == "score") {
       const auto text = reader.Text(node, k, kMaxText);
       if (!text) continue;
@@ -140,8 +166,21 @@ uint32_t Get32(std::span<const uint8_t> bytes, size_t at) {
 }
 
 constexpr uint8_t kLivesSet = 1, kBombsSet = 2, kTimeSet = 4, kGates = 8, kInfiniteBombs = 16;
+constexpr uint8_t kNoExtraLives = 32, kNoExtraBombs = 64;  // version 2
 constexpr uint8_t kKnownFlags = kLivesSet | kBombsSet | kTimeSet | kGates | kInfiniteBombs;
-constexpr uint8_t kBytesVersion = 1;
+constexpr uint8_t kKnownFlags2 = kKnownFlags | kNoExtraLives | kNoExtraBombs;
+// Version 1: 24 bytes, its lives the game's spare ships. Version 2: lives are ships in all, and a list of bonus
+// scores follows (u8 count, then each u64).
+constexpr uint8_t kBytesVersion1 = 1;
+constexpr uint8_t kBytesVersion2 = 2;
+
+void Put64(std::vector<uint8_t>& out, uint64_t value) {
+  for (int i = 0; i < 8; ++i) out.push_back(uint8_t(value >> (8 * i)));
+}
+
+uint64_t Get64(std::span<const uint8_t> bytes, size_t at) {
+  return uint64_t(Get32(bytes, at)) | uint64_t(Get32(bytes, at + 4)) << 32;
+}
 
 }  // namespace
 
@@ -217,9 +256,13 @@ ParseResult Parse(std::string_view toml_text) {
 }
 
 std::vector<uint8_t> Write(const Rules& rules) {
+  // Version 1 while nothing needs more (a mode's id is a hash of these bytes, so it stays the same), and for a replay's
+  // rules from before lives meant ships in all.
+  const bool newer = !rules.extra_lives || !rules.extra_bombs || !rules.bonus_bombs_at.empty();
+  const bool version1 = !newer && (!rules.lives || rules.legacy_spare_lives);
   std::vector<uint8_t> out;
-  out.reserve(kRulesBytes);
-  out.push_back(kBytesVersion);
+  out.reserve(kMaxRulesBytes);
+  out.push_back(version1 ? kBytesVersion1 : kBytesVersion2);
   out.push_back(uint8_t(rules.base));
   uint8_t flags = 0;
   if (rules.lives) flags |= kLivesSet;
@@ -227,6 +270,8 @@ std::vector<uint8_t> Write(const Rules& rules) {
   if (rules.time_limit) flags |= kTimeSet;
   if (rules.gates) flags |= kGates;
   if (rules.infinite_bombs) flags |= kInfiniteBombs;
+  if (!version1 && !rules.extra_lives) flags |= kNoExtraLives;
+  if (!version1 && !rules.extra_bombs) flags |= kNoExtraBombs;
   out.push_back(flags);
   out.push_back(uint8_t(rules.score));
   Put32(out, uint32_t(rules.lives.value_or(0)));
@@ -234,16 +279,24 @@ std::vector<uint8_t> Write(const Rules& rules) {
   Put32(out, std::bit_cast<uint32_t>(rules.time_limit.value_or(0.0f)));
   Put32(out, std::bit_cast<uint32_t>(rules.game_speed));
   Put32(out, 0);
+  if (!version1) {
+    const size_t count = std::min(rules.bonus_bombs_at.size(), kMaxBonusBombs);
+    out.push_back(uint8_t(count));
+    for (size_t i = 0; i < count; ++i) Put64(out, rules.bonus_bombs_at[i]);
+  }
   return out;
 }
 
 std::optional<Rules> Read(std::span<const uint8_t> bytes) {
-  if (bytes.size() != kRulesBytes || bytes[0] != kBytesVersion) return std::nullopt;
+  if (bytes.size() < kRulesBytes) return std::nullopt;
+  const uint8_t version = bytes[0];
+  if (version != kBytesVersion1 && version != kBytesVersion2) return std::nullopt;
+  if (version == kBytesVersion1 && bytes.size() != kRulesBytes) return std::nullopt;
   Rules rules;
   if (bytes[1] >= kModeCount) return std::nullopt;
   rules.base = bytes[1];
   const uint8_t flags = bytes[2];
-  if (flags & ~kKnownFlags) return std::nullopt;
+  if (flags & ~(version == kBytesVersion1 ? kKnownFlags : kKnownFlags2)) return std::nullopt;
   if (bytes[3] > uint8_t(Score::kTime)) return std::nullopt;
   rules.score = Score(bytes[3]);
   const int32_t lives = int32_t(Get32(bytes, 4));
@@ -254,6 +307,7 @@ std::optional<Rules> Read(std::span<const uint8_t> bytes) {
   if (flags & kLivesSet) {
     if (lives < 1 || lives > kMaxLives) return std::nullopt;
     rules.lives = lives;
+    rules.legacy_spare_lives = version == kBytesVersion1;
   } else if (lives != 0) {
     return std::nullopt;
   }
@@ -273,6 +327,20 @@ std::optional<Rules> Read(std::span<const uint8_t> bytes) {
   rules.game_speed = speed;
   rules.gates = flags & kGates;
   rules.infinite_bombs = flags & kInfiniteBombs;
+  rules.extra_lives = !(flags & kNoExtraLives);
+  rules.extra_bombs = !(flags & kNoExtraBombs);
+  if (version == kBytesVersion2) {
+    if (bytes.size() < kRulesBytes + 1) return std::nullopt;
+    const size_t count = bytes[kRulesBytes];
+    if (count > kMaxBonusBombs || bytes.size() != kRulesBytes + 1 + count * 8) return std::nullopt;
+    for (size_t i = 0; i < count; ++i) {
+      const uint64_t score = Get64(bytes, kRulesBytes + 1 + i * 8);
+      if (score < 1 || score > kMaxBonusScore || (i > 0 && score <= rules.bonus_bombs_at.back())) return std::nullopt;
+      rules.bonus_bombs_at.push_back(score);
+    }
+    // Version 2 is only written when version 1 can't hold the rules.
+    if (rules.extra_lives && rules.extra_bombs && rules.bonus_bombs_at.empty() && !rules.lives) return std::nullopt;
+  }
   return rules;
 }
 
@@ -287,9 +355,11 @@ std::string Id(const Rules& rules) {
 
 std::vector<std::string> Chips(const Rules& rules) {
   std::vector<std::string> chips;
-  if (rules.lives && *rules.lives != kBaseLives[rules.base]) {
-    chips.push_back(*rules.lives == 1 ? "1 life" : std::format("{} lives", *rules.lives));
+  if (rules.lives) {
+    const int32_t ships = rules.legacy_spare_lives ? *rules.lives + 1 : *rules.lives;
+    chips.push_back(ships == 1 ? "1 life" : std::format("{} lives", ships));
   }
+  if (!rules.extra_lives) chips.push_back("No extra lives");
   if (rules.infinite_bombs) {
     chips.push_back("Infinite bombs");
   } else if (rules.bombs && *rules.bombs != kBaseBombs[rules.base]) {
@@ -303,7 +373,25 @@ std::vector<std::string> Chips(const Rules& rules) {
   if (rules.game_speed != 1.0f) chips.push_back(std::format("Speed x{:g}", std::round(rules.game_speed * 100) / 100));
   if (!rules.gates) chips.push_back("No gates");
   if (rules.score == Score::kTime) chips.push_back("Score: time");
+  if (!rules.extra_bombs) chips.push_back("No milestone bombs");
+  if (!rules.bonus_bombs_at.empty()) {
+    std::string text = "Bombs at";
+    for (const uint64_t score : rules.bonus_bombs_at) text += " " + ShortScore(score);
+    chips.push_back(std::move(text));
+  }
   return chips;
+}
+
+std::string ShortScore(uint64_t score) {
+  const auto scaled = [](uint64_t value, uint64_t unit, const char* suffix) {
+    const uint64_t tenths = value * 10 / unit;
+    return tenths % 10 == 0 ? std::format("{}{}", tenths / 10, suffix)
+                            : std::format("{}.{}{}", tenths / 10, tenths % 10, suffix);
+  };
+  if (score >= 1'000'000'000) return scaled(score, 1'000'000'000, "B");
+  if (score >= 1'000'000) return scaled(score, 1'000'000, "M");
+  if (score >= 1'000) return scaled(score, 1'000, "K");
+  return std::to_string(score);
 }
 
 std::optional<std::string_view> Nearest(std::string_view word, std::span<const std::string_view> known) {

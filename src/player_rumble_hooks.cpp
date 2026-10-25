@@ -1,5 +1,6 @@
 #include <rex/hook.h>
 
+#include "custom_modes.h"
 #include "guest_memory.h"
 #include "player_records.h"
 #include "rumble.h"
@@ -43,6 +44,7 @@ REX_HOOK_RAW(sub_820408D0) {
   const uint32_t enemy = ctx.r4.u32;
   __imp__sub_820408D0(ctx, base);
   gw2::run::OnKill(base, event, enemy, player, int64_t(gw2::LoadBE64(base, score)) - score_before);
+  gw2::custom_modes::AfterKillAward(base, index, lives, bombs);
   if (gw2::LoadBE32(base, gw2::players::LivesAddress(index)) == lives + 1) {
     gw2::rumble::RequestExtraLifePulse(index);
   }

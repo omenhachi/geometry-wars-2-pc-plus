@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <vector>
 
+#include "boards.h"
 #include "online_leaderboard.h"
 #include "updater/json.h"
 
@@ -71,7 +72,7 @@ std::vector<live::StatsView> ParseNearby(std::string_view text) {
       return ec == std::errc() && ptr == s.data() + s.size() && !s.empty();
     };
     const std::string name = ValidName(line);
-    if (!parsed(view_text, view) || view >= 6 || !parsed(xuid_text, xuid, 16) || xuid == 0 ||
+    if (!parsed(view_text, view) || view >= boards::kBoards || !parsed(xuid_text, xuid, 16) || xuid == 0 ||
         !parsed(score_text, score) || score < 0 || name.empty() || name != line) {
       continue;
     }

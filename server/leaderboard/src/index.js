@@ -7,14 +7,21 @@
 // The token is a secret the client generates once and keeps; the public id is derived from it, so seeing a board
 // never lets anyone post as someone else. Runs with cheats on are never sent by the client.
 
-const MODES = 6;
+// 0-5 the game's own modes (Deadline, Evolved, Sequence, Waves, Pacifism, King), 6 Master Deadline and 7 Master
+// Evolved, PC Plus's own (src/boards.h in the game).
+const MODES = 8;
+const GAME_MODES = 6;
 const NAME = /^[A-Za-z0-9 _.\-]{1,15}$/;
 const TOKEN = /^[0-9a-f]{64}$/;
 const INPUTS = new Set(["mouse", "keyboard", "controller"]);
-// Builds older than this are refused, in case scoring ever changes.
+// Builds older than this are refused, in case scoring ever changes. The Master modes came with 0.11.0.
 const MIN_VERSION = [0, 6, 7];
+const MASTER_MIN_VERSION = [0, 11, 0];
 // Far above any real score; tighten per mode as the boards show what is plausible.
-const MAX_SCORE = 100_000_000_000;
+const MAX_SCORE = [
+  100_000_000_000, 100_000_000_000, 100_000_000_000, 100_000_000_000, 100_000_000_000, 100_000_000_000,
+  100_000_000_000, 100_000_000_000,
+];
 // One submission per player this often, which a finished game never comes close to.
 const SUBMIT_INTERVAL_SECONDS = 20;
 const MAX_COUNT = 50;
@@ -35,12 +42,12 @@ async function publicId(token) {
   return [...new Uint8Array(digest)].slice(0, 8).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-function versionAllowed(version) {
+function versionAllowed(version, minimum) {
   const parts = /^(\d+)\.(\d+)\.(\d+)$/.exec(version ?? "");
   if (!parts) return false;
   for (let i = 0; i < 3; i++) {
     const n = Number(parts[i + 1]);
-    if (n !== MIN_VERSION[i]) return n > MIN_VERSION[i];
+    if (n !== minimum[i]) return n > minimum[i];
   }
   return true;
 }
@@ -60,9 +67,11 @@ async function submitScore(request, env) {
   if (typeof token !== "string" || !TOKEN.test(token)) return error(400, "bad token");
   if (typeof name !== "string" || !NAME.test(name) || name.trim() !== name) return error(400, "bad name");
   if (!Number.isInteger(mode) || mode < 0 || mode >= MODES) return error(400, "bad mode");
-  if (!Number.isSafeInteger(score) || score < 0 || score > MAX_SCORE) return error(400, "bad score");
+  if (!Number.isSafeInteger(score) || score < 0 || score > MAX_SCORE[mode]) return error(400, "bad score");
   if (!INPUTS.has(input)) return error(400, "bad input");
-  if (!versionAllowed(version)) return error(426, "please update Geometry Wars 2 PC Plus");
+  if (!versionAllowed(version, mode >= GAME_MODES ? MASTER_MIN_VERSION : MIN_VERSION)) {
+    return error(426, "please update Geometry Wars 2 PC Plus");
+  }
 
   const id = await publicId(token);
   const now = Math.floor(Date.now() / 1000);

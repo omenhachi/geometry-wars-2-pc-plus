@@ -43,6 +43,7 @@
 #include "custom_modes.h"
 #include "demo_file.h"
 #include "demo_library.h"
+#include "master_page.h"
 #include "game_files.h"
 #include "guest_memory.h"
 #include "launcher_cvars.h"
@@ -178,8 +179,10 @@ bool Watching() {
   return g_watching.load(std::memory_order_relaxed);
 }
 
-bool CountsOfficially() {
-  return !Watching() && !custom_modes::IsActive();
+boards::Counting HowRunCounts() {
+  if (Watching()) return boards::Counting::kNone;
+  if (custom_modes::IsActive()) return custom_modes::OwnBoard() ? boards::Counting::kOwnBoard : boards::Counting::kNone;
+  return boards::Counting::kOfficial;
 }
 
 WatchResult Watch(const std::filesystem::path& path) {
@@ -287,7 +290,7 @@ void BeforeRoundStart(PPCContext& ctx, uint8_t* base) {
     demo.custom_name = custom->mode.name;
     demo.custom_author = custom->mode.author;
     const std::vector<uint8_t> rules = custom_mode::Write(custom->mode.rules);
-    std::copy(rules.begin(), rules.end(), demo.custom_rules.begin());
+    demo.custom_rules = rules;
   }
   demo.port_version = GW2_PORT_VERSION;
   demo.game_sha256 = kSupportedGame.xex_sha256;
@@ -451,13 +454,14 @@ REX_HOOK_RAW(sub_82038300) {
   gw2::custom_modes::StartRequested(ctx, base);
   gw2::custom_modes::EachFrame(base);
   gw2::benchmark::EachFrame(base);
+  gw2::master_page::EachFrame(ctx, base);
 }
 
 // XUserWriteAchievements (count, achievements, overlapped): a replay or a custom mode unlocks nothing. With no achievements the request
 // still completes as usual.
 REX_EXTERN(__imp__sub_820954A0);
 REX_HOOK_RAW(sub_820954A0) {
-  if (!gw2::demo::CountsOfficially()) ctx.r3.u64 = 0;
+  if (!gw2::boards::KeepsProgress(gw2::demo::HowRunCounts())) ctx.r3.u64 = 0;
   __imp__sub_820954A0(ctx, base);
 }
 
@@ -470,7 +474,7 @@ REX_HOOK_RAW(sub_820E8A20) {
   constexpr uint32_t kMaxSettings = 8;
   static uint32_t scratch = 0;
   const uint32_t count = ctx.r4.u32;
-  if (!gw2::demo::CountsOfficially() && count > 0 && count <= kMaxSettings && ctx.r5.u32 != 0) {
+  if (!gw2::boards::KeepsProgress(gw2::demo::HowRunCounts()) && count > 0 && count <= kMaxSettings && ctx.r5.u32 != 0) {
     if (scratch == 0) scratch = rex::system::kernel_memory()->SystemHeapAlloc(kSettingSize * kMaxSettings);
     if (scratch != 0) {
       std::memcpy(base + scratch, base + ctx.r5.u32, kSettingSize * count);

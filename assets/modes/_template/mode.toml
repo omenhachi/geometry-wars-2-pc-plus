@@ -11,8 +11,11 @@ description = "One line about what makes it different."
 base = "evolved"
 
 [rules]
-# lives = 1               # ships at the start, 1 to 99
+# lives = 1               # ships in all, 1 to 99 (1: a single ship); works in Deadline too
+# extra_lives = false     # no extra ships at score milestones
 # bombs = 0               # bombs at the start, 0 to 99
+# extra_bombs = false     # no extra bombs at score milestones
+# bonus_bombs_at = [100000, 1000000, 10000000, 100000000]   # a bomb as the score passes each one
 # infinite_bombs = true   # bombs never run out
 # time_limit = 120        # seconds, 10 to 3600; the round ends when it runs out
 # game_speed = 1.2        # 0.5 to 1.5; everything moves this much faster (or slower)

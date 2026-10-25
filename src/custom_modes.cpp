@@ -33,11 +33,15 @@
 #include <rex/logging.h>
 #include <rex/ui/keybinds.h>
 
+#include "boards.h"
 #include "demo.h"
+#include "master_page.h"
 #include "guest_memory.h"
 #include "player_records.h"
 
 REXCVAR_DEFINE_BOOL(gw2_custom_mode_test_keys, false, "Geometry Wars", "F8 plays the first custom mode (for testing)");
+REXCVAR_DEFINE_STRING(gw2_play_mode, "", "Geometry Wars",
+                      "A custom mode's folder name to play as soon as the menus are up (for testing and shortcuts)");
 
 REX_EXTERN(sub_8208FFF0);  // switches the screen (here to the in-game HUD, sub_8207CA48)
 REX_EXTERN(sub_82032F90);  // queues the function that sets up the next round
@@ -53,6 +57,8 @@ constexpr uint32_t kTimeLimitOffset = 15848;
 constexpr uint32_t kModeOffset = 15844;
 constexpr uint32_t kLivesOffset = 15860;
 constexpr uint32_t kBombsOffset = 15864;
+// Nonzero: a player is always given another ship (Deadline's setup writes 2). Zero: only while lives remain.
+constexpr uint32_t kRespawnAlwaysOffset = 15836;
 constexpr uint32_t kStepAddress = 0x8219D280;
 constexpr uint32_t kStartState = 0x821993F0;  // 0 or 3 in the menus, 1 as a round begins, 2 in play, 4 at Game Over
 constexpr uint32_t kPlaying = 2;
@@ -78,6 +84,7 @@ struct State {
   std::filesystem::path built_in;
   std::filesystem::path user;
   std::optional<rules::Mode> requested;
+  std::optional<uint32_t> requested_board;
   std::optional<Current> active;
   std::vector<Touched> touched;    // fields a custom mode changed, with what they held
   std::optional<uint32_t> step;    // the step as it was before this tick's scaling
@@ -180,6 +187,10 @@ void ScanFolder(const std::filesystem::path& root, bool built_in, const std::map
         entry.id = rules::Id(parsed.mode->rules);
         if (const auto best = bests.find(entry.id); best != bests.end()) entry.best = best->second;
         entry.mode = std::move(parsed.mode);
+        // The Master modes' names are PC Plus's own: a mode file of the same name is marked as custom.
+        for (const Master& master : Masters()) {
+          if (entry.mode->name == master.mode.name) entry.mode->name += " (custom)";
+        }
       }
     }
     out.push_back(std::move(entry));
@@ -198,7 +209,10 @@ void AfterSetup(uint32_t mode, uint8_t* base) {
   if (!g_state.active) return;
   const rules::Rules& r = g_state.active->mode.rules;
   if (r.base != mode) return;
-  if (r.lives) Touch(base, kSettings + kLivesOffset, uint32_t(*r.lives));
+  if (r.lives) {
+    Touch(base, kSettings + kLivesOffset, uint32_t(r.SpareLives()));
+    Touch(base, kSettings + kRespawnAlwaysOffset, 0);
+  }
   if (r.bombs) Touch(base, kSettings + kBombsOffset, uint32_t(*r.bombs));
   if (r.time_limit) Touch(base, kSettings + kTimeLimitOffset, std::bit_cast<uint32_t>(*r.time_limit));
   REXLOG_INFO("Custom modes: \"{}\" set up on mode {}", g_state.active->mode.name, mode);
@@ -249,6 +263,47 @@ std::vector<Entry> Scan() {
 void Play(const rules::Mode& mode) {
   std::lock_guard lock(g_mutex);
   g_state.requested = mode;
+  g_state.requested_board.reset();
+}
+
+const std::vector<Master>& Masters() {
+  static const std::vector<Master> masters = [] {
+    // Frozen: a change to these rules would make a different board's scores, so it would need a new board.
+    rules::Rules master;
+    master.lives = 1;
+    master.extra_lives = false;
+    master.extra_bombs = false;
+    master.bonus_bombs_at = {100'000, 1'000'000, 10'000'000, 100'000'000};
+    rules::Mode deadline{"Master Deadline", "PC Plus",
+                         "Deadline with a single ship. One death and it's over. A bomb at 100K, 1M, 10M and 100M.",
+                         master};
+    deadline.rules.base = 0;
+    rules::Mode evolved{"Master Evolved", "PC Plus",
+                        "Evolved with a single ship and no extra lives, ever. Bombs only at 100K, 1M, 10M and 100M.",
+                        master};
+    evolved.rules.base = 1;
+    return std::vector<Master>{{boards::kMasterDeadlineBoard, deadline}, {boards::kMasterEvolvedBoard, evolved}};
+  }();
+  return masters;
+}
+
+const Master* MasterFor(uint32_t base) {
+  for (const Master& master : Masters()) {
+    if (master.mode.rules.base == base) return &master;
+  }
+  return nullptr;
+}
+
+void PlayMaster(const Master& master) {
+  std::lock_guard lock(g_mutex);
+  g_state.requested = master.mode;
+  g_state.requested_board = master.board;
+}
+
+std::optional<Board> OwnBoard() {
+  std::lock_guard lock(g_mutex);
+  if (!g_state.active || !g_state.active->board || g_state.active->replay) return std::nullopt;
+  return Board{g_state.active->mode.rules.base, *g_state.active->board};
 }
 
 std::optional<Current> Active() {
@@ -264,6 +319,23 @@ bool InfiniteBombs() {
   return g_infinite_bombs.load(std::memory_order_relaxed);
 }
 
+bool LivesLimited() {
+  std::lock_guard lock(g_mutex);
+  return g_state.active && g_state.active->mode.rules.lives.has_value();
+}
+
+void AfterKillAward(uint8_t* base, uint32_t index, uint32_t lives, uint32_t bombs) {
+  std::lock_guard lock(g_mutex);
+  if (!g_state.active) return;
+  const rules::Rules& r = g_state.active->mode.rules;
+  if (!r.extra_lives && LoadBE32(base, players::LivesAddress(index)) > lives) {
+    StoreBE32(base, players::LivesAddress(index), lives);
+  }
+  if (!r.extra_bombs && LoadBE32(base, players::BombsAddress(index)) > bombs) {
+    StoreBE32(base, players::BombsAddress(index), bombs);
+  }
+}
+
 bool Ticking() {
   return NowMs() - g_last_tick_ms.load(std::memory_order_relaxed) < 250;
 }
@@ -271,6 +343,7 @@ bool Ticking() {
 void ForReplay(std::optional<rules::Mode> mode) {
   std::lock_guard lock(g_mutex);
   g_state.requested.reset();
+  g_state.requested_board.reset();
   if (!mode) {
     SetActive(std::nullopt);
     return;
@@ -300,7 +373,9 @@ void StartRequested(PPCContext& ctx, uint8_t* base) {
     Current current;
     current.id = rules::Id(g_state.requested->rules);
     current.mode = std::move(*g_state.requested);
+    current.board = g_state.requested_board;
     g_state.requested.reset();
+    g_state.requested_board.reset();
     mode = current.mode.rules.base;
     REXLOG_INFO("Custom modes: playing \"{}\" ({}), on mode {}", current.mode.name, current.id, mode);
     SetActive(std::move(current));
@@ -324,6 +399,30 @@ void StartRequested(PPCContext& ctx, uint8_t* base) {
 }
 
 void EachFrame(uint8_t* base) {
+  // --gw2_play_mode: once, at the first menu frame.
+  static bool auto_played = false;
+  if (!auto_played && !REXCVAR_GET(gw2_play_mode).empty() && !UserFolder().empty()) {  // the folders are set up
+    const uint32_t menus = LoadBE32(base, kStartState);
+    if (menus == 0 || menus == 3) {
+      auto_played = true;
+      const std::string wanted = REXCVAR_GET(gw2_play_mode);
+      bool found = false;
+      for (const Master& master : Masters()) {
+        if (wanted != (master.mode.rules.base == 0 ? "master-deadline" : "master-evolved")) continue;
+        PlayMaster(master);
+        found = true;
+      }
+      for (const Entry& entry : found ? std::vector<Entry>{} : Scan()) {
+        if (entry.folder != wanted || !entry.mode) continue;
+        Play(*entry.mode);
+        found = true;
+        break;
+      }
+      if (found) REXLOG_INFO("Custom modes: --gw2_play_mode plays {}", wanted);
+      else REXLOG_WARN("Custom modes: no playable mode in a folder named {}", wanted);
+      rex::FlushLogging();
+    }
+  }
   std::lock_guard lock(g_mutex);
   // Back in the menus after its round, and once its score has been sent (and kept from the boards), the custom mode is
   // over. The Game Over screen is already a menu here, and the score is sent from it, so the send is waited for; a
@@ -333,7 +432,9 @@ void EachFrame(uint8_t* base) {
     REXLOG_INFO("Custom modes: \"{}\" ends; back in the menus", g_state.active->mode.name);
     SetActive(std::nullopt);
   }
-  const bool counts = demo::CountsOfficially();
+  // demo::HowRunCounts asks OwnBoard, which takes this lock: the same answer from the state held here. Only the game's
+  // own modes keep progress: no replay and no custom or Master mode.
+  const bool counts = !demo::Watching() && !g_state.active;
   if (!counts && !g_state.progress) {
     auto& saved = g_state.progress.emplace();
     for (uint32_t user = 0; user < kProfileUsers; ++user) {
@@ -378,6 +479,15 @@ void AfterSimTick(uint8_t* base) {
   if (active.mode.rules.score == rules::Score::kTime) {
     StoreBE64(base, players::kFirstRecordAddress + kScoreOffset, uint64_t(std::floor(active.elapsed * 100.0)));
   }
+  // A bomb for each bonus score passed, from the score after the tick, so a replay gives the same ones.
+  const std::vector<uint64_t>& bonus = active.mode.rules.bonus_bombs_at;
+  const uint64_t score = LoadBE64(base, players::kFirstRecordAddress + kScoreOffset);
+  while (active.next_bonus < bonus.size() && score >= bonus[active.next_bonus]) {
+    const uint32_t bombs = players::BombsAddress(0);
+    StoreBE32(base, bombs, std::min<uint32_t>(LoadBE32(base, bombs) + 1, rules::kMaxBombs));
+    REXLOG_INFO("Custom modes: a bonus bomb at {}", rules::ShortScore(bonus[active.next_bonus]));
+    ++active.next_bonus;
+  }
 }
 
 void OnRoundStart(uint8_t* base) {
@@ -386,6 +496,7 @@ void OnRoundStart(uint8_t* base) {
   g_state.active->elapsed = 0;
   g_state.active->run_over = false;
   g_state.active->score_written = false;
+  g_state.active->next_bonus = 0;
   if (LoadBE32(base, players::kPlayerCountAddress) != 1) {
     SetActive(std::nullopt);  // custom modes are single-player
     return;
@@ -401,7 +512,8 @@ void OnRunEnd(const uint8_t* base) {
     std::lock_guard lock(g_mutex);
     if (!g_state.active) return;
     g_state.active->run_over = true;
-    if (g_state.active->replay || demo::Watching()) return;
+    // A Master mode's best is on its own board (live_fix.cpp), not with the custom modes'.
+    if (g_state.active->replay || demo::Watching() || g_state.active->board) return;
     id = g_state.active->id;
     name = g_state.active->mode.name;
     folder = g_state.user;
@@ -458,6 +570,7 @@ REX_HOOK_RAW(sub_8203BEE8) {
 // The Single Player screen starts a mode: the round that follows is the game's own.
 REX_EXTERN(__imp__sub_8208D410);
 REX_HOOK_RAW(sub_8208D410) {
+  if (gw2::master_page::StartTile(ctx, base)) return;  // a Master tile: its mode starts instead
   gw2::custom_modes::detail::EndForSinglePlayer();
   __imp__sub_8208D410(ctx, base);
 }

@@ -188,7 +188,8 @@ uint32_t ServeEnumeration(uint8_t* base, const LocalLeaderboard& board, const St
 }
 
 bool ServeReadStats(uint8_t* base, const LocalLeaderboard& board, uint32_t xuid_count, uint32_t xuids,
-                    uint32_t spec_count, uint32_t specs, uint32_t size, uint32_t results, const NearbyRows& nearby) {
+                    uint32_t spec_count, uint32_t specs, uint32_t size, uint32_t results, const NearbyRows& nearby,
+                    const ViewSource& source) {
   if (!results || !specs || spec_count > kMaxSpecs) return false;
   std::vector<uint64_t> requested;
   if (xuids) {
@@ -197,14 +198,16 @@ bool ServeReadStats(uint8_t* base, const LocalLeaderboard& board, uint32_t xuid_
   std::vector<StatsView> views;
   std::vector<size_t> requested_rows;
   for (const uint32_t view : ReadSpecViews(base, specs, spec_count)) {
-    StatsView selected = board.Selected(view, requested);
+    const uint32_t from = source ? source(view) : view;
+    StatsView selected = board.Selected(from, requested);
+    selected.id = view;
     requested_rows.push_back(selected.rows.size());
     if (nearby) {
       int64_t mine = 0;
       for (const StatsRow& row : selected.rows) {
         if (row.xuid == board.user().xuid) mine = row.rating;
       }
-      Nearby around = nearby(view, mine);
+      Nearby around = nearby(from, mine);
       for (StatsRow& row : selected.rows) {
         if (row.xuid == board.user().xuid && around.my_rank != 0) row.rank = around.my_rank;
       }

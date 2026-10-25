@@ -31,6 +31,19 @@ const alice = token();
 const bob = token();
 const mode = 5; // King
 
+console.log("master modes");
+{
+  const master = token();
+  let m = await score(master, "Master", 6, 1234);
+  check(m.status === 426, "a Master Deadline score from a build before 0.11.0 is refused");
+  m = await score(master, "Master", 6, 1234, { version: "0.11.0" });
+  check(m.status === 200, "a Master Deadline score from 0.11.0 is accepted");
+  const six = await board(6);
+  check(six.status === 200 && six.body.rows.some((row) => row.score === 1234), "board 6 lists it");
+  check((await board(7)).status === 200, "board 7 (Master Evolved) can be read");
+  check((await score(token(), "Eight", 8, 1, { version: "0.11.0" })).status === 400, "board 8 does not exist");
+}
+
 console.log("submission");
 let r = await score(alice, "Alice", mode, 1000);
 check(r.status === 200 && /^[0-9a-f]{16}$/.test(r.body.id), "a first score is accepted");
@@ -45,7 +58,7 @@ check((await score(token(), "Bad Name!!", mode, 1)).status === 400, "names outsi
 check((await score(token(), "x".repeat(16), mode, 1)).status === 400, "names over 15 characters are refused");
 check((await score(token(), " Lead", mode, 1)).status === 400, "names with outer spaces are refused");
 check((await score("abc", "Eve", mode, 1)).status === 400, "malformed tokens are refused");
-check((await score(token(), "Eve", 6, 1)).status === 400, "unknown modes are refused");
+check((await score(token(), "Eve", 8, 1)).status === 400, "unknown modes are refused");
 check((await score(token(), "Eve", mode, -1)).status === 400, "negative scores are refused");
 check((await score(token(), "Eve", mode, 1e12)).status === 400, "absurd scores are refused");
 check((await score(token(), "Eve", mode, 1, { input: "aimbot" })).status === 400, "unknown inputs are refused");

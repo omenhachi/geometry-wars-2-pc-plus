@@ -18,6 +18,7 @@
 #include <rex/types.h>
 
 #include "aim_camera.h"
+#include "boards.h"
 #include "cheats.h"
 #include "launcher_cvars.h"
 #include "launcher_settings.h"
@@ -56,7 +57,7 @@ std::filesystem::path g_token_file;  // guarded by g_mutex
 std::string g_token;                 // guarded by g_mutex; created on first use
 uint64_t g_local_xuid = 0;
 // Every view's board for the players around you, fetched in the background (under g_mutex).
-constexpr uint32_t kViews = 6;
+constexpr uint32_t kViews = boards::kBoards;
 std::array<std::optional<live::StatsView>, kViews> g_nearby;
 std::atomic<bool> g_nearby_fetching{false};
 std::atomic<bool> g_nearby_fresh{false};  // fetched since this start
@@ -293,21 +294,29 @@ std::optional<live::StatsView> NearbyBoard(uint32_t view) {
 void RefreshNearby() {
   if (!Enabled() || g_nearby_fetching.exchange(true)) return;
   std::thread([] {
+    // Every board is asked for, and the refresh counts once the game's own are in: a server without the Master
+    // boards yet answers those with an error, which must not make every read ask again.
     uint32_t fetched = 0;
+    bool game_boards = true;
     for (uint32_t view = 0; view < kViews; ++view) {
       auto board = FetchBoard(view, 1, kMaxRows);
-      if (!board) break;
+      if (!board) {
+        if (view < boards::kGameBoards) game_boards = false;
+        continue;
+      }
       std::lock_guard lock(g_mutex);
       g_nearby[view] = std::move(*board);
       ++fetched;
     }
-    if (fetched == kViews) {
+    if (game_boards) {
       g_nearby_fresh = true;
       std::vector<live::StatsView> boards;
       std::filesystem::path file;
       {
         std::lock_guard lock(g_mutex);
-        for (const auto& board : g_nearby) boards.push_back(*board);
+        for (const auto& board : g_nearby) {
+          if (board) boards.push_back(*board);
+        }
         file = NearbyFile();
       }
       const std::string text = FormatNearby(boards);
@@ -320,7 +329,8 @@ void RefreshNearby() {
       std::filesystem::rename(staging, file, error);
       if (error) std::filesystem::remove(staging, error);
     }
-    REXLOG_INFO("Online leaderboards: players around you {}", fetched == kViews ? "updated" : "not updated");
+    REXLOG_INFO("Online leaderboards: players around you {} ({} of {} boards)", game_boards ? "updated" : "not updated",
+                fetched, kViews);
     g_nearby_fetching = false;
   }).detach();
 }

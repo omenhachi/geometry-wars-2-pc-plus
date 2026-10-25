@@ -40,8 +40,11 @@ Every rule is optional. A rule you leave out stays as the base mode has it.
 
 | Rule | Range | What it does |
 |---|---|---|
-| `lives` | 1 to 99 | Ships at the start of the round. |
+| `lives` | 1 to 99 | Ships in all: `1` is a single ship, with none to spare. Also works in Deadline, which then ends on your last death instead of giving you ships forever. |
+| `extra_lives` | true / false | `false`: the game never gives extra ships at score milestones (Evolved normally does). |
 | `bombs` | 0 to 99 | Bombs at the start of the round. |
+| `extra_bombs` | true / false | `false`: the game never gives extra bombs at score milestones. |
+| `bonus_bombs_at` | up to 8 scores | A bomb each time your score passes one of these, like `[100000, 1000000, 10000000, 100000000]`. |
 | `infinite_bombs` | true / false | Bombs are never used up. |
 | `time_limit` | 10 to 3600 | Seconds. The round ends when it runs out, in any mode. The tag at the bottom counts down. |
 | `game_speed` | 0.5 to 1.5 | Everything runs this much faster or slower, timers included: Deadline at 1.3 is over in 2:18. |
@@ -58,6 +61,7 @@ The game only knows its six modes, so a custom mode is its base mode's round wit
 
 - Each mode's setup function writes a few settings (starting lives and bombs, a time limit) into one block as a round is prepared. A custom mode's values are written straight after it. Before any setup runs, whatever a custom mode changed is put back, so an official round always finds the settings as the game left them.
 - Without gates, the enemy spawner skips its gate pair.
+- The game gives extra ships and bombs only from its kill award, so without them, whatever that award adds is taken back straight away. Bonus bombs are given after each game tick, from the score.
 - Game speed scales the game's step for each tick. Replays record the scaled steps, so they play back exactly.
 - While a custom mode or a replay plays, the profile's unlocks and unlock progress are held as they were before it began.
 

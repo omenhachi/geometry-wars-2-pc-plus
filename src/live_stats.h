@@ -128,11 +128,14 @@ struct Nearby {
   uint32_t my_rank = 0;
 };
 using NearbyRows = std::function<Nearby(uint32_t view, int64_t my_score)>;
+// The board a requested view is answered from (a Master mode's own, for its base mode's view); answered under the
+// requested view's id, so the game takes the rows as the ones it asked for.
+using ViewSource = std::function<uint32_t(uint32_t view)>;
 
 // XUserReadStats: fills the results buffer with the requested players' rows and then any nearby rows that fit,
 // dropping nearby rows from the last view back. False when the buffer is missing or too small for the requested.
 bool ServeReadStats(uint8_t* base, const LocalLeaderboard& board, uint32_t xuid_count, uint32_t xuids,
                     uint32_t spec_count, uint32_t specs, uint32_t size, uint32_t results,
-                    const NearbyRows& nearby = {});
+                    const NearbyRows& nearby = {}, const ViewSource& source = {});
 
 }  // namespace gw2::live

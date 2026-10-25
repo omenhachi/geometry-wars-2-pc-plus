@@ -135,8 +135,12 @@ void Bytes() {
   r.gates = false;
   r.infinite_bombs = true;
   r.score = Score::kTime;
+  r.extra_lives = false;
+  r.extra_bombs = false;
+  r.bonus_bombs_at = {100'000, 1'000'000, 10'000'000, 100'000'000};
   const auto bytes = Write(r);
-  CHECK(bytes.size() == kRulesBytes);
+  CHECK(bytes.size() == kRulesBytes + 1 + 4 * 8);
+  CHECK(bytes.size() <= kMaxRulesBytes);
   const auto back = Read(bytes);
   CHECK(back && *back == r);
   CHECK(Read(Write(Rules{})) == Rules{});
@@ -152,6 +156,75 @@ void Bytes() {
   auto short_bytes = bytes;
   short_bytes.pop_back();
   CHECK(!Read(short_bytes));
+}
+
+// Rules a version 1 can hold are still written as version 1, so the ids of existing modes don't change; lives are
+// ships in all from version 2, and a version 1 replay's lives keep their old meaning (spare ships).
+void Versions() {
+  Rules pure;
+  pure.base = 4;
+  pure.gates = false;
+  pure.score = Score::kTime;
+  CHECK(Write(pure).size() == kRulesBytes && Write(pure)[0] == 1);
+
+  Rules one;
+  one.base = 1;
+  one.lives = 1;
+  CHECK(Write(one)[0] == 2);
+  CHECK(one.SpareLives() == 0);
+  const auto again = Read(Write(one));
+  CHECK(again && !again->legacy_spare_lives && again->SpareLives() == 0);
+
+  auto old = Write(one);
+  old[0] = 1;
+  old.resize(kRulesBytes);
+  const auto legacy = Read(old);
+  CHECK(legacy && legacy->legacy_spare_lives && legacy->SpareLives() == 1);
+  CHECK(Write(*legacy) == old);
+  CHECK(Chips(*legacy)[0] == "2 lives");
+  CHECK(Chips(one)[0] == "1 life");
+
+  // A version 2 block that version 1 could have held is refused: it is never written.
+  auto padded = Write(pure);
+  padded[0] = 2;
+  padded.push_back(0);
+  CHECK(!Read(padded));
+  // Bonus scores must ascend.
+  Rules bonus;
+  bonus.bonus_bombs_at = {5, 9};
+  auto swapped = Write(bonus);
+  std::swap(swapped[kRulesBytes + 1], swapped[kRulesBytes + 9]);
+  CHECK(!Read(swapped));
+}
+
+void NewRules() {
+  const ParseResult r = Parse(R"(format = 1
+name = "Master Evolved"
+base = "evolved"
+[rules]
+lives = 1
+extra_lives = false
+extra_bombs = false
+bonus_bombs_at = [100000000, 100000, 10000000, 1000000, 100000]
+)");
+  CHECK(r.errors.empty());
+  CHECK(r.mode && r.mode->rules.bonus_bombs_at == std::vector<uint64_t>({100'000, 1'000'000, 10'000'000, 100'000'000}));
+  CHECK(r.mode && !r.mode->rules.extra_lives && !r.mode->rules.extra_bombs);
+  const auto chips = r.mode ? Chips(r.mode->rules) : std::vector<std::string>{};
+  CHECK(chips.size() == 4 && chips[0] == "1 life" && chips[1] == "No extra lives" && chips[2] == "No milestone bombs" &&
+        chips[3] == "Bombs at 100K 1M 10M 100M");
+
+  const ParseResult bad = Parse("format = 1\nname = \"x\"\nbase = \"evolved\"\n[rules]\nbonus_bombs_at = 100\n");
+  CHECK(!bad.mode && HasError(bad, 5, "list of scores"));
+  const ParseResult zero = Parse("format = 1\nname = \"x\"\nbase = \"evolved\"\n[rules]\nbonus_bombs_at = [0, 5]\n");
+  CHECK(!zero.mode && HasError(zero, 5, "whole numbers"));
+  const ParseResult many = Parse("format = 1\nname = \"x\"\nbase = \"evolved\"\n[rules]\nbonus_bombs_at = [1,2,3,4,5,6,7,8,9,10]\n");
+  CHECK(many.mode && many.mode->rules.bonus_bombs_at.size() == kMaxBonusBombs && many.warnings.size() == 1);
+  const ParseResult typo = Parse("format = 1\nname = \"x\"\nbase = \"evolved\"\n[rules]\nextra_live = false\n");
+  CHECK(HasError(typo, 5, "did you mean \"extra_lives\""));
+
+  CHECK(ShortScore(100'000) == "100K" && ShortScore(1'000'000) == "1M" && ShortScore(2'500'000) == "2.5M");
+  CHECK(ShortScore(999) == "999" && ShortScore(1'500) == "1.5K" && ShortScore(3'000'000'000) == "3B");
 }
 
 void Text() {
@@ -172,6 +245,8 @@ int main() {
   Clamping();
   Ids();
   Bytes();
+  Versions();
+  NewRules();
   Text();
   std::printf("custom_mode_rules_tests: %d checks, %d failures\n", g_checks, g_failures);
   return g_failures == 0 ? 0 : 1;

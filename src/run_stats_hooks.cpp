@@ -113,9 +113,11 @@ void OnDeath(const uint8_t* base, uint32_t player, bool final_life) {
   if (!LocalPlayer(base, player)) return;
   std::lock_guard lock(g_mutex);
   g_run.Death(Elapsed(base));
-  // Deadline has unlimited lives, so every death there looks like the last: its runs end on the timer. Other modes can
-  // have a timer too (a custom mode's time limit), and their last death still ends the run.
-  if (final_life && LoadBE32(base, king::kModeAddress) != deadline_rank::kDeadlineMode) {
+  // Deadline has unlimited lives, so every death there looks like the last: its runs end on the timer, unless a
+  // custom mode sets its ships. Other modes can have a timer too (a custom mode's time limit), and their last death
+  // still ends the run.
+  if (final_life &&
+      (LoadBE32(base, king::kModeAddress) != deadline_rank::kDeadlineMode || custom_modes::LivesLimited())) {
     REXLOG_INFO("Run stats: final life lost at {:.1f}s", Elapsed(base));
     Report("final life lost", base, true);
   }

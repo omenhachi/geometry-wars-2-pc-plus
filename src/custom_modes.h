@@ -5,7 +5,7 @@
 // changes: its setup function's settings, rewritten as it runs, and hooks that hold the rest (gates, speed, score).
 //
 // A custom run never counts officially: nothing is sent to the online boards, kept on the local boards, unlocked or
-// saved to the profile (demo::CountsOfficially). Its best is kept per mode, by the mode's id. It ends when the game is
+// saved to the profile (demo::HowRunCounts), except that a Master mode's score goes to its own board. Its best is kept per mode, by the mode's id. It ends when the game is
 // back in its menus after its round (or the Single Player screen starts one), so the next run is always the game's own.
 //
 // Modes come from two folders: the examples beside the executable (assets/modes, replaced by updates) and the
@@ -45,18 +45,40 @@ std::vector<Entry> Scan();
 // Starts `mode` from the menus, on the game thread's next pad poll.
 void Play(const custom_mode::Mode& mode);
 
+// The Master modes: PC Plus's own modes, with their own leaderboards (boards.h). Their rules are here, not in a mode
+// file, so a score on their board was made by these rules; they are frozen, and a change would be a new board.
+struct Master {
+  uint32_t board;
+  custom_mode::Mode mode;
+};
+const std::vector<Master>& Masters();
+// The Master mode of a base mode (0 Deadline, 1 Evolved), or none.
+const Master* MasterFor(uint32_t base);
+void PlayMaster(const Master& master);
+
+// The board a Master mode's score goes to, and its base mode (whose score write it replaces).
+struct Board {
+  uint32_t base;
+  uint32_t board;
+};
+std::optional<Board> OwnBoard();
+
 struct Current {
   custom_mode::Mode mode;
   std::string id;
+  std::optional<uint32_t> board;  // a Master mode: its own board
   bool replay = false;      // a replay of a custom run is playing
   uint32_t round = 0;       // counts the rounds begun in this mode, for the title card
   double elapsed = 0;       // game seconds in play this round
   bool run_over = false;    // the final life is lost or the time is up
   bool score_written = false;  // the game has sent this round's score (and it was kept from the boards)
+  size_t next_bonus = 0;       // the next of the rules' bonus_bombs_at this round
 };
 std::optional<Current> Active();
 bool IsActive();
 bool InfiniteBombs();
+// The rules set the ships in all, so a mode with unlimited lives of its own (Deadline) ends on its last death too.
+bool LivesLimited();
 // The game simulated a tick a moment ago: a round is in play, not paused and not in the menus.
 bool Ticking();
 
@@ -79,6 +101,9 @@ void OnRoundStart(uint8_t* base);
 void OnRunEnd(const uint8_t* base);
 // The game sent a finished round's score (XSessionWriteStats, live_fix.cpp), which was not kept or sent.
 void OnScoreWritten();
+// The game's kill award (sub_820408D0, player_rumble_hooks.cpp) has run for player record `index`, which had `lives`
+// and `bombs` before it: the only path that gives extra lives and bombs, so rules without them take them back here.
+void AfterKillAward(uint8_t* base, uint32_t index, uint32_t lives, uint32_t bombs);
 
 void RegisterKeys();
 

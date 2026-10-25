@@ -4,6 +4,7 @@
 
 #include "custom_modes_menu.h"
 #include "hud_colour_hooks.h"
+#include "master_page.h"
 #include "replays_menu.h"
 
 namespace {
@@ -25,6 +26,7 @@ REX_HOOK_RAW(sub_820900A8) {
     ctx.r3.u64 = kExitGameTextId;
   }
   const PPCContext row = ctx;
+  if (gw2::master_page::SkipRow(row)) return;  // the Master page has two tiles
   __imp__sub_820900A8(ctx, base);
   gw2::AfterMenuRowAdded(row, base);
   gw2::replays_menu::AfterMenuRowAdded(row, base);

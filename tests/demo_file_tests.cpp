@@ -199,7 +199,7 @@ void TestCustom() {
   demo.flags = kFlagCustom;
   demo.custom_name = "Pure Pacifism";
   demo.custom_author = "Light";
-  for (size_t i = 0; i < kCustomRulesSize; ++i) demo.custom_rules[i] = uint8_t(i * 7);
+  for (size_t i = 0; i < 57; ++i) demo.custom_rules.push_back(uint8_t(i * 7));
   const auto bytes = Write(demo);
   const ReadResult read = Read(bytes);
   CHECK(read.error == ReadError::kNone && read.demo && Same(*read.demo, demo));
@@ -217,6 +217,23 @@ void TestCustom() {
   Demo unknown = Sample();
   unknown.flags = 8;
   CHECK(Read(Write(unknown)).error == ReadError::kDamaged);
+
+  // Format 2 kept a custom mode's rules in exactly kCustomRulesSize bytes, with no length before them.
+  Demo two = demo;
+  two.custom_rules.assign(kCustomRulesSize, 9);
+  auto v2 = Write(two);
+  PutU32(v2, 8, 2);
+  const size_t length_at = 8 + 4 + 4 + (1 + two.port_version.size()) + (1 + two.game_sha256.size()) +
+                           (1 + two.player_name.size()) + 4 + 8 + 8 + 4 + (1 + two.custom_name.size()) +
+                           (1 + two.custom_author.size());
+  CHECK(v2[length_at] == kCustomRulesSize);
+  v2.erase(v2.begin() + std::ptrdiff_t(length_at));
+  const ReadResult format2 = Read(v2);
+  CHECK(format2.error == ReadError::kNone && format2.demo && Same(*format2.demo, two));
+
+  Demo empty_rules = demo;
+  empty_rules.custom_rules.clear();
+  CHECK(Read(Write(empty_rules)).error == ReadError::kDamaged);
 }
 
 int main() {

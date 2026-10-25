@@ -120,7 +120,9 @@ std::vector<uint8_t> Write(const Demo& demo) {
   if (demo.flags & kFlagCustom) {
     w.String(demo.custom_name);
     w.String(demo.custom_author);
-    w.Bytes(demo.custom_rules.data(), kCustomRulesSize);
+    const size_t n = std::min(demo.custom_rules.size(), kMaxCustomRulesSize);
+    w.U8(uint8_t(n));
+    w.Bytes(demo.custom_rules.data(), n);
   }
   w.Bytes(demo.twister.data(), kTwisterSize);
   w.U32(demo.rand_seed);
@@ -153,7 +155,7 @@ ReadResult Read(std::span<const uint8_t> bytes) {
   }
   const uint32_t version = r.U32();
   if (r.ok() && version > kFormatVersion) return {std::nullopt, ReadError::kNewerFormat};
-  if (r.ok() && version != 1 && version != kFormatVersion) return {std::nullopt, ReadError::kDamaged};
+  if (r.ok() && (version < 1 || version > kFormatVersion)) return {std::nullopt, ReadError::kDamaged};
   Demo demo;
   demo.replay_rules = r.U32();
   if (r.ok() && demo.replay_rules != kReplayRules) return {std::nullopt, ReadError::kOtherRules};
@@ -168,7 +170,10 @@ ReadResult Read(std::span<const uint8_t> bytes) {
   if (demo.flags & kFlagCustom) {
     demo.custom_name = r.String();
     demo.custom_author = r.String();
-    r.Bytes(demo.custom_rules.data(), kCustomRulesSize);
+    const size_t n = version == 2 ? kCustomRulesSize : r.U8();
+    if (n > kMaxCustomRulesSize || n == 0) r.Fail();
+    demo.custom_rules.resize(r.ok() ? n : 0);
+    r.Bytes(demo.custom_rules.data(), demo.custom_rules.size());
   }
   r.Bytes(demo.twister.data(), kTwisterSize);
   demo.rand_seed = r.U32();

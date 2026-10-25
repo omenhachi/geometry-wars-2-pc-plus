@@ -9,6 +9,8 @@
 
 #include <rex/ppc/context.h>
 
+#include "boards.h"
+
 namespace gw2::demo {
 
 // Where replays are saved: <user_data>/demos.
@@ -18,8 +20,9 @@ std::filesystem::path Folder();
 // True from the moment a replay starts until the game is back in its menus after it.
 bool Watching();
 
-// False while a replay or a custom mode plays (custom_modes.h): nothing of it is kept, sent, unlocked or saved.
-bool CountsOfficially();
+// How the run being played counts (boards.h): a replay or a custom mode not at all, a Master mode on its own board
+// only, and anything else officially.
+boards::Counting HowRunCounts();
 
 enum class WatchResult { kStarted, kUnreadable, kNewer, kOtherVersion };
 // Plays a saved replay: its mode starts from the menus on the next frame.

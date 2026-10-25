@@ -31,7 +31,7 @@ struct Entry {
   uint32_t ticks = 0;
   bool starred = false;
   std::string custom_name;  // a custom mode's run (custom_modes.h); empty for the game's own modes
-  std::array<uint8_t, demo_file::kCustomRulesSize> custom_rules{};
+  std::vector<uint8_t> custom_rules;
 };
 
 // The files to delete so only the newest `recent`, each mode's best and the starred remain.

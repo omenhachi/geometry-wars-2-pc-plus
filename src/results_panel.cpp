@@ -16,6 +16,7 @@
 #include <rex/cvar.h>
 #include <rex/ui/imgui_dialog.h>
 
+#include "custom_modes.h"
 #include "hud_colour.h"
 #include "launcher_cvars.h"
 #include "line_font.h"
@@ -164,6 +165,9 @@ class ResultsPanel final : public rex::ui::ImGuiDialog {
     if (!shown_) {
       shown_ = true;
       appeared_ = now;
+      // A Master mode's run is named as the mode, not its base mode; decided once as the panel appears.
+      const std::optional<custom_modes::Current> active = custom_modes::Active();
+      title_ = active && active->board ? active->mode.name : ModeName(run->mode());
     }
     const float age = float(now - appeared_);
     const float appear = std::clamp(age / 0.35f, 0.0f, 1.0f);
@@ -184,7 +188,7 @@ class ResultsPanel final : public rex::ui::ImGuiDialog {
 
     const float pad = u * 3.0f;
     const float title = u * 4.2f;
-    line_font::Draw(draw, ImVec2(p0.x + pad, p0.y + pad), title, ModeName(run->mode()), Theme(0.0, ease),
+    line_font::Draw(draw, ImVec2(p0.x + pad, p0.y + pad), title, title_, Theme(0.0, ease),
                     std::max(1.2f, title * 0.06f));
     const std::string final_score = Grouped(run->final_score());
     const float fw = line_font::Width(final_score, title);
@@ -351,6 +355,7 @@ class ResultsPanel final : public rex::ui::ImGuiDialog {
 
   bool shown_ = false;
   double appeared_ = 0;
+  std::string title_;
 };
 
 }  // namespace
