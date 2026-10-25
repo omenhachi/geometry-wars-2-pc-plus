@@ -65,9 +65,31 @@ bool Succeeded(PPCContext& ctx, uint8_t* base, uint32_t overlapped) {
   return status == kErrorSuccess;
 }
 
+// The board the game's leaderboard screen last asked for, for its gamercard button (see sub_82094DF0 below).
+std::atomic<uint32_t> g_shown_board{0};
+
+// The leaderboard screen's rows (40 bytes each, the player's xuid first), how many there are and the one selected.
+constexpr uint32_t kLeaderboardRows = 0x821EA128;
+constexpr uint32_t kLeaderboardRowSize = 40;
+constexpr uint32_t kLeaderboardSelected = 0x821EB5C0;
+constexpr uint32_t kLeaderboardRowCount = 0x821EB5C4;
+constexpr uint32_t kViewGamerCardTextId = 50;  // "View Gamer Card", the button's name
+
+// The xuid of the leaderboard screen's selected row, or 0.
+uint64_t SelectedLeaderboardXuid(const uint8_t* base) {
+  const int32_t selected = int32_t(LoadBE32(base, kLeaderboardSelected));
+  const int32_t count = int32_t(LoadBE32(base, kLeaderboardRowCount));
+  if (selected < 0 || selected >= count || count > 100) return 0;
+  return LoadBE64(base, kLeaderboardRows + uint32_t(selected) * kLeaderboardRowSize);
+}
+
 bool CreateStatsEnumerator(PPCContext& ctx, uint8_t* base, StatsQuery::Kind kind) {
   Services* services = Active();
   if (!services || ctx.r3.u32 != 0) return false;
+  if (ctx.r6.u32 && ctx.r7.u32) {
+    const std::vector<uint32_t> views = ReadSpecViews(base, ctx.r7.u32, ctx.r6.u32);
+    if (!views.empty()) g_shown_board.store(views.front(), std::memory_order_relaxed);
+  }
 
   const bool ranked = kind == StatsQuery::Kind::kRanked;
   const uint64_t pivot = ranked ? ctx.r4.u32 : ctx.r4.u64;
@@ -288,6 +310,20 @@ struct RenamedText {
   uint32_t guest = 0;  // the copy in guest memory, made on first use
 };
 RenamedText g_renamed_text[] = {{0x29, "Nearby"}, {0x67, "Nearby Players"}, {0x28, "Next Player"}};
+// On a leaderboard row with a replay, the gamercard button watches it instead.
+RenamedText g_watch_replay_text{kViewGamerCardTextId, "Watch Replay"};
+
+uint32_t GuestCopy(uint8_t* base, RenamedText& renamed) {
+  if (renamed.guest == 0) {
+    // A whole slot, as the game's are, in case anything writes into it.
+    const uint32_t slot = rex::system::kernel_memory()->SystemHeapAlloc(520);
+    if (slot == 0) return 0;
+    std::memset(base + slot, 0, 520);
+    std::memcpy(base + slot, renamed.text, std::strlen(renamed.text));
+    renamed.guest = slot;
+  }
+  return renamed.guest;
+}
 
 REX_EXTERN(__imp__sub_820826D8);
 REX_HOOK_RAW(sub_820826D8) {
@@ -305,19 +341,32 @@ REX_HOOK_RAW(sub_820826D8) {
     return;
   }
   __imp__sub_820826D8(ctx, base);
-  for (RenamedText& renamed : g_renamed_text) {
-    if (renamed.id != id || !online::Enabled()) continue;
-    if (renamed.guest == 0) {
-      // A whole slot, as the game's are, in case anything writes into it.
-      const uint32_t slot = rex::system::kernel_memory()->SystemHeapAlloc(520);
-      if (slot == 0) return;
-      std::memset(base + slot, 0, 520);
-      std::memcpy(base + slot, renamed.text, std::strlen(renamed.text));
-      renamed.guest = slot;
-    }
-    ctx.r3.u64 = renamed.guest;
+  if (id == kViewGamerCardTextId && online::Enabled() &&
+      online::ReplayIdFor(g_shown_board.load(std::memory_order_relaxed), SelectedLeaderboardXuid(base))) {
+    if (const uint32_t text = GuestCopy(base, g_watch_replay_text)) ctx.r3.u64 = text;
     return;
   }
+  for (RenamedText& renamed : g_renamed_text) {
+    if (renamed.id != id || !online::Enabled()) continue;
+    if (const uint32_t text = GuestCopy(base, renamed)) ctx.r3.u64 = text;
+    return;
+  }
+}
+
+// The leaderboard screen's gamercard button (user r3, the selected row's xuid r4): on a row with a replay, it is
+// downloaded and watched instead.
+REX_EXTERN(__imp__sub_82094DF0);
+REX_HOOK_RAW(sub_82094DF0) {
+  const uint32_t board = g_shown_board.load(std::memory_order_relaxed);
+  if (online::Enabled() && !gw2::demo::Watching()) {
+    if (const std::optional<std::string> id = online::ReplayIdFor(board, ctx.r4.u64)) {
+      REXLOG_INFO("Online replays: watching {}'s replay on board {} from the leaderboard screen", *id, board);
+      gw2::replays_menu::WatchOnline(board, *id);
+      ctx.r3.u64 = kErrorSuccess;
+      return;
+    }
+  }
+  __imp__sub_82094DF0(ctx, base);
 }
 
 // XamShowAchievementsUI(user): opens the achievements overlay instead of ReXGlue's stub.

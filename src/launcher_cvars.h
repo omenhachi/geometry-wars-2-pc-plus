@@ -13,6 +13,7 @@ REXCVAR_DECLARE(bool, gw2_skip_launcher);
 REXCVAR_DECLARE(int32_t, gw2_frame_rate);
 REXCVAR_DECLARE(bool, gw2_vibration);
 REXCVAR_DECLARE(bool, gw2_online_leaderboards);
+REXCVAR_DECLARE(bool, gw2_share_replays);
 REXCVAR_DECLARE(std::string, gw2_player_name);
 REXCVAR_DECLARE(bool, gw2_player_name_asked);
 REXCVAR_DECLARE(std::string, gw2_hud_colour);

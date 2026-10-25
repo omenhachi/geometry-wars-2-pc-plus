@@ -39,6 +39,16 @@ bool SaveFavourites(const std::filesystem::path& folder, const std::set<std::str
 
 }  // namespace
 
+std::optional<std::string> FindRun(const std::vector<Entry>& entries, uint32_t mode, std::string_view custom_name,
+                                   uint64_t score) {
+  const Entry* found = nullptr;
+  for (const Entry& entry : entries) {
+    if (entry.mode != mode || entry.custom_name != custom_name || entry.score != score) continue;
+    if (!found || entry.recorded_at > found->recorded_at) found = &entry;
+  }
+  return found ? std::optional<std::string>(found->file) : std::nullopt;
+}
+
 std::vector<std::string> ToPrune(const std::vector<Entry>& entries, size_t recent) {
   std::vector<const Entry*> by_time;
   for (const Entry& entry : entries) by_time.push_back(&entry);

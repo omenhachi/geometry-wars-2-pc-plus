@@ -32,6 +32,8 @@ REXCVAR_DEFINE_INT32(gw2_frame_rate, gw2::kFrameRateDefault, "Geometry Wars",
 REXCVAR_DEFINE_BOOL(gw2_vibration, gw2::kVibrationDefault, "Geometry Wars", "Controller vibration");
 REXCVAR_DEFINE_BOOL(gw2_online_leaderboards, gw2::kOnlineLeaderboardsDefault, "Geometry Wars",
                     "Send finished runs' scores to the PC Plus leaderboard server and read the Everyone boards from it");
+REXCVAR_DEFINE_BOOL(gw2_share_replays, gw2::kShareReplaysDefault, "Geometry Wars",
+                    "Share the replay of each best that reaches the top 50 of an online board, for others to watch");
 REXCVAR_DEFINE_STRING(gw2_player_name, "", "Geometry Wars", "The name shown on the online leaderboards");
 REXCVAR_DEFINE_BOOL(gw2_player_name_asked, false, "Geometry Wars",
                     "Whether the launcher has asked for a player name (it asks once)");

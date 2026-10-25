@@ -23,3 +23,24 @@ CREATE TABLE IF NOT EXISTS scores (
 );
 
 CREATE INDEX IF NOT EXISTS scores_by_mode ON scores (mode, score DESC, updated ASC);
+
+-- A replay of a player's best run on a board, kept while that best is in the board's top 50 (REPLAY_RANKS in
+-- src/index.js). The file is the game's own .gw2demo, kept in pieces because a D1 row holds at most 2 MB.
+CREATE TABLE IF NOT EXISTS replays (
+  player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+  mode INTEGER NOT NULL,
+  score INTEGER NOT NULL,            -- the best it was recorded for: a newer best makes it stale
+  game_sha256 TEXT NOT NULL,         -- the game package it was recorded on: another package may play out of step
+  size INTEGER NOT NULL,
+  pieces INTEGER NOT NULL,
+  uploaded INTEGER NOT NULL,
+  PRIMARY KEY (player_id, mode)
+);
+
+CREATE TABLE IF NOT EXISTS replay_pieces (
+  player_id TEXT NOT NULL,
+  mode INTEGER NOT NULL,
+  piece INTEGER NOT NULL,
+  bytes BLOB NOT NULL,
+  PRIMARY KEY (player_id, mode, piece)
+);

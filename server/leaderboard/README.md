@@ -9,7 +9,8 @@ Free tier limits (100,000 requests a day, 5 GB of D1 storage) are far beyond wha
 ## What is stored
 
 Per player: a public id (the first 16 hex digits of the SHA-256 of a secret token that stays on the player's PC), the
-display name, and the best score per mode with the input used (mouse, keyboard or controller) and the PC Plus version.
+display name, and the best score per mode with the input used (mouse, keyboard or controller) and the PC Plus version,
+plus the replay of a top 50 best when the player shares it.
 No IP addresses, accounts or other personal data. A player can delete everything with `DELETE /v1/players`.
 
 ## Deploying
@@ -49,6 +50,9 @@ s.score DESC LIMIT 20`.
 - Names: 1 to 15 characters of `A-Z a-z 0-9 space _ . -`, which the game's font can draw.
 - Modes 0 to 5 (Deadline, Evolved, Sequence, Waves, Pacifism, King), whole scores from 0 to 100,000,000,000.
 - One submission per player every 20 seconds.
+- Replays: only of a player's best, while it is in the board's top 50, from 0.12.0 or newer, with no cheats, of the
+  board's own mode (a Master board takes only its Master mode), at most 24 MB. They are kept in 1 MB pieces and go
+  quietly when the best is beaten or falls out of the top 50.
 - Versions older than `MIN_VERSION` in `src/index.js` are refused, in case scoring ever changes.
 
 Scores come from players' own PCs, and the game is open source, so a determined player can fake one. These are

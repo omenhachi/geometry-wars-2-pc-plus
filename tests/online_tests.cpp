@@ -155,9 +155,29 @@ void TestNearbyFile() {
   CHECK(ParseNearby("not a file at all").empty());
 }
 
+// The Online tab's rows: each row's replay, if any, by the game it was recorded on; anything malformed refuses it all.
+void TestTopRuns() {
+  const std::string game(64, 'A');
+  const auto runs = ParseTopRuns(
+      R"({"mode":0,"total":3,"rows":[{"rank":1,"id":"0123456789abcdef","name":"Fast","score":900,"replay":")" + game +
+          R"("},{"rank":2,"id":"1111111111111111","name":"Me","score":500},{"rank":3,"id":"2222222222222222","name":"Slow","score":100}]})",
+      "1111111111111111");
+  CHECK(runs && runs->size() == 3);
+  CHECK(runs && (*runs)[0].game == game && (*runs)[0].name == "Fast" && (*runs)[0].score == 900 && !(*runs)[0].mine);
+  CHECK(runs && (*runs)[1].game.empty() && (*runs)[1].mine);
+  CHECK(runs && (*runs)[2].rank == 3);
+  CHECK(ParseTopRuns(R"({"total":0,"rows":[]})", "")->empty());
+  CHECK(!ParseTopRuns("not json", ""));
+  CHECK(!ParseTopRuns(R"({"rows":[{"rank":1,"id":"0123456789abcdef","name":"X","score":1,"replay":5}]})", ""));
+  CHECK(!ParseTopRuns(R"({"rows":[{"rank":1,"id":"0123456789abcdef","name":"X","score":1,"replay":"zz"}]})", ""));
+  CHECK(!ParseTopRuns(R"({"rows":[{"rank":1,"id":"short","name":"X","score":1}]})", ""));
+  CHECK(!ParseTopRuns(R"({"rows":[{"rank":1,"id":"0123456789abcdef","name":"Bad!","score":1}]})", ""));
+}
+
 }  // namespace
 
 int main() {
+  TestTopRuns();
   TestNames();
   TestXuids();
   TestBoards();

@@ -192,6 +192,11 @@ WatchResult Watch(const std::filesystem::path& path) {
   std::ifstream in(path, std::ios::binary);
   std::vector<uint8_t> bytes(static_cast<size_t>(size));
   if (!in.read(reinterpret_cast<char*>(bytes.data()), std::streamsize(bytes.size()))) return WatchResult::kUnreadable;
+  return Watch(bytes);
+}
+
+WatchResult Watch(const std::vector<uint8_t>& bytes) {
+  if (bytes.size() > file::kMaxFileSize) return WatchResult::kUnreadable;
   file::ReadResult read = file::Read(bytes);
   switch (read.error) {
     case file::ReadError::kNone:
@@ -204,6 +209,8 @@ WatchResult Watch(const std::filesystem::path& path) {
       return WatchResult::kUnreadable;
   }
   if (read.demo->ticks() == 0 || read.demo->mode >= std::size(kModeSetups)) return WatchResult::kUnreadable;
+  // Recorded on another game package, it would play out of step.
+  if (read.demo->game_sha256 != kSupportedGame.xex_sha256) return WatchResult::kOtherGame;
   if (read.demo->flags & file::kFlagCustom) {
     const auto rules = custom_mode::Read(read.demo->custom_rules);
     if (!rules || rules->base != read.demo->mode) return WatchResult::kUnreadable;

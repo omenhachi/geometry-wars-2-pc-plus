@@ -37,6 +37,11 @@ struct Entry {
 // The files to delete so only the newest `recent`, each mode's best and the starred remain.
 std::vector<std::string> ToPrune(const std::vector<Entry>& entries, size_t recent = kRecent);
 
+// The saved replay of a run in `mode` (and custom mode `custom_name`, empty for the game's own) that scored exactly
+// `score`: the newest such file, or none.
+std::optional<std::string> FindRun(const std::vector<Entry>& entries, uint32_t mode, std::string_view custom_name,
+                                   uint64_t score);
+
 // "20261023-053012-pacifism-72826275.gw2demo" (UTC), so names sort by time and say what they hold.
 std::string FileName(uint32_t mode, uint64_t score, int64_t recorded_at);
 std::string_view ModeSlug(uint32_t mode);

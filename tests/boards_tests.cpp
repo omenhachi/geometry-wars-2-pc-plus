@@ -35,6 +35,10 @@ int main() {
   for (uint32_t view = 1; view < kGameBoards; ++view) {
     CHECK(!ScoreBoard(Counting::kOwnBoard, view, 0, kMasterDeadlineBoard));
   }
+  // A board's runs are played in its base mode: the Master boards in Deadline and Evolved.
+  for (uint32_t board = 0; board < kGameBoards; ++board) CHECK(BaseMode(board) == board);
+  CHECK(BaseMode(kMasterDeadlineBoard) == 0);
+  CHECK(BaseMode(kMasterEvolvedBoard) == 1);
   CHECK(KeepsProgress(Counting::kOfficial));
   CHECK(!KeepsProgress(Counting::kOwnBoard));
   CHECK(!KeepsProgress(Counting::kNone));

@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <string>
+#include <vector>
 
 #include <rex/ppc/context.h>
 
@@ -24,9 +25,11 @@ bool Watching();
 // only, and anything else officially.
 boards::Counting HowRunCounts();
 
-enum class WatchResult { kStarted, kUnreadable, kNewer, kOtherVersion };
+enum class WatchResult { kStarted, kUnreadable, kNewer, kOtherVersion, kOtherGame };
 // Plays a saved replay: its mode starts from the menus on the next frame.
 WatchResult Watch(const std::filesystem::path& path);
+// Plays a replay held in memory, as one downloaded from the online boards.
+WatchResult Watch(const std::vector<uint8_t>& bytes);
 
 struct ReplayStatus {
   bool watching = false;

@@ -41,6 +41,9 @@ inline constexpr char kVibrationKey[] = "gw2_vibration";
 inline constexpr bool kVibrationDefault = false;
 inline constexpr char kOnlineLeaderboardsKey[] = "gw2_online_leaderboards";
 inline constexpr bool kOnlineLeaderboardsDefault = true;
+// Shares the replay of each best that reaches a board's top 50 (online_leaderboard.h).
+inline constexpr char kShareReplaysKey[] = "gw2_share_replays";
+inline constexpr bool kShareReplaysDefault = true;
 inline constexpr char kPlayerNameKey[] = "gw2_player_name";
 // Set once the launcher has asked for a player name, whichever way it was answered, so it asks only once.
 inline constexpr char kPlayerNameAskedKey[] = "gw2_player_name_asked";

@@ -94,6 +94,36 @@ std::optional<live::StatsView> FetchBoard(uint32_t view, uint32_t first_rank, ui
 std::optional<live::StatsView> NearbyBoard(uint32_t view);
 void RefreshNearby();
 
+// Online replays. While the player shares them (the launcher's "Share my top runs as replays"), a best that makes a
+// board's top 50 sends its replay too: the very run that was scored, found among the saved replays by its mode and
+// score. The server keeps it while that best is in the top 50, and anyone can watch it from Watch replays.
+inline constexpr size_t kMaxReplayBytes = 24u << 20;  // the server's limit
+
+// A row of a board's top runs: `game` is the game package its replay was recorded on, empty without a replay.
+struct TopRun {
+  uint32_t rank = 0;
+  std::string id;
+  std::string name;
+  int64_t score = 0;
+  std::string game;
+  bool mine = false;
+};
+// The server's board with each row's replay ({total, rows: [{rank, id, name, score, replay?}]}); nullopt when the
+// answer is not one.
+std::optional<std::vector<TopRun>> ParseTopRuns(std::string_view json, std::string_view my_id);
+
+bool SharesReplays();
+// A board's top 50 with their replays. Blocks: call it off the game thread.
+std::optional<std::vector<TopRun>> FetchTopRuns(uint32_t board);
+// A player's replay on a board, as uploaded. Blocks: call it off the game thread.
+std::optional<std::vector<uint8_t>> DownloadReplay(uint32_t board, const std::string& id);
+// The public id of the player shown with `xuid` on `board` (as the boards were last fetched), when their best there
+// has a replay to watch.
+std::optional<std::string> ReplayIdFor(uint32_t board, uint64_t xuid);
+
+// True once, the first time ever a replay of the player's was shared: the game says so then, and never again.
+bool TakeSharedNotice();
+
 // Deletes this PC's player and every score from the server, then calls done(success, message) on another thread.
 void DeleteMyScores(std::function<void(bool, std::string)> done);
 

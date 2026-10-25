@@ -4,6 +4,7 @@
 // newest first, with a tab per mode. A replay starts from the list and a badge shows while it plays.
 
 #include <cstdint>
+#include <string>
 
 #include <rex/ppc/context.h>
 
@@ -19,6 +20,10 @@ inline constexpr uint32_t kWatchReplaysTextId = 0x400;
 uint32_t WatchReplaysText();
 
 void CreateReplaysMenu(rex::ui::ImGuiDrawer* drawer);
+
+// Downloads a player's replay on an online board and plays it (from the game's own leaderboard screen), with a note
+// over the game while it downloads. False when a download is already under way.
+bool WatchOnline(uint32_t board, const std::string& id);
 
 // A main menu row was just added with sub_820900A8 (its arguments in `row`); after Multiplayer this adds Watch replays.
 // Called from the one hook on sub_820900A8 (main_menu_exit_game.cpp).

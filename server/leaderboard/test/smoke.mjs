@@ -88,5 +88,92 @@ check(!r.body.rows.some((row) => row.id === aliceId), "deleted players leave the
 await fetch(`${BASE}/v1/players`, { method: "DELETE", body: JSON.stringify({ token: bob }) });
 check(!(await board(mode)).body.rows.some((row) => row.id === bobId), "the test removes its players");
 
+console.log("replays");
+{
+  const GAME = "6D5D9980A1D17DC74B9CCF540CEC16C2E144E7CEE3A74938E78C237B8ACEEB88";
+  // A .gw2demo's header (src/demo_file.h), then `size` bytes of body the server never reads.
+  const demo = ({ mode, score, flags = 0, custom = null, rules = 1, size = 1000, game = GAME }) => {
+    const parts = [Buffer.from("GW2DEMO\x1a", "latin1")];
+    const u32 = (v) => { const b = Buffer.alloc(4); b.writeUInt32LE(v); parts.push(b); };
+    const u64 = (v) => { const b = Buffer.alloc(8); b.writeBigUInt64LE(BigInt(v)); parts.push(b); };
+    const text = (t) => parts.push(Buffer.from([t.length]), Buffer.from(t));
+    u32(3); u32(rules); text("0.12.0"); text(game); text("Someone"); u32(mode); u64(score); u64(1792891411);
+    u32(flags | (custom ? 2 : 0));
+    if (custom) { text(custom); text("PC Plus"); }
+    parts.push(Buffer.alloc(size, 7));
+    return Buffer.concat(parts);
+  };
+  const upload = (t, board, bytes, version = "0.12.0") =>
+    fetch(`${BASE}/v1/replays/${board}`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${t}`, "x-gw2-version": version, "content-type": "application/octet-stream" },
+      body: bytes,
+    });
+  const wanted = async (t) =>
+    (await (await fetch(`${BASE}/v1/replays/wanted`, { method: "POST", body: JSON.stringify({ token: t }) })).json()).wanted;
+  const players = [];
+  const top = 90_000_000_000;
+
+  const carol = token();
+  players.push(carol);
+  let s = await score(carol, "Carol", 2, top, { version: "0.12.0" });
+  check(s.status === 200 && s.body.replay === true, "a top-50 best asks for its replay");
+  const carolId = s.body.id;
+  check((await wanted(carol)).some((w) => w.mode === 2 && w.score === top), "wanted lists the board");
+  check((await upload(carol, 2, demo({ mode: 2, score: top }), "0.11.0")).status === 426, "builds before 0.12.0 can't upload");
+  check((await upload(carol, 2, demo({ mode: 2, score: top - 1 }))).status === 409, "a replay of another score is refused");
+  check((await upload(carol, 2, demo({ mode: 3, score: top }))).status === 400, "a replay of another mode is refused");
+  check((await upload(carol, 2, demo({ mode: 2, score: top, flags: 1 }))).status === 400, "a run with cheats is refused");
+  check((await upload(carol, 2, demo({ mode: 2, score: top, rules: 2 }))).status === 400, "other replay rules are refused");
+  check((await upload(carol, 2, Buffer.from("not a replay at all"))).status === 400, "something else is refused");
+  check((await upload(carol, 2, demo({ mode: 2, score: top }).subarray(0, 40))).status === 400, "a cut header is refused");
+  const big = demo({ mode: 2, score: top, size: 2_500_000 });
+  const u = await upload(carol, 2, big);
+  check(u.status === 200, "the replay of the best is kept, in pieces");
+  check((await upload(carol, 2, big)).status === 409, "a second copy is not wanted");
+  check(!(await wanted(carol)).some((w) => w.mode === 2), "wanted no longer lists it");
+  let row = (await board(2, "?count=50")).body.rows.find((r) => r.id === carolId);
+  check(row?.replay === GAME, "the board row says there is a replay, and its game");
+  let g = await fetch(`${BASE}/v1/replays/2/${carolId}`);
+  const back = Buffer.from(await g.arrayBuffer());
+  check(g.status === 200 && back.equals(big), "the replay downloads byte for byte");
+  check((await fetch(`${BASE}/v1/replays/2/0000000000000000`)).status === 404, "no replay is a 404");
+
+  // A Master board takes only that Master mode's runs.
+  const dave = token();
+  players.push(dave);
+  s = await score(dave, "Dave", 6, top, { version: "0.12.0" });
+  const daveId = s.body.id;
+  check(s.body.replay === true, "a Master best asks for its replay");
+  check((await upload(dave, 6, demo({ mode: 0, score: top }))).status === 400, "an official Deadline run is not Master");
+  check((await upload(dave, 6, demo({ mode: 0, score: top, custom: "One Life" }))).status === 400, "nor a custom mode");
+  check((await upload(dave, 6, demo({ mode: 0, score: top, custom: "Master Deadline" }))).status === 200, "Master Deadline is");
+
+  // A new best makes the old replay stale.
+  await new Promise((done) => setTimeout(done, 21_000));
+  s = await score(carol, "Carol", 2, top + 5, { version: "0.12.0" });
+  check(s.body.replay === true, "a new best asks again");
+  row = (await board(2, "?count=50")).body.rows.find((r) => r.id === carolId);
+  check(row && !row.replay, "the stale replay is gone from the board");
+  check((await fetch(`${BASE}/v1/replays/2/${carolId}`)).status === 404, "and from downloads");
+  check((await upload(carol, 2, demo({ mode: 2, score: top + 5 }))).status === 200, "the new best's replay is kept");
+
+  // Fifty better runs push it out of the top 50, quietly.
+  for (let i = 0; i < 50; i++) {
+    const t = token();
+    players.push(t);
+    await score(t, `Top ${i}`, 2, top + 100 + i, { version: "0.12.0" });
+  }
+  check((await fetch(`${BASE}/v1/replays/2/${carolId}`)).status === 404, "a replay out of the top 50 goes");
+  const late = token();
+  players.push(late);
+  s = await score(late, "Late", 2, 1, { version: "0.12.0" });
+  check(s.body.replay === false, "a best outside the top 50 asks for nothing");
+
+  const del = await fetch(`${BASE}/v1/players`, { method: "DELETE", body: JSON.stringify({ token: dave }) });
+  check(del.status === 200 && (await fetch(`${BASE}/v1/replays/6/${daveId}`)).status === 404, "deleting removes replays");
+  for (const t of players) await fetch(`${BASE}/v1/players`, { method: "DELETE", body: JSON.stringify({ token: t }) });
+}
+
 console.log(`${checks} checks, ${failures} failures`);
 process.exit(failures ? 1 : 0);

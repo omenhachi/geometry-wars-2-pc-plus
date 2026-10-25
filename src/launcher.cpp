@@ -98,8 +98,12 @@ constexpr char kOnlineLeaderboardsHelp[] =
     "Sends your finished runs' scores to the PC Plus leaderboards and shows other players on the Everyone boards.";
 constexpr char kOnlinePrivacyHelp[] =
     "When on, your player name, your scores, what you played with (mouse, keyboard or controller) and the game version "
-    "are sent to the PC Plus leaderboard server. Runs with cheats on are never sent. No account, email or IP address "
+    "are sent to the PC Plus leaderboard server, with the replays of top 50 runs if you share them. Runs with cheats on "
+    "are never sent. No account, email or IP address "
     "is kept, and you can delete everything below.";
+constexpr char kShareReplaysHelp[] =
+    "When a run sets your best and makes a board's top 50, its replay is sent too, so others can watch it from Watch "
+    "replays. Off: only your score is sent.";
 constexpr char kPlayerNameHelp[] = "Shown on the online boards: up to 15 letters, digits, spaces, _ . or -.";
 
 // The answer to "Delete my online scores", set by the request's thread and shown on the next frame.
@@ -922,6 +926,7 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
     ui.InputText("Player name", kPlayerNameHelp, kPlayerNameKey, "Your name");
     const std::string name = ui.settings().Get(kPlayerNameKey);
     const bool on = ui.settings().GetBool(kOnlineLeaderboardsKey, kOnlineLeaderboardsDefault);
+    if (on) ui.Toggle("Share my top runs as replays", kShareReplaysHelp, kShareReplaysKey, kShareReplaysDefault, "Off", "On");
     if (on && online::ValidName(name).empty()) {
       ui.Help(name.empty() ? "Choose a player name to appear on the online boards."
                            : "That name can't be used: up to 15 letters, digits, spaces, _ . or -.");

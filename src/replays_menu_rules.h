@@ -13,6 +13,8 @@ namespace gw2::replays_menu {
 
 inline constexpr uint16_t kDpadUp = 0x0001;
 inline constexpr uint16_t kDpadDown = 0x0002;
+inline constexpr uint16_t kDpadLeft = 0x0004;
+inline constexpr uint16_t kDpadRight = 0x0008;
 inline constexpr uint16_t kStart = 0x0010;
 inline constexpr uint16_t kBack = 0x0020;
 inline constexpr uint16_t kLeftShoulder = 0x0100;
@@ -23,12 +25,14 @@ inline constexpr uint16_t kX = 0x4000;
 inline constexpr uint16_t kY = 0x8000;
 inline constexpr int kStickDeadzone = 12000;
 
-enum class Action { kNone, kUp, kDown, kPreviousTab, kNextTab, kWatch, kStar, kDelete, kClose };
+enum class Action { kNone, kUp, kDown, kLeft, kRight, kPreviousTab, kNextTab, kWatch, kStar, kDelete, kClose };
 
 struct Pad {
   uint16_t buttons = 0;
   int left_y = 0;   // up is positive
   int right_y = 0;  // the arrow keys reach the right stick
+  int left_x = 0;   // right is positive
+  int right_x = 0;
 };
 
 class ListInput {
@@ -57,16 +61,21 @@ class ListInput {
     Seen& seen = seen_[user];
     const bool up = (pad.buttons & kDpadUp) || pad.left_y > kStickDeadzone || pad.right_y > kStickDeadzone;
     const bool down = (pad.buttons & kDpadDown) || pad.left_y < -kStickDeadzone || pad.right_y < -kStickDeadzone;
+    const bool left = (pad.buttons & kDpadLeft) || pad.left_x < -kStickDeadzone || pad.right_x < -kStickDeadzone;
+    const bool right = (pad.buttons & kDpadRight) || pad.left_x > kStickDeadzone || pad.right_x > kStickDeadzone;
     if (open_ && !seen.noted) {
-      seen = {true, pad.buttons, up, down};
+      seen = {true, pad.buttons, up, down, left, right};
       verdict.hide = true;
       return verdict;
     }
     const uint16_t pressed = uint16_t(pad.buttons & ~seen.buttons);
     seen.buttons = pad.buttons;
     const bool new_up = up && !seen.up, new_down = down && !seen.down;
+    const bool new_left = left && !seen.left, new_right = right && !seen.right;
     seen.up = up;
     seen.down = down;
+    seen.left = left;
+    seen.right = right;
     if (open_) {
       if (pressed & (kB | kBack)) verdict.action = Action::kClose;
       else if (pressed & (kA | kStart)) verdict.action = Action::kWatch;
@@ -76,6 +85,8 @@ class ListInput {
       else if (pressed & kRightShoulder) verdict.action = Action::kNextTab;
       else if (new_up) verdict.action = Action::kUp;
       else if (new_down) verdict.action = Action::kDown;
+      else if (new_left) verdict.action = Action::kLeft;
+      else if (new_right) verdict.action = Action::kRight;
       if (verdict.action == Action::kClose || verdict.action == Action::kWatch) {
         open_ = false;
         holding_ = true;
@@ -98,6 +109,8 @@ class ListInput {
     uint16_t buttons = 0;
     bool up = false;
     bool down = false;
+    bool left = false;
+    bool right = false;
   };
 
   bool open_ = false;

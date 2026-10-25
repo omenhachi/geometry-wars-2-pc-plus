@@ -37,6 +37,38 @@ std::optional<live::StatsView> ParseBoard(std::string_view json, uint32_t view, 
   return board;
 }
 
+std::optional<std::vector<TopRun>> ParseTopRuns(std::string_view json, std::string_view my_id) {
+  const auto root = trg::update::json::Parse(json);
+  if (!root || !root->IsObject()) return std::nullopt;
+  const auto* rows = root->Find("rows");
+  if (!rows || !rows->IsArray()) return std::nullopt;
+  std::vector<TopRun> runs;
+  for (const auto& row : rows->AsArray()) {
+    const auto* rank = row.Find("rank");
+    const auto* id = row.Find("id");
+    const auto* name = row.Find("name");
+    const auto* score = row.Find("score");
+    const auto* replay = row.Find("replay");
+    if (!rank || !rank->AsInt64() || !id || !id->IsString() || !name || !name->IsString() || !score ||
+        !score->AsInt64() || (replay && !replay->IsString())) {
+      return std::nullopt;
+    }
+    TopRun run;
+    run.rank = uint32_t(std::max<int64_t>(0, *rank->AsInt64()));
+    run.id = id->AsString();
+    run.name = ValidName(name->AsString());
+    run.score = *score->AsInt64();
+    if (replay) run.game = replay->AsString();
+    const bool hex = run.game.size() == 64 && run.game.find_first_not_of("0123456789ABCDEF") == std::string::npos;
+    if (XuidForPublicId(run.id) == 0 || run.name.empty() || (!run.game.empty() && !hex) || runs.size() >= kMaxRows) {
+      return std::nullopt;
+    }
+    run.mine = !my_id.empty() && run.id == my_id;
+    runs.push_back(std::move(run));
+  }
+  return runs;
+}
+
 std::string FormatNearby(const std::vector<live::StatsView>& boards) {
   std::string out = "# Players around you on the PC Plus leaderboards, as last fetched. Safe to delete.\n";
   char xuid[17];

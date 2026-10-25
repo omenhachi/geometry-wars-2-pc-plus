@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <chrono>
 #include <cstring>
 #include <fstream>
 #include <iterator>
@@ -20,6 +21,9 @@
 #include "aim_camera.h"
 #include "boards.h"
 #include "cheats.h"
+#include "custom_modes.h"
+#include "demo.h"
+#include "demo_library.h"
 #include "launcher_cvars.h"
 #include "launcher_settings.h"
 #include "updater/json.h"
@@ -60,6 +64,8 @@ uint64_t g_local_xuid = 0;
 constexpr uint32_t kViews = boards::kBoards;
 std::array<std::optional<live::StatsView>, kViews> g_nearby;
 std::atomic<bool> g_nearby_fetching{false};
+// Each board's rows with a replay as last fetched, by the xuid the game shows them with: their public ids.
+std::array<std::vector<std::pair<uint64_t, std::string>>, kViews> g_replay_rows;  // guarded by g_mutex
 std::atomic<bool> g_nearby_fresh{false};  // fetched since this start
 
 // Next to the token, in the player's user data.
@@ -73,18 +79,25 @@ struct Response {
   std::string body;
 };
 
+// A request's body type and headers beyond the defaults, and how much of the answer is read.
+struct SendOptions {
+  std::wstring content_type = L"application/json";
+  std::wstring headers;  // each "Name: value\r\n"
+  size_t max_response = kMaxResponseBytes;
+};
+
 // The release version without a suffix, as the server compares it.
 std::string PortVersion() {
   std::string version = GW2_PORT_VERSION;
   return version.substr(0, version.find('-'));
 }
 
-#if defined(_WIN32)
 std::wstring Widen(std::string_view text) {
   return std::wstring(text.begin(), text.end());  // the URLs and methods here are ASCII
 }
 
-Response Send(const char* method, const std::string& path, const std::string& body) {
+#if defined(_WIN32)
+Response Send(const char* method, const std::string& path, const std::string& body, const SendOptions& options = {}) {
   Response response;
   const std::wstring url = Widen(std::string(kServerUrl) + path);
   URL_COMPONENTS parts{};
@@ -109,10 +122,12 @@ Response Send(const char* method, const std::string& path, const std::string& bo
     const std::wstring verb = Widen(method);
     if (HINTERNET request = WinHttpOpenRequest(connection, verb.c_str(), object.c_str(), nullptr, WINHTTP_NO_REFERER,
                                                WINHTTP_DEFAULT_ACCEPT_TYPES, WINHTTP_FLAG_SECURE)) {
-      const wchar_t* headers = body.empty() ? WINHTTP_NO_ADDITIONAL_HEADERS : L"Content-Type: application/json\r\n";
+      const std::wstring headers =
+          (body.empty() ? std::wstring() : L"Content-Type: " + options.content_type + L"\r\n") + options.headers;
       DWORD status = 0;
       DWORD status_size = sizeof(status);
-      if (WinHttpSendRequest(request, headers, body.empty() ? 0 : DWORD(-1L),
+      if (WinHttpSendRequest(request, headers.empty() ? WINHTTP_NO_ADDITIONAL_HEADERS : headers.c_str(),
+                             headers.empty() ? 0 : DWORD(-1L),
                              body.empty() ? WINHTTP_NO_REQUEST_DATA : const_cast<char*>(body.data()),
                              DWORD(body.size()), DWORD(body.size()), 0) &&
           WinHttpReceiveResponse(request, nullptr) &&
@@ -120,7 +135,11 @@ Response Send(const char* method, const std::string& path, const std::string& bo
                               WINHTTP_HEADER_NAME_BY_INDEX, &status, &status_size, WINHTTP_NO_HEADER_INDEX)) {
         response.status = int(status);
         for (DWORD available = 0; WinHttpQueryDataAvailable(request, &available) && available;) {
-          if (response.body.size() + available > kMaxResponseBytes) break;
+          if (response.body.size() + available > options.max_response) {
+            response.status = 0;  // cut short: no answer
+            response.body.clear();
+            break;
+          }
           const size_t at = response.body.size();
           response.body.resize(at + available);
           DWORD read = 0;
@@ -141,7 +160,7 @@ bool RandomBytes(unsigned char* out, size_t size) {
 }
 #else
 // Not built for Linux yet: it would need its own tested client, so online boards stay local there.
-Response Send(const char*, const std::string&, const std::string&) { return {}; }
+Response Send(const char*, const std::string&, const std::string&, const SendOptions& = {}) { return {}; }
 bool RandomBytes(unsigned char*, size_t) { return false; }
 #endif
 
@@ -204,6 +223,72 @@ void WarnOnce(const std::string& what) {
   }
 }
 
+// Kept beside the token once a replay has been shared: the notice is shown once, ever.
+std::filesystem::path SharedNoticeFile() {
+  return g_token_file.parent_path() / "replay-shared.txt";
+}
+std::atomic<bool> g_notice_pending{false};
+std::atomic<bool> g_asked_for_wanted{false};
+
+// Sends the saved replay of the player's best on `board` that scored `score`. The game saves a finished run's replay
+// on its own thread as the round ends, about when the score goes, so for a run `just_played` it is looked for a few
+// times.
+void ShareReplay(uint32_t board, int64_t score, bool just_played) {
+  const uint32_t mode = boards::BaseMode(board);
+  const custom_modes::Master* master = board >= boards::kGameBoards ? custom_modes::MasterFor(mode) : nullptr;
+  if (board >= boards::kGameBoards && !master) return;
+  const std::string custom_name = master ? master->mode.name : std::string();
+  const std::filesystem::path folder = demo::Folder();
+  std::optional<std::string> file;
+  for (int attempt = 0; attempt < (just_played ? 6 : 1) && !file; ++attempt) {
+    if (attempt) std::this_thread::sleep_for(std::chrono::seconds(1));
+    file = demo_library::FindRun(demo_library::Scan(folder), mode, custom_name, uint64_t(score));
+  }
+  if (!file) {
+    REXLOG_INFO("Online replays: no saved replay of the {} on board {} to share", score, board);
+    return;
+  }
+  std::error_code error;
+  const uintmax_t size = std::filesystem::file_size(folder / *file, error);
+  if (error || size == 0 || size > kMaxReplayBytes) return;
+  std::string bytes(size_t(size), '\0');
+  std::ifstream in(folder / *file, std::ios::binary);
+  if (!in.read(bytes.data(), std::streamsize(bytes.size()))) return;
+  SendOptions options;
+  options.content_type = L"application/octet-stream";
+  options.headers = L"Authorization: Bearer " + Widen(Token()) + L"\r\nX-GW2-Version: " + Widen(PortVersion()) + L"\r\n";
+  const Response response = Send("POST", "/v1/replays/" + std::to_string(board), bytes, options);
+  if (response.status != 200) {
+    REXLOG_INFO("Online replays: the replay of {} on board {} was not kept (HTTP {})", score, board, response.status);
+    return;
+  }
+  REXLOG_INFO("Online replays: shared the replay of {} on board {} ({} bytes)", score, board, bytes.size());
+  std::lock_guard lock(g_mutex);
+  if (!std::filesystem::exists(SharedNoticeFile(), error)) {
+    std::ofstream(SharedNoticeFile()) << "The first replay was shared; the game said so once.\n";
+    g_notice_pending = true;
+  }
+}
+
+// Once a start: the bests the server would take a replay of, sent when this PC still has them.
+void ShareWantedReplays() {
+  if (!SharesReplays() || g_asked_for_wanted.exchange(true)) return;
+  std::thread([] {
+    const Response response = Send("POST", "/v1/replays/wanted", "{\"token\":\"" + Token() + "\"}");
+    if (response.status != 200) return;
+    const auto root = trg::update::json::Parse(response.body);
+    const auto* wanted = root && root->IsObject() ? root->Find("wanted") : nullptr;
+    if (!wanted || !wanted->IsArray()) return;
+    for (const auto& item : wanted->AsArray()) {
+      const auto* board = item.Find("mode");
+      const auto* score = item.Find("score");
+      if (!board || !board->AsInt64() || !score || !score->AsInt64()) continue;
+      if (*board->AsInt64() < 0 || *board->AsInt64() >= int64_t(boards::kBoards)) continue;
+      ShareReplay(uint32_t(*board->AsInt64()), *score->AsInt64(), false);
+    }
+  }).detach();
+}
+
 }  // namespace
 
 void Configure(std::filesystem::path token_file, uint64_t local_xuid) {
@@ -256,6 +341,10 @@ void SubmitScore(uint32_t view, int64_t score) {
     if (response.status == 200) {
       REXLOG_INFO("Online leaderboards: score {} sent for view {}", score, view);
       RefreshNearby();  // so the tiles show where the run landed
+      // A new best in the top 50: the server asks for its replay.
+      const auto root = trg::update::json::Parse(response.body);
+      const auto* replay = root && root->IsObject() ? root->Find("replay") : nullptr;
+      if (replay && replay->IsBool() && replay->AsBool() && SharesReplays()) ShareReplay(view, score, true);
     } else {
       WarnOnce(response.status == 0 ? "the server could not be reached"
                                     : "the server refused a score (HTTP " + std::to_string(response.status) + ")");
@@ -279,8 +368,21 @@ std::optional<live::StatsView> FetchBoard(uint32_t view, uint32_t first_rank, ui
     std::lock_guard lock(g_mutex);
     local_xuid = g_local_xuid;
   }
-  auto board = ParseBoard(response.body, view, PublicId(Token()), local_xuid);
-  if (!board) WarnOnce("the server's board could not be read");
+  const std::string my_id = PublicId(Token());
+  auto board = ParseBoard(response.body, view, my_id, local_xuid);
+  if (!board) {
+    WarnOnce("the server's board could not be read");
+    return board;
+  }
+  if (const auto runs = ParseTopRuns(response.body, my_id); runs && view < kViews) {
+    std::lock_guard lock(g_mutex);
+    auto& rows = g_replay_rows[view];
+    for (const TopRun& run : *runs) {
+      const uint64_t xuid = run.mine ? local_xuid : XuidForPublicId(run.id);
+      std::erase_if(rows, [xuid](const auto& row) { return row.first == xuid; });
+      if (!run.game.empty()) rows.emplace_back(xuid, run.id);
+    }
+  }
   return board;
 }
 
@@ -292,6 +394,7 @@ std::optional<live::StatsView> NearbyBoard(uint32_t view) {
 }
 
 void RefreshNearby() {
+  ShareWantedReplays();
   if (!Enabled() || g_nearby_fetching.exchange(true)) return;
   std::thread([] {
     // Every board is asked for, and the refresh counts once the game's own are in: a server without the Master
@@ -333,6 +436,40 @@ void RefreshNearby() {
                 fetched, kViews);
     g_nearby_fetching = false;
   }).detach();
+}
+
+bool SharesReplays() {
+  return Enabled() && REXCVAR_GET(gw2_share_replays);
+}
+
+std::optional<std::vector<TopRun>> FetchTopRuns(uint32_t board) {
+  if (!Enabled() || board >= boards::kBoards) return std::nullopt;
+  const Response response =
+      Send("GET", "/v1/boards/" + std::to_string(board) + "?from=1&count=" + std::to_string(kMaxRows), {});
+  if (response.status != 200) return std::nullopt;
+  return ParseTopRuns(response.body, PublicId(Token()));
+}
+
+std::optional<std::vector<uint8_t>> DownloadReplay(uint32_t board, const std::string& id) {
+  if (!Enabled() || board >= boards::kBoards || XuidForPublicId(id) == 0) return std::nullopt;
+  SendOptions options;
+  options.max_response = kMaxReplayBytes;
+  const Response response = Send("GET", "/v1/replays/" + std::to_string(board) + "/" + id, {}, options);
+  if (response.status != 200 || response.body.empty()) return std::nullopt;
+  return std::vector<uint8_t>(response.body.begin(), response.body.end());
+}
+
+std::optional<std::string> ReplayIdFor(uint32_t board, uint64_t xuid) {
+  if (board >= kViews || xuid == 0) return std::nullopt;
+  std::lock_guard lock(g_mutex);
+  for (const auto& [shown, id] : g_replay_rows[board]) {
+    if (shown == xuid) return id;
+  }
+  return std::nullopt;
+}
+
+bool TakeSharedNotice() {
+  return g_notice_pending.exchange(false);
 }
 
 void DeleteMyScores(std::function<void(bool, std::string)> done) {

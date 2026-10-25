@@ -105,9 +105,27 @@ void TestFolder() {
   std::filesystem::remove_all(folder);
 }
 
+
+// The replay to share for a board's best: same mode, same custom mode (none for the game's own), same score.
+void TestFindRun() {
+  std::vector<Entry> entries(4);
+  entries[0].file = "a"; entries[0].mode = 0; entries[0].score = 500; entries[0].recorded_at = 10;
+  entries[1].file = "b"; entries[1].mode = 0; entries[1].score = 500; entries[1].recorded_at = 20;
+  entries[2].file = "c"; entries[2].mode = 0; entries[2].score = 700; entries[2].custom_name = "Master Deadline";
+  entries[3].file = "d"; entries[3].mode = 1; entries[3].score = 700;
+  CHECK(FindRun(entries, 0, "", 500) == "b");  // the newest of two
+  CHECK(FindRun(entries, 0, "Master Deadline", 700) == "c");
+  CHECK(!FindRun(entries, 0, "", 700));  // a Master run is never Deadline's
+  CHECK(!FindRun(entries, 0, "Master Deadline", 500));
+  CHECK(FindRun(entries, 1, "", 700) == "d");
+  CHECK(!FindRun(entries, 2, "", 500));
+  CHECK(!FindRun({}, 0, "", 500));
+}
+
 }  // namespace
 
 int main() {
+  TestFindRun();
   TestToPrune();
   TestNames();
   TestFavourites();

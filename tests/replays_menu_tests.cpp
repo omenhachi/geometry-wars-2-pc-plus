@@ -51,6 +51,12 @@ void TestNavigation() {
   CHECK(input.Poll(0, {0, 0, 0}).action == Action::kNone);
   CHECK(input.Poll(0, {0, 0, -20000}).action == Action::kDown);      // the arrow keys, on the right stick
   CHECK(input.Poll(0, {0, 5000, 0}).action == Action::kNone);        // inside the deadzone
+  CHECK(input.Poll(0, {0, 0, 0}).action == Action::kNone);
+  CHECK(input.Poll(0, Buttons(kDpadRight)).action == Action::kRight);
+  CHECK(input.Poll(0, Buttons(kDpadRight)).action == Action::kNone);  // held
+  CHECK(input.Poll(0, {0, 0, 0, 0, -20000}).action == Action::kLeft);  // the left arrow key
+  CHECK(input.Poll(0, {0, 0, 0, 20000, 0}).action == Action::kRight);  // the left stick, the other way
+  CHECK(input.Poll(0, Buttons(0)).action == Action::kNone);
   CHECK(input.Poll(0, Buttons(kY)).action == Action::kStar);
   CHECK(input.Poll(0, Buttons(0)).action == Action::kNone);
   CHECK(input.Poll(0, Buttons(kX)).action == Action::kDelete);

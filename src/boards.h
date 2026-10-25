@@ -34,6 +34,11 @@ constexpr std::optional<uint32_t> ScoreBoard(Counting counting, uint32_t view, u
   return std::nullopt;
 }
 
+// The game mode a board's runs are played in: its own for the game's boards, the base mode for a Master board.
+constexpr uint32_t BaseMode(uint32_t board) {
+  return board >= kGameBoards ? board - kGameBoards : board;
+}
+
 // Only the game's own modes unlock achievements, move unlock progress and save to the profile.
 constexpr bool KeepsProgress(Counting counting) {
   return counting == Counting::kOfficial;
