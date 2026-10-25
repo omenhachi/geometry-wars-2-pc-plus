@@ -94,6 +94,7 @@ struct State {
   uint32_t tick = 0;
   size_t shot = 0;
   bool round_over = false;  // watching: the replay's round has ended or was stopped; its Game Over may still show
+  bool score_written = false;  // watching: the game has written the round's score, which counted for nothing
   bool stopped = false;     // the viewer pressed Start: the round is theirs now, and still counts for nothing
   bool viewer_noted = false;
   uint16_t viewer_buttons = 0;  // the viewer's own pads, the poll before
@@ -355,9 +356,10 @@ void AfterPadPoll(uint8_t* base) {
   State& s = g_state;
   if (s.phase != Phase::kWatching) return;
   if (s.round_over) {
-    // The replay is over once the game is back in its menus.
+    // The replay is over once the game is back in its menus and has written the round's score, which it does from the
+    // Game Over screen, itself a menu; or once the main menu shows, if no score came.
     const uint32_t start = LoadBE32(base, kStartState);
-    if (start == 0 || start == 3) {
+    if ((start == 0 || start == 3) && (s.score_written || master_page::OnMainMenu())) {
       s = State{};
       g_watching.store(false, std::memory_order_relaxed);
       custom_modes::ForReplay(std::nullopt);
@@ -426,6 +428,11 @@ void OnRunEnd(const uint8_t* base) {
   demo.recorded_at =
       std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
   SaveInBackground(std::move(demo), g_folder);
+}
+
+void OnScoreWritten() {
+  std::lock_guard lock(g_mutex);
+  if (g_state.phase == Phase::kWatching) g_state.score_written = true;
 }
 
 ReplayStatus Status() {

@@ -139,14 +139,14 @@ void DrawRow(ImDrawList* draw, ImVec2 at, float width, float height, int32_t typ
   DrawIcon(draw, type, ImVec2(at.x + height * 0.55f, mid), height * 0.28f, alpha);
   const ImU32 white = Rgba(1, 1, 1, 0.92f * alpha);
   const float thickness = std::max(1.0f, text * 0.07f);
-  line_font::Draw(draw, ImVec2(at.x + height * 1.15f, mid - text * 0.5f), text, name, white, thickness);
+  line_font::GameText(draw, ImVec2(at.x + height * 1.15f, mid - text * 0.5f), text, name, white, thickness);
   const std::string count = "x" + Grouped(kills);
-  const float cw = line_font::Width(count, text);
-  line_font::Draw(draw, ImVec2(at.x + width * 0.64f - cw, mid - text * 0.5f), text, count,
+  const float cw = line_font::GameWidth(count, text);
+  line_font::GameText(draw, ImVec2(at.x + width * 0.64f - cw, mid - text * 0.5f), text, count,
                   Rgba(0.75f, 0.8f, 0.9f, alpha), thickness);
   const std::string score = Grouped(points);
-  const float w = line_font::Width(score, text);
-  line_font::Draw(draw, ImVec2(at.x + width - w - height * 0.25f, mid - text * 0.5f), text, score, Theme(0.0, alpha),
+  const float w = line_font::GameWidth(score, text);
+  line_font::GameText(draw, ImVec2(at.x + width - w - height * 0.25f, mid - text * 0.5f), text, score, Theme(0.0, alpha),
                   thickness);
 }
 
@@ -188,11 +188,11 @@ class ResultsPanel final : public rex::ui::ImGuiDialog {
 
     const float pad = u * 3.0f;
     const float title = u * 4.2f;
-    line_font::Draw(draw, ImVec2(p0.x + pad, p0.y + pad), title, title_, Theme(0.0, ease),
+    line_font::GameText(draw, ImVec2(p0.x + pad, p0.y + pad), title, title_, Theme(0.0, ease),
                     std::max(1.2f, title * 0.06f));
     const std::string final_score = Grouped(run->final_score());
-    const float fw = line_font::Width(final_score, title);
-    line_font::Draw(draw, ImVec2(p1.x - pad - fw, p0.y + pad), title, final_score, Rgba(1, 1, 1, ease),
+    const float fw = line_font::GameWidth(final_score, title);
+    line_font::GameText(draw, ImVec2(p1.x - pad - fw, p0.y + pad), title, final_score, Rgba(1, 1, 1, ease),
                     std::max(1.2f, title * 0.06f));
 
     // Run facts under the mode's name: how long it lasted, and the biggest gate blast when there was one.
@@ -201,7 +201,7 @@ class ResultsPanel final : public rex::ui::ImGuiDialog {
     float fx = p0.x + pad;
     const float fy = p0.y + pad + title + u * 1.4f;
     const auto put = [&](const std::string& text, ImU32 colour, float gap) {
-      fx += line_font::Draw(draw, ImVec2(fx, fy), fact, text, colour, fact_thin) + gap;
+      fx += line_font::GameText(draw, ImVec2(fx, fy), fact, text, colour, fact_thin) + gap;
     };
     const ImU32 label = Rgba(0.7f, 0.75f, 0.85f, 0.8f * ease);
     put("Time", label, fact * 0.6f);
@@ -273,16 +273,16 @@ class ResultsPanel final : public rex::ui::ImGuiDialog {
       const double score = top / 1.08 * i / 4.0;
       const float y = at(t0, score).y;
       draw->AddLine(ImVec2(g0.x, y), ImVec2(g1.x, y), Theme(0.0, 0.10f * alpha), 1.0f);
-      line_font::Draw(draw, ImVec2(g0.x + u * 0.6f, y - label - u * 0.4f), label, Short(int64_t(score)),
+      line_font::GameText(draw, ImVec2(g0.x + u * 0.6f, y - label - u * 0.4f), label, Short(int64_t(score)),
                       Rgba(0.7f, 0.75f, 0.85f, 0.55f * alpha), thin);
     }
     draw->AddLine(ImVec2(g0.x, g1.y), ImVec2(g1.x, g1.y), Theme(0.0, 0.45f * alpha), 1.5f);
     for (int i = 0; i <= 3; ++i) {
       const float time = t0 + (t1 - t0) * float(i) / 3.0f;
       const std::string text = Clock2(time - t0);
-      const float w = line_font::Width(text, label);
+      const float w = line_font::GameWidth(text, label);
       const float x = std::clamp(at(time, 0).x - w * 0.5f, g0.x, g1.x - w);
-      line_font::Draw(draw, ImVec2(x, g1.y + u * 1.0f), label, text, Rgba(0.7f, 0.75f, 0.85f, 0.7f * alpha), thin);
+      line_font::GameText(draw, ImVec2(x, g1.y + u * 1.0f), label, text, Rgba(0.7f, 0.75f, 0.85f, 0.7f * alpha), thin);
     }
 
     // The score line, drawn in from the left as the panel appears; Rainbow drifts along it.
@@ -346,10 +346,10 @@ class ResultsPanel final : public rex::ui::ImGuiDialog {
       const float pulse = 1.0f + 0.12f * std::sin(float(Seconds()) * 5.0f);
       DrawStar(draw, p, u * 1.6f * pulse, Rgba(1, 0.95f, 0.6f, alpha));
       const std::string text = std::string(LookOf(best.type).name) + " +" + Grouped(best.points);
-      const float w = line_font::Width(text, label);
+      const float w = line_font::GameWidth(text, label);
       const float x = std::clamp(p.x - w * 0.5f, g0.x, g1.x - w);
       const float y = std::max(g0.y - label * 0.5f, p.y - u * 2.4f - label);
-      line_font::Draw(draw, ImVec2(x, y), label, text, Rgba(1, 0.95f, 0.7f, alpha), thin);
+      line_font::GameText(draw, ImVec2(x, y), label, text, Rgba(1, 0.95f, 0.7f, alpha), thin);
     }
   }
 

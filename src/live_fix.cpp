@@ -196,6 +196,7 @@ REX_HOOK_RAW(sub_820E88F8) {
   const gw2::boards::Counting counting = gw2::demo::HowRunCounts();
   const std::optional<gw2::custom_modes::Board> own = gw2::custom_modes::OwnBoard();
   gw2::custom_modes::OnScoreWritten();  // only now may a custom mode end (custom_modes.h)
+  gw2::demo::OnScoreWritten();          // and a replay (demo.h)
   if (counting == gw2::boards::Counting::kNone) return;  // a replay's or a custom mode's score is never kept or sent
   Services* services = Active();
   if (!services || !Succeeded(ctx, base, overlapped)) return;

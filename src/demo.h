@@ -18,8 +18,13 @@ namespace gw2::demo {
 void SetFolder(std::filesystem::path folder);
 std::filesystem::path Folder();
 
-// True from the moment a replay starts until the game is back in its menus after it.
+// True from the moment a replay starts until the game has written its round's score (the Game Over screen is a menu,
+// and the score is written from it), or the main menu shows, or another round starts.
 bool Watching();
+
+// The game wrote a finished round's score (XSessionWriteStats, live_fix.cpp), after deciding how it counts: a replay's
+// round may end now.
+void OnScoreWritten();
 
 // How the run being played counts (boards.h): a replay or a custom mode not at all, a Master mode on its own board
 // only, and anything else officially.

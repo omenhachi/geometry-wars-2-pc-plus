@@ -205,6 +205,12 @@ class ReplaysMenu final : public rex::ui::ImGuiDialog {
       DrawBadge(io);
     }
     DrawSharedNotice(io);
+    // The foreground list's indices are 16 bits: past 65536 vertices its triangles wrap into garbage.
+    static bool warned = false;
+    if (!warned && ImGui::GetForegroundDrawList()->VtxBuffer.Size > 60000) {
+      warned = true;
+      REXLOG_WARN("Replays: the overlay drew {} vertices, near ImGui's 65536 limit", ImGui::GetForegroundDrawList()->VtxBuffer.Size);
+    }
   }
 
  private:
@@ -443,7 +449,7 @@ class ReplaysMenu final : public rex::ui::ImGuiDialog {
     draw->AddRect(p0, p1, Theme(0.0, 0.9f), u * 1.2f, 0, u * 0.25f);
     const float pad = u * 3.0f;
     const float title = u * 4.6f;
-    line_font::Draw(draw, ImVec2(p0.x + pad, p0.y + pad), title, "Watch replays", Theme(), std::max(1.2f, title * 0.06f));
+    line_font::GameText(draw, ImVec2(p0.x + pad, p0.y + pad), title, "Watch replays", Theme(), std::max(1.2f, title * 0.06f));
 
     // Tabs.
     const float tab_size = u * 2.4f;
@@ -453,12 +459,12 @@ class ReplaysMenu final : public rex::ui::ImGuiDialog {
     for (const int tab : Tabs()) {
       const std::string name = tab < 0 ? "All" : tab == kOnlineTab ? "Online" : ModeName(uint32_t(tab));
       const bool current = tab == tab_;
-      const float w = line_font::Width(name, tab_size);
+      const float w = line_font::GameWidth(name, tab_size);
       if (current) {
         draw->AddRectFilled(ImVec2(x - u * 0.8f, tab_y - u * 0.7f), ImVec2(x + w + u * 0.8f, tab_y + tab_size + u * 0.7f),
                             Theme(0.0, 0.18f), u * 0.5f);
       }
-      line_font::Draw(draw, ImVec2(x, tab_y), tab_size, name, current ? Theme() : Rgba(0.7f, 0.75f, 0.85f, 0.8f), thin);
+      line_font::GameText(draw, ImVec2(x, tab_y), tab_size, name, current ? Theme() : Rgba(0.7f, 0.75f, 0.85f, 0.8f), thin);
       x += w + u * 3.0f;
     }
 
@@ -479,7 +485,7 @@ class ReplaysMenu final : public rex::ui::ImGuiDialog {
     if (shown.empty()) {
       const char* empty = entries_.empty() ? "No replays yet. Finish a run and it'll be waiting here."
                                            : "No replays in this mode yet.";
-      line_font::Draw(draw, ImVec2(p0.x + pad, list_top + u * 2.0f), text, empty, Rgba(0.8f, 0.85f, 0.95f, 0.9f),
+      line_font::GameText(draw, ImVec2(p0.x + pad, list_top + u * 2.0f), text, empty, Rgba(0.8f, 0.85f, 0.95f, 0.9f),
                       row_thin);
     }
     const float left = p0.x + pad, right = p1.x - pad;
@@ -507,22 +513,22 @@ class ReplaysMenu final : public rex::ui::ImGuiDialog {
       const ImU32 white = Rgba(1, 1, 1, 0.92f);
       const ImU32 dim = Rgba(0.7f, 0.75f, 0.85f, 0.85f);
       if (current && confirm_delete_) {
-        line_font::Draw(draw, ImVec2(left + u * 4.5f, mid - text * 0.5f), text,
+        line_font::GameText(draw, ImVec2(left + u * 4.5f, mid - text * 0.5f), text,
                         std::string("Delete this replay? Press ") + DeleteKey() + " again", Rgba(1, 0.85f, 0.6f),
                         row_thin);
         continue;
       }
       const std::string mode = e.custom_name.empty() ? std::string(ModeName(e.mode)) : e.custom_name;
-      line_font::Draw(draw, ImVec2(left + u * 4.5f, mid - text * 0.5f), text, mode, Theme(), row_thin);
+      line_font::GameText(draw, ImVec2(left + u * 4.5f, mid - text * 0.5f), text, mode, Theme(), row_thin);
       const auto custom = e.custom_name.empty() ? std::nullopt : custom_mode::Read(e.custom_rules);
       const std::string score = custom ? custom_modes::ScoreText(*custom, e.score) : Grouped(int64_t(e.score));
       const float score_right = left + (right - left) * 0.58f;
-      line_font::Draw(draw, ImVec2(score_right - line_font::Width(score, text), mid - text * 0.5f), text, score, white,
+      line_font::GameText(draw, ImVec2(score_right - line_font::GameWidth(score, text), mid - text * 0.5f), text, score, white,
                       row_thin);
-      line_font::Draw(draw, ImVec2(left + (right - left) * 0.64f, mid - text * 0.5f), text, When(e.recorded_at), dim,
+      line_font::GameText(draw, ImVec2(left + (right - left) * 0.64f, mid - text * 0.5f), text, When(e.recorded_at), dim,
                       row_thin);
       const std::string length = Clock2(float(e.ticks) / 60.0f);
-      line_font::Draw(draw, ImVec2(right - u * 1.5f - line_font::Width(length, text), mid - text * 0.5f), text, length,
+      line_font::GameText(draw, ImVec2(right - u * 1.5f - line_font::GameWidth(length, text), mid - text * 0.5f), text, length,
                       dim, row_thin);
     }
 
@@ -530,7 +536,7 @@ class ReplaysMenu final : public rex::ui::ImGuiDialog {
     const float hint = u * 2.0f;
     const float hint_thin = std::max(1.0f, hint * 0.07f);
     if (!message_.empty()) {
-      line_font::Draw(draw, ImVec2(left, p1.y - footer - hint * 0.6f), hint, message_, Rgba(1, 0.85f, 0.6f), hint_thin);
+      line_font::GameText(draw, ImVec2(left, p1.y - footer - hint * 0.6f), hint, message_, Rgba(1, 0.85f, 0.6f), hint_thin);
     }
     const bool keys = KeyboardMode();
     const std::string hints =
@@ -538,7 +544,7 @@ class ReplaysMenu final : public rex::ui::ImGuiDialog {
                    DeleteKey() + " Delete   " + KeyFor("keybind_left_shoulder", "1") + " " +
                    KeyFor("keybind_right_shoulder", "3") + " Mode   Esc Back"
              : "A Watch   Y Star   X Delete   LB RB Mode   B Back";
-    line_font::Draw(draw, ImVec2(left, p1.y - pad - hint), hint, hints, Rgba(0.7f, 0.75f, 0.85f, 0.85f), hint_thin);
+    line_font::GameText(draw, ImVec2(left, p1.y - pad - hint), hint, hints, Rgba(0.7f, 0.75f, 0.85f, 0.85f), hint_thin);
   }
 
   std::string DeleteKey() const { return KeyboardMode() ? KeyFor("keybind_x", "H") : "X"; }
@@ -573,8 +579,8 @@ class ReplaysMenu final : public rex::ui::ImGuiDialog {
     const float mid_x = (left + right) * 0.5f;
     const float by = list_top - u * 0.6f;
     const std::string board = BoardName(board_);
-    const float bw = line_font::Width(board, board_size);
-    line_font::Draw(draw, ImVec2(mid_x - bw * 0.5f, by), board_size, board, Theme(), thin);
+    const float bw = line_font::GameWidth(board, board_size);
+    line_font::GameText(draw, ImVec2(mid_x - bw * 0.5f, by), board_size, board, Theme(), thin);
     const ImU32 beside = Rgba(0.7f, 0.75f, 0.85f, 0.75f);
     const bool keys = KeyboardMode();
     const std::string before = std::string(keys ? KeyFor("keybind_left_shoulder", "1") : "LB") + "   " +
@@ -583,8 +589,8 @@ class ReplaysMenu final : public rex::ui::ImGuiDialog {
                               (keys ? KeyFor("keybind_right_shoulder", "3") : "RB");
     const float sy = by + (board_size - side) * 0.5f;
     const float gap = u * 4.0f;
-    line_font::Draw(draw, ImVec2(mid_x - bw * 0.5f - gap - line_font::Width(before, side), sy), side, before, beside, thin);
-    line_font::Draw(draw, ImVec2(mid_x + bw * 0.5f + gap, sy), side, after, beside, thin);
+    line_font::GameText(draw, ImVec2(mid_x - bw * 0.5f - gap - line_font::GameWidth(before, side), sy), side, before, beside, thin);
+    line_font::GameText(draw, ImVec2(mid_x + bw * 0.5f + gap, sy), side, after, beside, thin);
     const float ay = by + board_size * 0.5f;
     const float aw = u * 1.0f;
     draw->AddTriangleFilled(ImVec2(mid_x - bw * 0.5f - gap * 0.5f - aw * 0.5f, ay),
@@ -604,7 +610,7 @@ class ReplaysMenu final : public rex::ui::ImGuiDialog {
       const char* empty = loading  ? "Fetching the board..."
                           : failed ? "The online boards can't be reached right now."
                                    : "Nobody has a score on this board yet.";
-      line_font::Draw(draw, ImVec2(left, top + u * 2.0f), text, empty, Rgba(0.8f, 0.85f, 0.95f, 0.9f), row_thin);
+      line_font::GameText(draw, ImVec2(left, top + u * 2.0f), text, empty, Rgba(0.8f, 0.85f, 0.95f, 0.9f), row_thin);
     }
     const int above = JustAbove(runs);
     for (int i = first_; i < int(runs.size()) && i < first_ + visible; ++i) {
@@ -626,19 +632,19 @@ class ReplaysMenu final : public rex::ui::ImGuiDialog {
       const float ty = mid - text * 0.5f;
       if (!run.game.empty()) DrawPlay(draw, ImVec2(left + u * 2.0f, mid), u * 1.1f, Theme());
       const std::string rank = std::to_string(run.rank);
-      line_font::Draw(draw, ImVec2(left + u * 7.5f - line_font::Width(rank, text), ty), text, rank, dim, row_thin);
-      line_font::Draw(draw, ImVec2(left + u * 9.5f, ty), text, run.name,
+      line_font::GameText(draw, ImVec2(left + u * 7.5f - line_font::GameWidth(rank, text), ty), text, rank, dim, row_thin);
+      line_font::GameText(draw, ImVec2(left + u * 9.5f, ty), text, run.name,
                       run.mine ? Theme() : Rgba(1, 1, 1, 0.92f), row_thin);
       const std::string score = Grouped(run.score);
       const float score_right = left + (right - left) * 0.68f;
-      line_font::Draw(draw, ImVec2(score_right - line_font::Width(score, text), ty), text, score,
+      line_font::GameText(draw, ImVec2(score_right - line_font::GameWidth(score, text), ty), text, score,
                       Rgba(1, 1, 1, 0.92f), row_thin);
       const char* note = run.id == downloading ? "Downloading..."
                          : run.mine            ? "You"
                          : i == above          ? "Just above you"
                                                : "";
       if (*note) {
-        line_font::Draw(draw, ImVec2(right - u * 1.5f - line_font::Width(note, text * 0.85f), ty + text * 0.08f),
+        line_font::GameText(draw, ImVec2(right - u * 1.5f - line_font::GameWidth(note, text * 0.85f), ty + text * 0.08f),
                         text * 0.85f, note, i == above || run.mine ? Theme() : dim, row_thin);
       }
     }
@@ -646,14 +652,14 @@ class ReplaysMenu final : public rex::ui::ImGuiDialog {
     const float hint = u * 2.0f;
     const float hint_thin = std::max(1.0f, hint * 0.07f);
     if (!message_.empty()) {
-      line_font::Draw(draw, ImVec2(left, p1.y - footer - hint * 0.6f), hint, message_, Rgba(1, 0.85f, 0.6f), hint_thin);
+      line_font::GameText(draw, ImVec2(left, p1.y - footer - hint * 0.6f), hint, message_, Rgba(1, 0.85f, 0.6f), hint_thin);
     }
     const std::string hints =
         KeyboardMode() ? std::string(KeyFor("keybind_start", "Enter")) + " Watch   " +
                              KeyFor("keybind_left_shoulder", "1") + " " + KeyFor("keybind_right_shoulder", "3") +
                              " Board   Esc My replays"
                        : "A Watch   LB RB Board   B My replays";
-    line_font::Draw(draw, ImVec2(left, p1.y - pad - hint), hint, hints, Rgba(0.7f, 0.75f, 0.85f, 0.85f), hint_thin);
+    line_font::GameText(draw, ImVec2(left, p1.y - pad - hint), hint, hints, Rgba(0.7f, 0.75f, 0.85f, 0.85f), hint_thin);
   }
 
   // A small play mark: the row's replay can be watched.
@@ -689,15 +695,15 @@ class ReplaysMenu final : public rex::ui::ImGuiDialog {
     const float u = std::min(io.DisplaySize.x, io.DisplaySize.y * 16.0f / 9.0f) * 9.0f / 16.0f / 100.0f;
     const float size = u * 2.0f;
     const bool two = *second != 0;
-    const float w = std::max(line_font::Width(first, size), two ? line_font::Width(second, size) : 0.0f);
+    const float w = std::max(line_font::GameWidth(first, size), two ? line_font::GameWidth(second, size) : 0.0f);
     const ImVec2 at((io.DisplaySize.x - w) * 0.5f, io.DisplaySize.y - u * 14.0f);
     const ImVec2 b0(at.x - u * 1.5f, at.y - u), b1(at.x + w + u * 1.5f, at.y + size * (two ? 2.0f : 1.0f) + u * (two ? 2.0f : 1.0f));
     ImDrawList* draw = ImGui::GetForegroundDrawList();
     draw->AddRectFilled(b0, b1, Rgba(0.02f, 0.03f, 0.08f, 0.9f), u * 0.8f);
     draw->AddRect(b0, b1, Theme(0.0, 0.8f), u * 0.8f, 0, 1.5f);
-    line_font::Draw(draw, at, size, first, Theme(), std::max(1.0f, size * 0.07f));
+    line_font::GameText(draw, at, size, first, Theme(), std::max(1.0f, size * 0.07f));
     if (two) {
-      line_font::Draw(draw, ImVec2(at.x, at.y + size + u), size, second, Rgba(0.75f, 0.8f, 0.9f, 0.9f),
+      line_font::GameText(draw, ImVec2(at.x, at.y + size + u), size, second, Rgba(0.75f, 0.8f, 0.9f, 0.9f),
                       std::max(1.0f, size * 0.07f));
     }
   }
@@ -717,14 +723,14 @@ class ReplaysMenu final : public rex::ui::ImGuiDialog {
       text += KeyboardMode() ? "   Enter to stop" : "   Start to stop";
     }
     const float size = u * 2.2f;
-    const float w = line_font::Width(text, size);
+    const float w = line_font::GameWidth(text, size);
     const ImVec2 at((io.DisplaySize.x - w) * 0.5f, u * 2.0f);
     ImDrawList* draw = ImGui::GetForegroundDrawList();
     draw->AddRectFilled(ImVec2(at.x - u * 1.5f, at.y - u), ImVec2(at.x + w + u * 1.5f, at.y + size + u),
                         Rgba(0.02f, 0.03f, 0.08f, 0.85f), u * 0.8f);
     draw->AddRect(ImVec2(at.x - u * 1.5f, at.y - u), ImVec2(at.x + w + u * 1.5f, at.y + size + u), Theme(0.0, 0.8f),
                   u * 0.8f, 0, 1.5f);
-    line_font::Draw(draw, at, size, text, Theme(), std::max(1.0f, size * 0.07f));
+    line_font::GameText(draw, at, size, text, Theme(), std::max(1.0f, size * 0.07f));
   }
 
   std::vector<library::Entry> entries_;

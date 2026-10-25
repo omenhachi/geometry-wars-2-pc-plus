@@ -30,6 +30,7 @@
 
 #include "custom_modes.h"
 #include "guest_memory.h"
+#include "launcher_settings.h"
 #include "line_font.h"
 #include "neon_ui.h"
 
@@ -123,14 +124,16 @@ class Overlay final : public rex::ui::ImGuiDialog {
     {
       // The line font has no slash.
       const std::string page = two ? "Master modes  2 of 2" : "Game modes  1 of 2";
-      const std::string key = "RB or 3";
+      // The key, then where it goes, as the game's own hints are written.
+      const bool keyboard = rex::cvar::GetFlagByName(kKeyboardKey) == "true";
+      const std::string key = std::string(keyboard ? "3" : "RB") + (two ? "  Game modes" : "  Master modes");
       const float size = u * 2.2f, key_size = u * 1.5f;
       const float right = o.x + cw * 0.955f, top = o.y + ch * 0.045f;
-      const float w = std::max(line_font::Width(page, size), line_font::Width(key, key_size) + u * 4.0f);
+      const float w = std::max(line_font::GameWidth(page, size), line_font::GameWidth(key, key_size) + u * 4.0f);
       const ImVec2 p0(right - w - u * 2.0f, top), p1(right, top + size + key_size + u * 3.2f);
       draw->AddRectFilled(p0, p1, Rgba(0.02f, 0.03f, 0.08f, 0.85f), u);
       draw->AddRect(p0, p1, Theme(0.0, pulse), u, 0, std::max(1.5f, u * 0.3f));
-      line_font::Draw(draw, ImVec2(p0.x + u, top + u), size, page, Theme(), std::max(1.2f, size * 0.08f));
+      line_font::GameText(draw, ImVec2(p0.x + u, top + u), size, page, Theme(), std::max(1.2f, size * 0.08f));
       const float ky = top + size + u * 2.0f;
       const float dir = two ? -1.0f : 1.0f;
       const float bob = std::sin(float(Seconds()) * 5.0f) * u * 0.35f * dir;
@@ -138,8 +141,8 @@ class Overlay final : public rex::ui::ImGuiDialog {
       const float ay = ky + key_size * 0.5f;
       draw->AddTriangleFilled(ImVec2(ax + bob + dir * u * 0.9f, ay), ImVec2(ax + bob - dir * u * 0.4f, ay - u * 0.8f),
                               ImVec2(ax + bob - dir * u * 0.4f, ay + u * 0.8f), Theme());
-      const float kx = two ? p0.x + u * 3.6f : p1.x - u * 3.6f - line_font::Width(key, key_size);
-      line_font::Draw(draw, ImVec2(kx, ky), key_size, key, Rgba(0.9f, 0.93f, 1.0f, 0.9f), std::max(1.0f, key_size * 0.07f));
+      const float kx = two ? p0.x + u * 3.6f : p1.x - u * 3.6f - line_font::GameWidth(key, key_size);
+      line_font::GameText(draw, ImVec2(kx, ky), key_size, key, Rgba(0.9f, 0.93f, 1.0f, 0.9f), std::max(1.0f, key_size * 0.07f));
     }
     if (!two) return;
 
@@ -151,9 +154,9 @@ class Overlay final : public rex::ui::ImGuiDialog {
     float y = p0.y + u * 3.0f;
     const float x = p0.x + u * 3.0f;
     const float title = u * 5.0f;
-    line_font::Draw(draw, ImVec2(x + u * 0.15f, y + u * 0.15f), title, "Master modes", Theme(0.0, 0.3f),
+    line_font::GameText(draw, ImVec2(x + u * 0.15f, y + u * 0.15f), title, "Master modes", Theme(0.0, 0.3f),
                     std::max(2.0f, title * 0.12f));
-    line_font::Draw(draw, ImVec2(x, y), title, "Master modes", Theme(), std::max(1.5f, title * 0.07f));
+    line_font::GameText(draw, ImVec2(x, y), title, "Master modes", Theme(), std::max(1.5f, title * 0.07f));
     y += title + u * 3.0f;
     const ImU32 white = Rgba(1, 1, 1, 0.95f);
     const ImU32 dim = Rgba(0.8f, 0.85f, 0.95f, 0.85f);
@@ -163,15 +166,15 @@ class Overlay final : public rex::ui::ImGuiDialog {
     // Each line as big as fits the panel.
     const float room = p1.x - x - u * 3.0f;
     float widest = 0;
-    for (const char* text : kRules) widest = std::max(widest, line_font::Width(text, 1.0f));
+    for (const char* text : kRules) widest = std::max(widest, line_font::GameWidth(text, 1.0f));
     const float line = std::min(u * 2.4f, room / widest);
     for (const char* text : kRules) {
-      line_font::Draw(draw, ImVec2(x, y), line, text, white, std::max(1.0f, line * 0.07f));
+      line_font::GameText(draw, ImVec2(x, y), line, text, white, std::max(1.0f, line * 0.07f));
       y += line + u * 1.8f;
     }
     y += u * 1.5f;
     for (const char* text : kNotes) {
-      line_font::Draw(draw, ImVec2(x, y), line * 0.8f, text, dim, std::max(1.0f, line * 0.06f));
+      line_font::GameText(draw, ImVec2(x, y), line * 0.8f, text, dim, std::max(1.0f, line * 0.06f));
       y += line * 0.8f + u * 1.4f;
     }
   }

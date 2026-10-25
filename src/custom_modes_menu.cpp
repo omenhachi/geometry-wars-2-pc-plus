@@ -90,11 +90,11 @@ std::string BaseName(uint32_t base) {
 // A rounded chip with its text, from `x`; returns its width.
 float DrawChip(ImDrawList* draw, ImVec2 at, float size, const std::string& text, ImU32 colour, float fill) {
   const float pad = size * 0.55f;
-  const float w = line_font::Width(text, size) + pad * 2.0f;
+  const float w = line_font::GameWidth(text, size) + pad * 2.0f;
   const ImVec2 p0(at.x, at.y - size * 0.45f), p1(at.x + w, at.y + size * 1.45f);
   if (fill > 0.0f) draw->AddRectFilled(p0, p1, WithAlpha(colour, fill), size * 0.5f);
   draw->AddRect(p0, p1, colour, size * 0.5f, 0, std::max(1.0f, size * 0.08f));
-  line_font::Draw(draw, ImVec2(at.x + pad, at.y), size, text, colour, std::max(1.0f, size * 0.07f));
+  line_font::GameText(draw, ImVec2(at.x + pad, at.y), size, text, colour, std::max(1.0f, size * 0.07f));
   return w;
 }
 
@@ -224,13 +224,13 @@ class CustomModesMenu final : public rex::ui::ImGuiDialog {
     draw->AddRect(p0, p1, Theme(0.0, 0.9f), u * 1.2f, 0, u * 0.25f);
     const float pad = u * 3.0f;
     const float title = u * 4.6f;
-    line_font::Draw(draw, ImVec2(p0.x + pad, p0.y + pad), title, kTitle, Theme(), std::max(1.2f, title * 0.06f));
+    line_font::GameText(draw, ImVec2(p0.x + pad, p0.y + pad), title, kTitle, Theme(), std::max(1.2f, title * 0.06f));
 
     const float left = p0.x + pad, right = p1.x - pad;
     {
       const std::string note = "Custom runs never count for leaderboards, achievements or unlocks";
       const float size = u * 1.6f;
-      line_font::Draw(draw, ImVec2(left, p0.y + pad + title + u * 1.4f), size, note,
+      line_font::GameText(draw, ImVec2(left, p0.y + pad + title + u * 1.4f), size, note,
                       Rgba(0.7f, 0.75f, 0.85f, 0.6f), std::max(1.0f, size * 0.07f));
     }
     const float list_top = p0.y + pad + title + u * 5.0f;
@@ -248,8 +248,8 @@ class CustomModesMenu final : public rex::ui::ImGuiDialog {
     const ImU32 amber = Rgba(1.0f, 0.82f, 0.35f);
 
     if (entries_.empty()) {
-      line_font::Draw(draw, ImVec2(left, list_top + u * 2.0f), text, "No custom modes found.", white, thin);
-      line_font::Draw(draw, ImVec2(left, list_top + u * 6.0f), note_size,
+      line_font::GameText(draw, ImVec2(left, list_top + u * 2.0f), text, "No custom modes found.", white, thin);
+      line_font::GameText(draw, ImVec2(left, list_top + u * 6.0f), note_size,
                       "Press Y to open your mods folder: copy _template and make one.", dim, note_thin);
     }
     for (int i = first_; i < int(entries_.size()) && i < first_ + visible; ++i) {
@@ -274,18 +274,18 @@ class CustomModesMenu final : public rex::ui::ImGuiDialog {
       const float x = left + u * 2.0f;
       const float top = y + u * 1.0f;
       if (!e.mode) {
-        line_font::Draw(draw, ImVec2(x, top), text, e.folder, red, thin);
-        line_font::Draw(draw, ImVec2(x, top + text + u * 1.2f), note_size, FirstProblem(e), red, note_thin);
+        line_font::GameText(draw, ImVec2(x, top), text, e.folder, red, thin);
+        line_font::GameText(draw, ImVec2(x, top + text + u * 1.2f), note_size, FirstProblem(e), red, note_thin);
         continue;
       }
       const rules::Mode& m = *e.mode;
-      float name_w = line_font::Draw(draw, ImVec2(x, top), text, m.name, Theme(double(i) * 0.15), thin);
+      float name_w = line_font::GameText(draw, ImVec2(x, top), text, m.name, Theme(double(i) * 0.15), thin);
       std::string by = BaseName(m.rules.base);
       if (!m.author.empty()) by += "  by " + m.author;
-      line_font::Draw(draw, ImVec2(x + name_w + u * 2.0f, top + (text - note_size) * 0.5f), note_size, by, dim, note_thin);
+      line_font::GameText(draw, ImVec2(x + name_w + u * 2.0f, top + (text - note_size) * 0.5f), note_size, by, dim, note_thin);
       if (e.best) {
         const std::string best = "Best " + custom_modes::ScoreText(m.rules, *e.best);
-        line_font::Draw(draw, ImVec2(right - u * 2.0f - line_font::Width(best, text), top), text, best, white, thin);
+        line_font::GameText(draw, ImVec2(right - u * 2.0f - line_font::GameWidth(best, text), top), text, best, white, thin);
       }
       float cx = x;
       const float chip_y = top + text + u * 1.4f;
@@ -307,14 +307,14 @@ class CustomModesMenu final : public rex::ui::ImGuiDialog {
       if (e.mode) line = e.mode->description;
       if (e.mode && !e.warnings.empty() && line.empty()) line = std::format("Line {}: {}", e.warnings.front().line, e.warnings.front().text);
       if (!e.mode && e.errors.size() > 1) line = std::format("Line {}: {}", e.errors[1].line, e.errors[1].text);
-      if (!line.empty()) line_font::Draw(draw, ImVec2(left, fy), note_size * 1.15f, Drawable(line), white, note_thin);
+      if (!line.empty()) line_font::GameText(draw, ImVec2(left, fy), note_size * 1.15f, Drawable(line), white, note_thin);
     }
     fy += u * 4.0f;
-    if (!message_.empty()) line_font::Draw(draw, ImVec2(left, fy), hint, message_, amber, hint_thin);
+    if (!message_.empty()) line_font::GameText(draw, ImVec2(left, fy), hint, message_, amber, hint_thin);
     const std::string hints = KeyboardMode() ? std::string(KeyFor("keybind_start", "Enter")) + " Play   " +
                                                    KeyFor("keybind_y", "L") + " Mods folder   Esc Back"
                                              : "A Play   Y Mods folder   B Back";
-    line_font::Draw(draw, ImVec2(left, p1.y - pad - hint), hint, hints, dim, hint_thin);
+    line_font::GameText(draw, ImVec2(left, p1.y - pad - hint), hint, hints, dim, hint_thin);
   }
 
   // While a custom mode plays: its title card as each round begins, then a tag at the bottom.
@@ -356,22 +356,21 @@ class CustomModesMenu final : public rex::ui::ImGuiDialog {
     draw->AddLine(ImVec2(0, cy + band * 0.5f), ImVec2(io.DisplaySize.x, cy + band * 0.5f), Theme(0.3, alpha), u * 0.3f);
     const float flash = float(std::max(0.0, 1.0 - t / (kCardIn * 2.0)));
     if (flash > 0) draw->AddRectFilled(ImVec2(0, 0), io.DisplaySize, Rgba(1, 1, 1, 0.18f * flash));
-    std::string name = m.name;
-    std::transform(name.begin(), name.end(), name.begin(), [](unsigned char c) { return char(std::toupper(c)); });
-    const float w = line_font::Width(name, size);
+    const std::string& name = m.name;  // small capitals, as the game writes its own headings
+    const float w = line_font::GameWidth(name, size);
     const ImVec2 at((io.DisplaySize.x - w) * 0.5f, cy - size * 0.75f);
-    line_font::Draw(draw, ImVec2(at.x, at.y), size, name, Theme(0.0, alpha * 0.25f), std::max(2.0f, size * 0.11f));
-    line_font::Draw(draw, at, size, name, Theme(0.0, alpha), std::max(1.5f, size * 0.07f));
+    line_font::GameText(draw, ImVec2(at.x, at.y), size, name, Theme(0.0, alpha * 0.25f), std::max(2.0f, size * 0.11f));
+    line_font::GameText(draw, at, size, name, Theme(0.0, alpha), std::max(1.5f, size * 0.07f));
     const float sub = size * 0.28f;
     std::string by = std::string(replay ? "Replay  " : "") + BaseName(m.rules.base);
     if (!m.author.empty()) by += "  by " + m.author;
-    line_font::Draw(draw, ImVec2((io.DisplaySize.x - line_font::Width(by, sub)) * 0.5f, cy + size * 0.45f), sub, by,
+    line_font::GameText(draw, ImVec2((io.DisplaySize.x - line_font::GameWidth(by, sub)) * 0.5f, cy + size * 0.45f), sub, by,
                     Rgba(1, 1, 1, 0.85f * alpha), std::max(1.0f, sub * 0.07f));
     // The rules flash in one by one.
     const auto chips = rules::Chips(m.rules);
     const float chip = size * 0.24f;
     float total = 0;
-    for (const auto& c : chips) total += line_font::Width(c, chip) + chip * 1.1f + u;
+    for (const auto& c : chips) total += line_font::GameWidth(c, chip) + chip * 1.1f + u;
     float x = (io.DisplaySize.x - total) * 0.5f;
     for (size_t i = 0; i < chips.size(); ++i) {
       const double shown = t - kCardIn - 0.18 * double(i);
@@ -390,13 +389,13 @@ class CustomModesMenu final : public rex::ui::ImGuiDialog {
       text += "   " + Clock2(float(std::max(0.0, double(*c.mode.rules.time_limit) - c.elapsed)) + 0.49f);
     }
     const float size = u * 2.2f;
-    const float w = line_font::Width(text, size);
+    const float w = line_font::GameWidth(text, size);
     const ImVec2 at((io.DisplaySize.x - w) * 0.5f, io.DisplaySize.y - u * 5.0f);
     draw->AddRectFilled(ImVec2(at.x - u * 1.5f, at.y - u), ImVec2(at.x + w + u * 1.5f, at.y + size + u),
                         Rgba(0.02f, 0.03f, 0.08f, 0.8f), u * 0.8f);
     draw->AddRect(ImVec2(at.x - u * 1.5f, at.y - u), ImVec2(at.x + w + u * 1.5f, at.y + size + u), Theme(0.0, 0.85f),
                   u * 0.8f, 0, 1.5f);
-    line_font::Draw(draw, at, size, text, Theme(), std::max(1.0f, size * 0.07f));
+    line_font::GameText(draw, at, size, text, Theme(), std::max(1.0f, size * 0.07f));
   }
 
   std::vector<custom_modes::Entry> entries_;

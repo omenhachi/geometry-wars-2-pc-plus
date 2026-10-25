@@ -172,8 +172,8 @@ class Panels final : public rex::ui::ImGuiDialog {
         float y = p0.y + tile_h * 0.68f;
         for (const char* line : tile.lines) {
           if (!line) continue;
-          const float w = line_font::Width(line, text);
-          line_font::Draw(draw, ImVec2(centre.x - w * 0.5f, y), text, line,
+          const float w = line_font::GameWidth(line, text);
+          line_font::GameText(draw, ImVec2(centre.x - w * 0.5f, y), text, line,
                           focused ? Theme() : Rgba(0.8f, 0.85f, 0.95f, 0.5f + glow * 0.5f), thin);
           y += text * 1.35f;
         }

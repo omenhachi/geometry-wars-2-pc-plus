@@ -69,6 +69,8 @@ constexpr char kAuthorUrl[] = "https://github.com/omenhachi";
 constexpr char kRepositoryUrl[] = "https://github.com/omenhachi/geometry-wars-2-pc-plus";
 constexpr uint32_t kIntelVendorId = 0x8086;
 constexpr char kDiscordUrl[] = "https://discord.gg/ZJtcwYPN7";
+constexpr char kKofiUrl[] = "https://ko-fi.com/zanmato";
+constexpr std::string_view kKofiText = "SUPPORT THE DEVS ON KO-FI";
 constexpr char kDiscordText[] = "   \xC2\xB7   DISCORD";
 constexpr char kAuthorText[] = "BY OMENHACHI";
 // PC Plus builds on saulob's port, credited beside the author.
@@ -498,6 +500,30 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
     ImGui::GetForegroundDrawList()->AddText(font, size, pos, ImGui::GetColorU32(kAccent), kText);
   }
 
+  // Under the subtitle: a neon heart and "Support the devs on Ko-fi", which lights up under the mouse and opens the page.
+  static void DrawKofi(ImDrawList* draw, ImVec2 at, float scale) {
+    const float h = 13.0f * scale;
+    const float heart = h * 1.1f;
+    const float text_x = at.x + heart + 8.0f * scale;
+    const float w = text_x - at.x + line_font::Width(kKofiText, h);
+    const ImVec2 p0(at.x - 4.0f * scale, at.y - 4.0f * scale), p1(at.x + w + 4.0f * scale, at.y + h + 4.0f * scale);
+    const bool hovered = ImGui::IsMouseHoveringRect(p0, p1, false);
+    if (hovered) {
+      ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+      if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) trg::OpenUrl(kKofiUrl);
+    }
+    const ImU32 pink = ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 0.37f, 0.6f, hovered ? 1.0f : 0.85f));
+    // A heart: two round lobes over a point.
+    const float r = heart * 0.27f;
+    const ImVec2 c(at.x + heart * 0.5f, at.y + h * 0.42f);
+    draw->AddCircleFilled(ImVec2(c.x - r * 0.9f, c.y - r * 0.35f), r, pink, 16);
+    draw->AddCircleFilled(ImVec2(c.x + r * 0.9f, c.y - r * 0.35f), r, pink, 16);
+    draw->AddTriangleFilled(ImVec2(c.x - r * 1.85f, c.y - r * 0.1f), ImVec2(c.x + r * 1.85f, c.y - r * 0.1f),
+                            ImVec2(c.x, c.y + r * 2.0f), pink);
+    line_font::Draw(draw, ImVec2(text_x, at.y), h, kKofiText, pink, std::max(1.2f, h * 0.09f));
+    if (hovered) draw->AddLine(ImVec2(text_x, p1.y - 1.0f * scale), ImVec2(at.x + w, p1.y - 1.0f * scale), pink, 1.5f * scale);
+  }
+
   trg::LauncherConfig MakeConfig() {
     trg::LauncherConfig c;
     c.settings = &settings_;
@@ -514,6 +540,7 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
       const float y = pos.y + (size - height) * 0.5f;
       const float end = line_font::Draw(draw, ImVec2(pos.x, y), height, kTitle, ImGui::ColorConvertFloat4ToU32(kAccent),
                                         std::max(2.0f, height * 0.075f));
+      DrawKofi(draw, ImVec2(pos.x, pos.y + size * 1.15f + 16.0f * scale * 1.55f), scale);
       // The player's leaderboard name after the title, on every page, as the boards would show it.
       const std::string name = online::ValidName(settings_.Get(kPlayerNameKey));
       if (name.empty()) return;
