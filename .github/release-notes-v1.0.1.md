@@ -4,7 +4,7 @@
 
 ## Fixed
 
-- **Watching a replay to its end could count its score as yours.** The Game Over screen after a replay sent the replay's score to your local best and the online board. A replay now counts for nothing until the game has written its score. Only one board row was affected, and it has been corrected.
+- **Watching a replay to its end could count its score as yours.** The Game Over screen after a replay sent the replay's score to your local best and the online board. A replay now counts for nothing until the game has written its score. Only one board row was affected, and it is being corrected.
 
 ## Improved
 
