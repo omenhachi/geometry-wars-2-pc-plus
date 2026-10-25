@@ -74,6 +74,26 @@ constexpr uint32_t kProfileSize = 48;
 constexpr uint32_t kProfileUsers = 4;
 constexpr uint32_t kProgressOffset = 16;
 constexpr uint32_t kProgressSize = 32;
+// The unlocked-modes mask's bits for the modes the game unlocks (sub_82093640), and after the mask one word per mode
+// (by unlock index, sub_82093448) that is 0 while a newly unlocked mode is still unplayed: its tile then says "Game
+// mode unlocked!" and its first round opens with its rules (sub_82093748). Every mode is open from the start and
+// counts as played, so there is nothing to unlock, announce or hold back.
+constexpr uint32_t kAllModesUnlocked = 0x01 | 0x04 | 0x08 | 0x10 | 0x20;
+constexpr uint32_t kModesPlayedOffset = 4;  // from the mask
+constexpr uint32_t kUnlockIndices = 6;
+
+// Opens every mode on each profile. The game reads a profile in from its save at any time, so it is done every frame.
+void UnlockAllModes(uint8_t* base) {
+  for (uint32_t user = 0; user < kProfileUsers; ++user) {
+    const uint32_t mask = kProfiles + user * kProfileSize + kProgressOffset;
+    const uint32_t unlocked = LoadBE32(base, mask);
+    if ((unlocked & kAllModesUnlocked) != kAllModesUnlocked) StoreBE32(base, mask, unlocked | kAllModesUnlocked);
+    for (uint32_t index = 0; index < kUnlockIndices; ++index) {
+      const uint32_t played = mask + kModesPlayedOffset + index * 4;
+      if (LoadBE32(base, played) == 0) StoreBE32(base, played, 1);
+    }
+  }
+}
 
 struct Touched {
   uint32_t address;
@@ -399,6 +419,7 @@ void StartRequested(PPCContext& ctx, uint8_t* base) {
 }
 
 void EachFrame(uint8_t* base) {
+  UnlockAllModes(base);
   // --gw2_play_mode: once, at the first menu frame.
   static bool auto_played = false;
   if (!auto_played && !REXCVAR_GET(gw2_play_mode).empty() && !UserFolder().empty()) {  // the folders are set up

@@ -155,7 +155,7 @@ std::vector<ScoreWrite> ParseScoreWrites(const uint8_t* base, uint32_t views, ui
 
 uint32_t CreateEnumerator(uint8_t* base, EnumeratorRegistry& registry, StatsQuery::Kind kind, uint64_t pivot,
                           uint32_t max_rows, uint32_t spec_count, uint32_t specs, uint32_t size_ptr,
-                          uint32_t handle_ptr, uint32_t* handle_out) {
+                          uint32_t handle_ptr, uint32_t* handle_out, const ViewSource& source) {
   if (!spec_count || spec_count > kMaxSpecs || !specs || !size_ptr || !handle_ptr) return kErrorInvalidParameter;
 
   StatsQuery query;
@@ -163,6 +163,7 @@ uint32_t CreateEnumerator(uint8_t* base, EnumeratorRegistry& registry, StatsQuer
   query.pivot = pivot;
   query.max_rows = max_rows;
   query.views = ReadSpecViews(base, specs, spec_count);
+  for (const uint32_t view : query.views) query.sources.push_back(source ? source(view) : view);
   const uint32_t handle = registry.Add(std::move(query));
 
   StoreBE32(base, size_ptr, kResultsHeaderSize + (kViewSize + kRowSize) * spec_count);
@@ -174,10 +175,14 @@ uint32_t CreateEnumerator(uint8_t* base, EnumeratorRegistry& registry, StatsQuer
 uint32_t ServeEnumeration(uint8_t* base, const LocalLeaderboard& board, const StatsQuery& query, uint32_t buffer,
                           uint32_t size, uint32_t items_ptr, uint32_t overlapped) {
   std::vector<StatsView> views;
-  for (const uint32_t view : query.views) {
-    views.push_back(query.kind == StatsQuery::Kind::kRanked
-                        ? board.Ranked(view, static_cast<uint32_t>(query.pivot), query.max_rows)
-                        : board.Around(view, query.pivot, query.max_rows));
+  for (size_t i = 0; i < query.views.size(); ++i) {
+    const uint32_t view = query.views[i];
+    const uint32_t from = i < query.sources.size() ? query.sources[i] : view;
+    StatsView served = query.kind == StatsQuery::Kind::kRanked
+                           ? board.Ranked(from, static_cast<uint32_t>(query.pivot), query.max_rows)
+                           : board.Around(from, query.pivot, query.max_rows);
+    served.id = view;
+    views.push_back(std::move(served));
   }
   const uint32_t result = WriteStatsResults(base, buffer, size, views) ? kErrorSuccess : kErrorInsufficientBuffer;
   const uint32_t items = result == kErrorSuccess ? 1 : 0;

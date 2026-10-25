@@ -71,12 +71,17 @@ class LocalLeaderboard {
   std::string display_name_;  // guarded by name_mutex_
 };
 
+// The board a requested view is answered from (a Master mode's own, for its base mode's view); answered under the
+// requested view's id, so the game takes the rows as the ones it asked for.
+using ViewSource = std::function<uint32_t(uint32_t view)>;
+
 struct StatsQuery {
   enum class Kind { kRanked, kAround };
   Kind kind = Kind::kRanked;
   uint64_t pivot = 0;
   uint32_t max_rows = 0;
   std::vector<uint32_t> views;
+  std::vector<uint32_t> sources;  // the board each view is read from (a Master board for its base mode's view)
 };
 
 // Handles for enumerators the port answers itself. The range never overlaps the runtime's object
@@ -114,7 +119,7 @@ std::vector<ScoreWrite> ParseScoreWrites(const uint8_t* base, uint32_t views, ui
 // handle. Returns the status for r3.
 uint32_t CreateEnumerator(uint8_t* base, EnumeratorRegistry& registry, StatsQuery::Kind kind, uint64_t pivot,
                           uint32_t max_rows, uint32_t spec_count, uint32_t specs, uint32_t size_ptr,
-                          uint32_t handle_ptr, uint32_t* handle_out = nullptr);
+                          uint32_t handle_ptr, uint32_t* handle_out = nullptr, const ViewSource& source = {});
 
 // XamEnumerate on a registered handle: fills the results and completes the overlapped like the
 // console does (the call returns IO_PENDING once the overlapped carries the result).
@@ -128,9 +133,6 @@ struct Nearby {
   uint32_t my_rank = 0;
 };
 using NearbyRows = std::function<Nearby(uint32_t view, int64_t my_score)>;
-// The board a requested view is answered from (a Master mode's own, for its base mode's view); answered under the
-// requested view's id, so the game takes the rows as the ones it asked for.
-using ViewSource = std::function<uint32_t(uint32_t view)>;
 
 // XUserReadStats: fills the results buffer with the requested players' rows and then any nearby rows that fit,
 // dropping nearby rows from the last view back. False when the buffer is missing or too small for the requested.

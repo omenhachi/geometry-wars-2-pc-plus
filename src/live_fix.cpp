@@ -86,16 +86,21 @@ uint64_t SelectedLeaderboardXuid(const uint8_t* base) {
 bool CreateStatsEnumerator(PPCContext& ctx, uint8_t* base, StatsQuery::Kind kind) {
   Services* services = Active();
   if (!services || ctx.r3.u32 != 0) return false;
+  // A Master mode's board for its base mode's view: in a Master run, or opened from the Master page.
+  const std::optional<gw2::custom_modes::Board> own = gw2::custom_modes::OwnBoard();
+  const auto source = [own](uint32_t view) {
+    return own && view == own->base ? own->board : gw2::master_page::LeaderboardSource(view);
+  };
   if (ctx.r6.u32 && ctx.r7.u32) {
     const std::vector<uint32_t> views = ReadSpecViews(base, ctx.r7.u32, ctx.r6.u32);
-    if (!views.empty()) g_shown_board.store(views.front(), std::memory_order_relaxed);
+    if (!views.empty()) g_shown_board.store(source(views.front()), std::memory_order_relaxed);
   }
 
   const bool ranked = kind == StatsQuery::Kind::kRanked;
   const uint64_t pivot = ranked ? ctx.r4.u32 : ctx.r4.u64;
   uint32_t handle = 0;
   ctx.r3.u64 = CreateEnumerator(base, services->enumerators, kind, pivot, ctx.r5.u32, ctx.r6.u32, ctx.r7.u32,
-                                ctx.r8.u32, ctx.r9.u32, &handle);
+                                ctx.r8.u32, ctx.r9.u32, &handle, source);
   // An online board has a row per player: the game sizes its buffer from this answer.
   if (ctx.r3.u32 == kErrorSuccess && ranked && online::Enabled() && ctx.r8.u32 != 0) {
     const uint32_t rows = std::min(ctx.r5.u32, online::kMaxRows);
@@ -240,9 +245,11 @@ REX_HOOK_RAW(sub_820958D0) {
         const uint32_t items = ctx.r6.u32;
         std::thread([base, services, buffer, size, items, overlapped, query = *query] {
           std::vector<StatsView> views;
-          for (const uint32_t view : query.views) {
-            auto board = online::FetchBoard(view, uint32_t(query.pivot), query.max_rows);
+          for (size_t i = 0; i < query.views.size(); ++i) {
+            const uint32_t from = i < query.sources.size() ? query.sources[i] : query.views[i];
+            auto board = online::FetchBoard(from, uint32_t(query.pivot), query.max_rows);
             if (!board) break;
+            board->id = query.views[i];  // answered as the view the game asked for
             views.push_back(std::move(*board));
           }
           if (views.size() == query.views.size() && StatsResultsSize(views) <= size) {
@@ -297,7 +304,7 @@ REX_HOOK_RAW(sub_820955D0) {
                    return board ? online::PickNearby(*board, my_score, local_xuid) : Nearby{};
                  },
                  [own](uint32_t view) {
-                   return own && view == own->base ? own->board : gw2::master_page::ViewSource(view);
+                   return own && view == own->base ? own->board : gw2::master_page::LeaderboardSource(view);
                  });
 }
 

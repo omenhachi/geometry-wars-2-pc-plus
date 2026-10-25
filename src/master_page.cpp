@@ -2,11 +2,11 @@
 //
 // The screen (built by sub_8208ED00) is the game's menu rows, one per mode tile, added with sub_820900A8 like any menu
 // row: a text id (30 Deadline, 28 Evolved, 33 King, 32 Pacifism, 31 Waves, 29 Sequence) and the same action,
-// sub_8208D548, which checks the mode is unlocked (sub_82093748) and starts it (sub_8208D410). The tile drawer asks the
-// same unlock check and reads the tile's scores with XUserReadStats.
+// sub_8208D548, which opens a newly unlocked mode's rules first (sub_82093748) and starts it (sub_8208D410). The tile
+// drawer reads the tile's scores with XUserReadStats. Every mode is unlocked and counts as played (custom_modes.cpp).
 //
 // Page two rebuilds the screen with only the Deadline and Evolved rows. While it shows, their names are the Master
-// modes', every mode reads as unlocked (the Master modes are always open), their views are read from the Master boards
+// modes', their views are read from the Master boards
 // (live_fix.cpp), and starting one starts the Master mode (custom_modes.h) instead of the game's.
 
 #include "master_page.h"
@@ -50,6 +50,8 @@ constexpr uint32_t kMainMenuScreen = 0x8208F9B8;
 constexpr uint32_t kTileAction = 0x8208D548;          // every Single Player tile's action
 constexpr uint32_t kDeadlineText = 30;
 constexpr uint32_t kEvolvedText = 28;
+constexpr uint32_t kDeadlineLeaderboardText = 61;  // "Deadline Leaderboard", the leaderboard screen's title
+constexpr uint32_t kEvolvedLeaderboardText = 59;
 constexpr uint32_t kStartState = 0x821993F0;  // 0 or 3 in the menus
 constexpr uint16_t kRightShoulder = 0x0200;
 // The Single Player screen's score reads (sub_8208BA90's state at 0x821EBE78): the byte at +36 asks for them again,
@@ -183,6 +185,12 @@ bool SkipRow(const PPCContext& row) {
 }
 
 std::optional<uint32_t> Text(uint32_t id) {
+  if (g_page_two.load(std::memory_order_relaxed)) {
+    static const uint32_t deadline_board = GuestText("Master Deadline Leaderboard");
+    static const uint32_t evolved_board = GuestText("Master Evolved Leaderboard");
+    if (id == kDeadlineLeaderboardText && deadline_board) return deadline_board;
+    if (id == kEvolvedLeaderboardText && evolved_board) return evolved_board;
+  }
   if (!PageTwo()) return std::nullopt;
   static const uint32_t deadline = GuestText("Master Deadline");
   static const uint32_t evolved = GuestText("Master Evolved");
@@ -191,8 +199,8 @@ std::optional<uint32_t> Text(uint32_t id) {
   return std::nullopt;
 }
 
-uint32_t ViewSource(uint32_t view) {
-  if (!PageTwo()) return view;
+uint32_t LeaderboardSource(uint32_t view) {
+  if (!g_page_two.load(std::memory_order_relaxed)) return view;
   const custom_modes::Master* master = custom_modes::MasterFor(view);
   return master ? master->board : view;
 }
@@ -267,10 +275,6 @@ void OnTile(const uint8_t* base, uint32_t row) {
   }
 }
 
-bool OnPageTwo() {
-  return PageTwo();
-}
-
 }  // namespace gw2::master_page
 
 // Switches the screen: r5 is the screen's draw function.
@@ -287,12 +291,3 @@ REX_HOOK_RAW(sub_8208D548) {
   __imp__sub_8208D548(ctx, base);
 }
 
-// Whether a mode is unlocked (r3 its unlock index): on the Master page, both are always open.
-REX_EXTERN(__imp__sub_82093748);
-REX_HOOK_RAW(sub_82093748) {
-  if (gw2::master_page::OnPageTwo()) {
-    ctx.r3.u64 = 1;
-    return;
-  }
-  __imp__sub_82093748(ctx, base);
-}

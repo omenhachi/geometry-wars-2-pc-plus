@@ -350,6 +350,20 @@ static void TestServe() {
       r == kErrorIoPending && m.U32(buf) == 2 && m.U32(m.U32(buf + 4) + 8) == 0 && m.U32(m.U32(buf + 4) + 16 + 8) == 0,
       "views without a score are empty but present");
 
+  // A Master board for its base mode's view (opened from the Master page): read from board 6, answered as view 0.
+  stats.Record(kXuid, 6, 777);
+  m.PutSpecs(0x2000, {0});
+  uint32_t master_handle = 0;
+  CreateEnumerator(m.base(), registry, StatsQuery::Kind::kRanked, 1, 10, 1, 0x2000, 0x3000, 0x3004, &master_handle,
+                   [](uint32_t view) { return view == 0 ? 6u : view; });
+  const StatsQuery master_query = *registry.Take(master_handle);
+  Check(master_query.views == std::vector<uint32_t>{0} && master_query.sources == std::vector<uint32_t>{6},
+        "the query keeps the view asked for and the board it is read from");
+  m.Fill(overlapped, 32, 0);
+  ServeEnumeration(m.base(), board, master_query, buf, cb, 0, overlapped);
+  Check(m.U32(m.U32(buf + 4)) == 0 && m.U64(m.U32(m.U32(buf + 4) + 12) + 16) == 777,
+        "the Master board's score is served under the view the game asked for");
+
   // XUserReadStats
   m.PutSpecs(0x6000, {0, 1, 2});
   m.Put64(0x6800, 0xE000AAAABBBBCCCCull);
