@@ -173,7 +173,7 @@ Unchanged from the first launcher phase. `CheckGameFiles` is the one readiness c
 
 ## Dependency
 
-TRG Launcher is the `third_party/trg-launcher` submodule pinned to `b384a28` (version 1.1.0). Clone with `git clone --recursive`, or run `git submodule update --init third_party/trg-launcher` after cloning.
+TRG Launcher is the `third_party/trg-launcher` submodule pinned to `1a6ef30` (version 1.2.0). Clone with `git clone --recursive`, or run `git submodule update --init third_party/trg-launcher` after cloning.
 
 ## Limits
 
