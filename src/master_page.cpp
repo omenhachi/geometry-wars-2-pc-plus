@@ -45,6 +45,7 @@ namespace {
 // Screens, by their draw function (sub_8208FFF0's r5).
 constexpr uint32_t kSinglePlayerScreen = 0x8208D5B8;  // the one sub_8208ED00 switches to
 constexpr uint32_t kRulesScreen = 0x8207B058;         // a mode's rules, between its tile and its round
+constexpr uint32_t kIntroScreen = 0x8207ACD0;         // the other screen between a tile and its round (Evolved's)
 constexpr uint32_t kMainMenuScreen = 0x8208F9B8;
 constexpr uint32_t kTileAction = 0x8208D548;          // every Single Player tile's action
 constexpr uint32_t kDeadlineText = 30;
@@ -69,10 +70,11 @@ bool OnScreen() {
   return g_screen.load(std::memory_order_relaxed) == kSinglePlayerScreen;
 }
 
-// The Master page or the rules screen it led to.
+// The Master page or a screen it led to before the round.
 bool PageTwo() {
   const uint32_t screen = g_screen.load(std::memory_order_relaxed);
-  return g_page_two.load(std::memory_order_relaxed) && (screen == kSinglePlayerScreen || screen == kRulesScreen);
+  return g_page_two.load(std::memory_order_relaxed) &&
+         (screen == kSinglePlayerScreen || screen == kRulesScreen || screen == kIntroScreen);
 }
 
 uint32_t GuestText(const char* text) {
@@ -196,7 +198,9 @@ uint32_t ViewSource(uint32_t view) {
 }
 
 bool StartTile(const PPCContext&, const uint8_t*) {
-  if (!PageTwo()) return false;
+  // A Master tile pressed on page two holds until its round starts, whichever screens the game shows between: the
+  // page stays two until the main menu shows.
+  if (!g_page_two.load(std::memory_order_relaxed)) return false;
   const custom_modes::Master* master = MasterForText(g_chosen.load(std::memory_order_relaxed));
   if (!master) return false;
   REXLOG_INFO("Master modes: {} starts", master->mode.name);
