@@ -7,3 +7,7 @@ binding = "DB"
 database_name = "gw2-pc-plus-leaderboards"
 # From `npx wrangler d1 create gw2-pc-plus-leaderboards` (see README.md). Not a secret: it needs the account login.
 database_id = "888151d4-343c-43dd-9089-e1c38a049074"
+
+# Workers Logs: refused uploads are logged (src/index.js) so their reasons can be looked up.
+[observability]
+enabled = true

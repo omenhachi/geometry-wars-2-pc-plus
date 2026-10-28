@@ -26,8 +26,9 @@ const MAX_SCORE = [
   100_000_000_000, 100_000_000_000, 100_000_000_000, 100_000_000_000, 100_000_000_000, 100_000_000_000,
   100_000_000_000, 100_000_000_000,
 ];
-// One submission per player this often, which a finished game never comes close to.
-const SUBMIT_INTERVAL_SECONDS = 20;
+// One submission per player this often. A one-ship Master run can end within seconds, Game Over screen and all, so
+// this stays short enough that no finished run is turned away.
+const SUBMIT_INTERVAL_SECONDS = 5;
 const MAX_COUNT = 50;
 // Replays are kept for the top of each board only, and taken only from builds that ask before sharing them.
 const REPLAY_RANKS = 50;
@@ -86,6 +87,12 @@ async function submitScore(request, env) {
   }
 
   const id = await publicId(token);
+  // Exactly another player's best, with its replay kept: a replay watched to its end, sent as the viewer's own by an
+  // older build or a changed one. Real runs never tie to the point.
+  const copied = await env.DB.prepare(
+    "SELECT 1 FROM replays WHERE mode = ? AND score = ? AND player_id <> ?",
+  ).bind(mode, score, id).first();
+  if (copied) return error(409, "that score is another player's replay");
   const now = Math.floor(Date.now() / 1000);
   const player = await env.DB.prepare("SELECT last_submit FROM players WHERE id = ?").bind(id).first();
   if (player && now - player.last_submit < SUBMIT_INTERVAL_SECONDS) return error(429, "too many submissions");
@@ -307,21 +314,33 @@ async function deletePlayer(request, env) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    try {
-      if (url.pathname === "/v1/scores" && request.method === "POST") return await submitScore(request, env);
-      const board = /^\/v1\/boards\/(\d)$/.exec(url.pathname);
-      if (board && request.method === "GET") return await readBoard(Number(board[1]), url, env);
-      if (url.pathname === "/v1/players" && request.method === "DELETE") return await deletePlayer(request, env);
-      if (url.pathname === "/v1/replays/wanted" && request.method === "POST") return await wantedReplays(request, env);
-      const upload = /^\/v1\/replays\/(\d)$/.exec(url.pathname);
-      if (upload && request.method === "POST") return await uploadReplay(request, env, Number(upload[1]));
-      const replay = /^\/v1\/replays\/(\d)\/([0-9a-f]{16})$/.exec(url.pathname);
-      if (replay && request.method === "GET") return await downloadReplay(env, Number(replay[1]), replay[2]);
-      if (url.pathname === "/" && request.method === "GET") return json({ service: "Geometry Wars 2 PC Plus leaderboards" });
-      return error(404, "not found");
-    } catch (e) {
-      console.error(e);
-      return error(500, "server error");
+    // Refused writes are logged (Workers Logs, wrangler.toml) so a board's upload troubles can be seen: the path, the
+    // answer and, for a score, its mode. Never the token.
+    const mode = url.pathname === "/v1/scores" ? (await readJson(request.clone()))?.mode : undefined;
+    const response = await route(request, env, url);
+    if (request.method !== "GET" && response.status >= 400) {
+      console.warn(`refused ${request.method} ${url.pathname}${mode !== undefined ? ` mode ${mode}` : ""}: ` +
+        `${response.status} ${await response.clone().text()}`);
     }
+    return response;
   },
 };
+
+async function route(request, env, url) {
+  try {
+    if (url.pathname === "/v1/scores" && request.method === "POST") return await submitScore(request, env);
+    const board = /^\/v1\/boards\/(\d)$/.exec(url.pathname);
+    if (board && request.method === "GET") return await readBoard(Number(board[1]), url, env);
+    if (url.pathname === "/v1/players" && request.method === "DELETE") return await deletePlayer(request, env);
+    if (url.pathname === "/v1/replays/wanted" && request.method === "POST") return await wantedReplays(request, env);
+    const upload = /^\/v1\/replays\/(\d)$/.exec(url.pathname);
+    if (upload && request.method === "POST") return await uploadReplay(request, env, Number(upload[1]));
+    const replay = /^\/v1\/replays\/(\d)\/([0-9a-f]{16})$/.exec(url.pathname);
+    if (replay && request.method === "GET") return await downloadReplay(env, Number(replay[1]), replay[2]);
+    if (url.pathname === "/" && request.method === "GET") return json({ service: "Geometry Wars 2 PC Plus leaderboards" });
+    return error(404, "not found");
+  } catch (e) {
+    console.error(e);
+    return error(500, "server error");
+  }
+}

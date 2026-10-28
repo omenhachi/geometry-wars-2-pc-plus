@@ -49,12 +49,15 @@ s.score DESC LIMIT 20`.
 
 - Names: 1 to 15 characters of `A-Z a-z 0-9 space _ . -`, which the game's font can draw.
 - Modes 0 to 5 (Deadline, Evolved, Sequence, Waves, Pacifism, King), whole scores from 0 to 100,000,000,000.
-- One submission per player every 20 seconds.
-- Replays: only of a player's best, while it is in the board's top 50, from 0.12.0 or newer, with no cheats, of the
+- One submission per player every 5 seconds: a one-ship Master run can be over that quickly.
+- A score that is exactly another player's best with a kept replay is refused: it came from watching that replay.
+- Replays: only of a player's best, while it is in the board's top 50, from 1.0.1 or newer, with no cheats, of the
   board's own mode (a Master board takes only its Master mode), at most 24 MB. They are kept in 1 MB pieces and go
   quietly when the best is beaten or falls out of the top 50.
 - Versions older than `MIN_VERSION` in `src/index.js` are refused, in case scoring ever changes. It is 1.0.1: before it,
   watching a replay to its end sent the replay's score as the viewer's own. Older builds still read the boards.
+- Refused writes are logged to Workers Logs (path, answer, a score's mode; never the token), so upload troubles on
+  a board can be looked up in the Cloudflare dashboard or with `npx wrangler tail`.
 
 Scores come from players' own PCs, and the game is open source, so a determined player can fake one. These are
 community boards for fun, not a tournament.

@@ -68,7 +68,7 @@ check((await score(token(), "Eve", mode, 1, { version: "0.5.0" })).status === 42
 check((await score(token(), "Eve", mode, 1, { version: "1.0.0" })).status === 426, "1.0.0, which counted watched replays, is refused");
 
 console.log("rate limit and best score");
-check((await score(alice, "Alice", mode, 9999)).status === 429, "a second submission within 20 s is refused");
+check((await score(alice, "Alice", mode, 9999)).status === 429, "a second submission within 5 s is refused");
 
 console.log("boards");
 r = await board(mode);
@@ -152,8 +152,16 @@ console.log("replays");
   check((await upload(dave, 6, demo({ mode: 0, score: top, custom: "One Life" }))).status === 400, "nor a custom mode");
   check((await upload(dave, 6, demo({ mode: 0, score: top, custom: "Master Deadline" }))).status === 200, "Master Deadline is");
 
+  // A replay's score sent as someone else's own is refused; the same score with no replay behind it is a tie.
+  const eve = token();
+  players.push(eve);
+  s = await score(eve, "Eve", 6, top);
+  check(s.status === 409, "a score that is exactly another player's replayed best is refused");
+  check(!(await board(6, "?count=50")).body.rows.some((r) => r.name === "Eve"), "and never reaches the board");
+  check((await score(eve, "Eve", 7, top)).status === 200, "the same score on a board without that replay is taken");
+
   // A new best makes the old replay stale.
-  await new Promise((done) => setTimeout(done, 21_000));
+  await new Promise((done) => setTimeout(done, 6_000));
   s = await score(carol, "Carol", 2, top + 5);
   check(s.body.replay === true, "a new best asks again");
   row = (await board(2, "?count=50")).body.rows.find((r) => r.id === carolId);
