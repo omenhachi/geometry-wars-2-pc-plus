@@ -383,7 +383,7 @@ Outcome Apply(State& state, const Run& run) {
     if (run.score > best) {
       best = run.score;
       out.new_best = true;
-      out.best_xp = kBestXp;
+      out.best_xp = kCustomBestXp;
     }
   }
 

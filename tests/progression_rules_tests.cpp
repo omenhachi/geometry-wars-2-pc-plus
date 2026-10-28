@@ -82,7 +82,7 @@ void RunXp() {
   custom.score = 5'000;
   custom.seconds = 30;
   const Outcome c1 = Apply(s, custom);
-  CHECK(c1.new_best && c1.tier_xp == 0 && s.custom_bests["c806e9b70559a1e5"] == 5'000);
+  CHECK(c1.new_best && c1.best_xp == kCustomBestXp && c1.tier_xp == 0 && s.custom_bests["c806e9b70559a1e5"] == 5'000);
   CHECK(!Apply(s, custom).new_best);
 
   // Lifetime totals.

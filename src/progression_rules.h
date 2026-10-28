@@ -26,6 +26,8 @@ inline constexpr int32_t kSequenceLevels = 20;
 
 inline constexpr uint64_t kXpPerSecond = 10;
 inline constexpr uint64_t kBestXp = 1'000;
+// A custom mode's or practice level's best: short runs with noisy scores, and a mod's rules make a new mode, so less.
+inline constexpr uint64_t kCustomBestXp = 250;
 inline constexpr uint64_t kTierXp = 2'000;
 inline constexpr uint64_t kBountyXp = 1'500;
 inline constexpr size_t kOpenBounties = 3;
