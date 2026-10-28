@@ -73,10 +73,11 @@ std::string_view EnemyName(int32_t type) {
   }
 }
 
+// 0:47, 12:05, 1:04:05: short enough for a column.
 std::string Hours(double seconds) {
   const int64_t s = int64_t(seconds);
-  if (s >= 3600) return std::format("{}h {:02}m", s / 3600, (s / 60) % 60);
-  return std::format("{}m {:02}s", s / 60, s % 60);
+  if (s >= 3600) return std::format("{}:{:02}:{:02}", s / 3600, (s / 60) % 60, s % 60);
+  return std::format("{}:{:02}", s / 60, s % 60);
 }
 
 std::string_view KindName(pr::RewardKind kind) {
@@ -302,9 +303,9 @@ class PilotScreen final : public rex::ui::ImGuiDialog {
     const float text = u * 2.0f;
     const float thin = std::max(1.0f, text * 0.07f);
     // Every board: tier, best, next tier; time and runs for the game's six modes.
-    const float table_right = left + (right - left) * 0.66f;
-    const float cols[] = {left + u * 5.0f, left + (table_right - left) * 0.6f, left + (table_right - left) * 0.75f,
-                          left + (table_right - left) * 0.85f, table_right};
+    const float table_right = left + (right - left) * 0.70f;
+    const float cols[] = {left + u * 5.0f, left + (table_right - left) * 0.585f, left + (table_right - left) * 0.70f,
+                          left + (table_right - left) * 0.78f, left + (table_right - left) * 0.89f, table_right};
     const auto right_text = [&](float edge, float y, float size, const std::string& s, ImU32 c) {
       line_font::GameText(draw, ImVec2(edge - line_font::GameWidth(s, size), y), size, s, c, std::max(1.0f, size * 0.07f));
     };
@@ -312,7 +313,8 @@ class PilotScreen final : public rex::ui::ImGuiDialog {
     right_text(cols[1], top, head, "Best", dim);
     right_text(cols[2], top, head, "Next", dim);
     right_text(cols[3], top, head, "Runs", dim);
-    right_text(cols[4], top, head, "Time", dim);
+    right_text(cols[4], top, head, "Geoms", dim);
+    right_text(cols[5], top, head, "Time", dim);
     const float row = (bottom - top - u * 3.0f) / float(pr::kBoards);
     for (uint32_t board = 0; board < pr::kBoards; ++board) {
       const float y = top + u * 3.0f + row * float(board);
@@ -325,12 +327,13 @@ class PilotScreen final : public rex::ui::ImGuiDialog {
       right_text(cols[2], y, text * 0.85f, next ? std::string(custom_mode::ShortScore(*next)) : std::string("Top"), dim);
       if (board < pr::kModes) {
         const pr::ModeTotals& m = state_.life.modes[board];
-        right_text(cols[3], y, text * 0.85f, std::to_string(m.runs), dim);
-        right_text(cols[4], y, text * 0.85f, Hours(m.seconds), dim);
+        right_text(cols[3], y, text * 0.8f, std::to_string(m.runs), dim);
+        right_text(cols[4], y, text * 0.8f, Grouped(m.geoms), dim);
+        right_text(cols[5], y, text * 0.8f, Hours(m.seconds), dim);
       }
     }
     // Lifetime totals, on the right.
-    const float lx = table_right + u * 4.0f;
+    const float lx = table_right + u * 3.5f;
     double seconds = 0;
     uint32_t runs = 0;
     for (const pr::ModeTotals& m : state_.life.modes) {
