@@ -1,7 +1,10 @@
 #pragma once
 
+#include <cstdint>
 #include <filesystem>
 #include <functional>
+#include <optional>
+#include <vector>
 
 #include "live_stats.h"
 
@@ -32,5 +35,13 @@ bool AchievementsHoldInput();
 
 // Left stick or D-pad direction read from the game's controller while the overlay is up: -1 up .. 1 down.
 float AchievementsScrollAxis();
+
+// The game's leaderboard screen while it shows: its board and the scores of the rows on screen, top to bottom (it keeps
+// only those), for their tier badges (progression_overlay.cpp).
+struct ShownBoard {
+  uint32_t board = 0;
+  std::vector<uint64_t> scores;
+};
+std::optional<ShownBoard> LeaderboardOnScreen();
 
 }  // namespace gw2::live

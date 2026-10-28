@@ -17,6 +17,7 @@
 #include <cmath>
 #include <cstring>
 #include <mutex>
+#include <span>
 #include <string>
 
 #include <imgui.h>
@@ -33,6 +34,8 @@
 #include "launcher_settings.h"
 #include "line_font.h"
 #include "neon_ui.h"
+#include "progression.h"
+#include "progression_ui.h"
 
 REXCVAR_DEFINE_INT32(gw2_dev_master_page, 0, "Geometry Wars",
                      "Open the Single Player screen as the menus come up, on page 1 or 2; 3: page 1, then page 2, then "
@@ -104,6 +107,36 @@ void Rebuild(PPCContext& ctx, uint8_t* base) {
   sub_8208ED00(call, base);
 }
 
+// Each tile's board and where the game puts it (column, row), page one then page two.
+struct TilePlace {
+  uint32_t board;
+  int column, row;
+};
+constexpr TilePlace kPageOne[] = {{0, 0, 0}, {4, 1, 0}, {5, 0, 1}, {3, 1, 1}, {1, 0, 2}, {2, 1, 2}};
+constexpr TilePlace kPageTwo[] = {{6, 0, 0}, {7, 0, 1}};
+
+// The pilot's tier on each tile (progression.h), in its top-left corner above the mode's icon.
+void DrawTiers(ImDrawList* draw, ImVec2 o, float cw, float ch, float u, bool two) {
+  using namespace gw2::neon;
+  const progression::State state = progression::Snapshot();
+  // The tiles' top-left corners as shares of the canvas: the two columns, and each page's rows.
+  constexpr float kColumns[] = {0.052f, 0.504f};
+  constexpr float kRowsOne[] = {0.158f, 0.391f, 0.638f};
+  constexpr float kRowsTwo[] = {0.124f, 0.384f};
+  const auto places = two ? std::span<const TilePlace>(kPageTwo) : std::span<const TilePlace>(kPageOne);
+  for (const TilePlace& place : places) {
+    const progression::Tier tier = progression::TierOf(state, place.board);
+    const float x = o.x + cw * (kColumns[place.column] + 0.026f);
+    const float y = o.y + ch * ((two ? kRowsTwo : kRowsOne)[place.row] + 0.05f);
+    const float r = u * 1.7f;
+    progression_ui::DrawTierBadge(draw, ImVec2(x, y), r, tier);
+    const std::string name(progression::TierName(tier));
+    const float size = u * 1.7f;
+    line_font::GameText(draw, ImVec2(x + r * 1.9f, y - size * 0.5f), size, name, progression_ui::TierColour(tier),
+                        std::max(1.0f, size * 0.08f));
+  }
+}
+
 class Overlay final : public rex::ui::ImGuiDialog {
  public:
   explicit Overlay(rex::ui::ImGuiDrawer* drawer) : ImGuiDialog(drawer) {}
@@ -151,6 +184,7 @@ class Overlay final : public rex::ui::ImGuiDialog {
                             Rgba(0.8f, 0.85f, 0.95f, 0.75f), std::max(1.0f, hint_size * 0.07f));
       }
     }
+    DrawTiers(draw, o, cw, ch, u, two);
     if (!two) return;
 
     // Page two's right half, where the game has no tiles: what the Master modes are.

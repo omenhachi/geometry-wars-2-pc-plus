@@ -2,8 +2,10 @@
 
 #include <algorithm>
 #include <atomic>
+#include <chrono>
 #include <thread>
 #include <cstring>
+#include <format>
 #include <mutex>
 
 #include <rex/cvar.h>
@@ -81,6 +83,7 @@ constexpr uint32_t kLeaderboardTitleViews[] = {1, 2, 0, 3, 4, 5};
 // The leaderboard screen's rows (40 bytes each, the player's xuid first), how many there are and the one selected.
 constexpr uint32_t kLeaderboardRows = 0x821EA128;
 constexpr uint32_t kLeaderboardRowSize = 40;
+constexpr uint32_t kLeaderboardRowScoreOffset = 8;  // after the xuid: the score (i64), the rank (u32), the name
 constexpr uint32_t kLeaderboardSelected = 0x821EB5C0;
 constexpr uint32_t kLeaderboardRowCount = 0x821EB5C4;
 constexpr uint32_t kViewGamerCardTextId = 50;  // "View Gamer Card", the button's name
@@ -176,6 +179,30 @@ void SetAchievementsModal(bool modal) {
 }
 
 bool AchievementsHoldInput() { return g_holds_input.load(std::memory_order_acquire); }
+
+namespace {
+std::mutex g_shown_rows_mutex;
+ShownBoard g_shown_rows;
+std::chrono::steady_clock::time_point g_shown_rows_at{};
+}  // namespace
+
+std::optional<ShownBoard> LeaderboardOnScreen() {
+  std::lock_guard lock(g_shown_rows_mutex);
+  if (std::chrono::steady_clock::now() - g_shown_rows_at > std::chrono::milliseconds(250)) return std::nullopt;
+  return g_shown_rows;
+}
+
+void NoteLeaderboardRows(const uint8_t* base, uint32_t board) {
+  ShownBoard shown;
+  shown.board = board;
+  const uint32_t count = std::min<uint32_t>(LoadBE32(base, kLeaderboardRowCount), 10);
+  for (uint32_t row = 0; row < count; ++row) {
+    shown.scores.push_back(LoadBE64(base, kLeaderboardRows + row * kLeaderboardRowSize + kLeaderboardRowScoreOffset));
+  }
+  std::lock_guard lock(g_shown_rows_mutex);
+  g_shown_rows = std::move(shown);
+  g_shown_rows_at = std::chrono::steady_clock::now();
+}
 
 float AchievementsScrollAxis() { return g_scroll_axis.load(std::memory_order_relaxed); }
 
@@ -350,10 +377,7 @@ REX_HOOK_RAW(sub_820826D8) {
   if (id >= kFirstLeaderboardTitle && id < kFirstLeaderboardTitle + std::size(kLeaderboardTitleViews)) {
     const uint32_t view = kLeaderboardTitleViews[id - kFirstLeaderboardTitle];
     g_shown_board.store(gw2::master_page::LeaderboardSource(view), std::memory_order_relaxed);
-  }
-  if (const std::optional<uint32_t> master = gw2::master_page::Text(id)) {
-    ctx.r3.u64 = *master;
-    return;
+    NoteLeaderboardRows(base, gw2::master_page::LeaderboardSource(view));
   }
   __imp__sub_820826D8(ctx, base);
   if (id == kViewGamerCardTextId && online::Enabled() &&

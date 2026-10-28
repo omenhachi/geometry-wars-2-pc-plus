@@ -17,6 +17,7 @@
 #include <rex/ui/imgui_dialog.h>
 
 #include "line_font.h"
+#include "live_fix.h"
 #include "neon_ui.h"
 #include "progression.h"
 #include "progression_ui.h"
@@ -193,10 +194,39 @@ class PilotCard final : public rex::ui::ImGuiDialog {
   double level_up_at_ = 0;
 };
 
+// The game's leaderboard screen: each row's tier for that board, from its score alone, between its rank and its name.
+// The screen keeps only the ten rows it shows, top to bottom, so row i is slot i.
+class BoardBadges final : public rex::ui::ImGuiDialog {
+ public:
+  explicit BoardBadges(rex::ui::ImGuiDrawer* drawer) : ImGuiDialog(drawer) {}
+
+ protected:
+  void OnDraw(ImGuiIO& io) override {
+    const std::optional<live::ShownBoard> shown = live::LeaderboardOnScreen();
+    if (!shown) return;
+    const float cw = std::min(io.DisplaySize.x, io.DisplaySize.y * 16.0f / 9.0f);
+    const float ch = cw * 9.0f / 16.0f;
+    const ImVec2 origin((io.DisplaySize.x - cw) * 0.5f, (io.DisplaySize.y - ch) * 0.5f);
+    const float u = ch / 100.0f;
+    ImDrawList* draw = ImGui::GetForegroundDrawList();
+    // The rows' centres, as shares of the canvas, beside the rank on the left where the curve is slight.
+    constexpr float kFirstRow = 0.168f;
+    constexpr float kRowStep = 0.0748f;
+    constexpr float kBadgeX = 0.19f;
+    for (size_t i = 0; i < shown->scores.size(); ++i) {
+      const pr::Tier tier = pr::TierFor(shown->board, shown->scores[i]);
+      if (tier == pr::Tier::kNone) continue;
+      ui::DrawTierBadge(draw, ImVec2(origin.x + cw * kBadgeX, origin.y + ch * (kFirstRow + kRowStep * float(i))),
+                        u * 1.5f, tier);
+    }
+  }
+};
+
 }  // namespace
 
 void CreateProgressionOverlay(rex::ui::ImGuiDrawer* drawer) {
-  new PilotCard(drawer);  // retained by the drawer for the session
+  new PilotCard(drawer);    // retained by the drawer for the session
+  new BoardBadges(drawer);
 }
 
 }  // namespace gw2
