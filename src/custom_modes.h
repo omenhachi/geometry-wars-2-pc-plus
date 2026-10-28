@@ -39,8 +39,17 @@ struct Entry {
   std::optional<uint64_t> best;
 };
 
-// Every mode, the player's own first, each folder in name order. Read fresh each time.
+// Every mode, the player's own first, each folder in name order, then Sequence practice (on the level last chosen)
+// and the examples. Read fresh each time.
 std::vector<Entry> Scan();
+
+// Sequence practice: PC Plus's own mode for one Sequence level, 1-20 (the `level` rule), and its entry in the list.
+inline constexpr char kPracticeFolder[] = "sequence-practice";
+custom_mode::Mode SequencePractice(int32_t level);
+Entry PracticeEntry(int32_t level);
+// The level Sequence practice was last set to, this session.
+int32_t PracticeLevel();
+void SetPracticeLevel(int32_t level);
 
 // Starts `mode` from the menus, on the game thread's next pad poll.
 void Play(const custom_mode::Mode& mode);

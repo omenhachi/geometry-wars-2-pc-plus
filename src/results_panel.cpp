@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <format>
 #include <optional>
 #include <string>
 #include <vector>
@@ -165,9 +166,11 @@ class ResultsPanel final : public rex::ui::ImGuiDialog {
     if (!shown_) {
       shown_ = true;
       appeared_ = now;
-      // A Master mode's run is named as the mode, not its base mode; decided once as the panel appears.
+      // A Master mode's run is named as the mode, not its base mode, and a Sequence level's with its level; decided
+      // once as the panel appears.
       const std::optional<custom_modes::Current> active = custom_modes::Active();
       title_ = active && active->board ? active->mode.name : ModeName(run->mode());
+      if (active && active->mode.rules.level) title_ = std::format("{}  Level {}", title_, *active->mode.rules.level);
     }
     const float age = float(now - appeared_);
     const float appear = std::clamp(age / 0.35f, 0.0f, 1.0f);

@@ -7,6 +7,7 @@
 // The player's own modes first, then the examples, with the cursor on the top row: A plays, nothing to decide. A mode
 // that can't be read stays in the list with its first error and the line it is on, so a typo is never silent. Y opens
 // the mods folder (made with a copy of the template the first time). A best shows only once a mode has one.
+// Sequence practice's row takes Left and Right for its level, and shows that level's best only.
 
 #include "custom_modes_menu.h"
 
@@ -172,6 +173,11 @@ class CustomModesMenu final : public rex::ui::ImGuiDialog {
     message_.clear();
   }
 
+  bool OnPractice() const {
+    return cursor_ >= 0 && cursor_ < int(entries_.size()) && entries_[cursor_].built_in &&
+           entries_[cursor_].folder == custom_modes::kPracticeFolder;
+  }
+
   void Reopen() {
     std::lock_guard lock(g_mutex);
     g_input.SetOpen(true);
@@ -184,6 +190,14 @@ class CustomModesMenu final : public rex::ui::ImGuiDialog {
         break;
       case Action::kDown:
         if (cursor_ + 1 < int(entries_.size())) ++cursor_;
+        break;
+      case Action::kLeft:
+      case Action::kRight:
+        if (OnPractice()) {
+          const int32_t step = action == Action::kLeft ? -1 : 1;
+          custom_modes::SetPracticeLevel(std::clamp(custom_modes::PracticeLevel() + step, 1, rules::kSequenceLevels));
+          entries_[cursor_] = custom_modes::PracticeEntry(custom_modes::PracticeLevel());
+        }
         break;
       case Action::kStar: {  // Y: the mods folder
         const std::filesystem::path folder = PrepareModsFolder();
@@ -311,9 +325,10 @@ class CustomModesMenu final : public rex::ui::ImGuiDialog {
     }
     fy += u * 4.0f;
     if (!message_.empty()) line_font::GameText(draw, ImVec2(left, fy), hint, message_, amber, hint_thin);
-    const std::string hints = KeyboardMode() ? std::string(KeyFor("keybind_start", "Enter")) + " Play   " +
-                                                   KeyFor("keybind_y", "L") + " Mods folder   Esc Back"
-                                             : "A Play   Y Mods folder   B Back";
+    std::string hints = KeyboardMode() ? std::string(KeyFor("keybind_start", "Enter")) + " Play   " +
+                                             KeyFor("keybind_y", "L") + " Mods folder   Esc Back"
+                                       : "A Play   Y Mods folder   B Back";
+    if (OnPractice()) hints = "Left Right Level   " + hints;
     line_font::GameText(draw, ImVec2(left, p1.y - pad - hint), hint, hints, dim, hint_thin);
   }
 
@@ -429,7 +444,8 @@ void FilterPad(uint8_t* base, uint32_t user, uint32_t state) {
   std::lock_guard lock(g_mutex);
   if (!g_input.HidesInput()) return;
   const uint32_t pad = state + kGamepadOffset;
-  const replays_menu::Pad read{LoadBE16(base, pad), int16_t(LoadBE16(base, pad + 6)), int16_t(LoadBE16(base, pad + 10))};
+  const replays_menu::Pad read{LoadBE16(base, pad), int16_t(LoadBE16(base, pad + 6)), int16_t(LoadBE16(base, pad + 10)),
+                               int16_t(LoadBE16(base, pad + 4)), int16_t(LoadBE16(base, pad + 8))};
   const ListInput::Verdict verdict = g_input.Poll(user, read);
   if (verdict.action != Action::kNone) g_actions.push_back(verdict.action);
   if (verdict.hide) std::memset(base + pad, 0, kGamepadSize);

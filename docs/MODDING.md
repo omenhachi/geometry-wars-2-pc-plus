@@ -45,6 +45,7 @@ Every rule is optional. A rule you leave out stays as the base mode has it.
 | `bombs` | 0 to 99 | Bombs at the start of the round. |
 | `extra_bombs` | true / false | `false`: the game never gives extra bombs at score milestones. |
 | `bonus_bombs_at` | up to 8 scores | A bomb each time your score passes one of these, like `[100000, 1000000, 10000000, 100000000]`. |
+| `level` | 1 to 20 | Sequence only: just this level, from its start. The run ends when the level does (cleared, or a death). Custom modes' Sequence practice is this rule. |
 | `infinite_bombs` | true / false | Bombs are never used up. |
 | `time_limit` | 10 to 3600 | Seconds. The round ends when it runs out, in any mode. The tag at the bottom counts down. |
 | `game_speed` | 0.5 to 1.5 | Everything runs this much faster or slower, timers included: Deadline at 1.3 is over in 2:18. |

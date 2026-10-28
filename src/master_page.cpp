@@ -143,6 +143,13 @@ class Overlay final : public rex::ui::ImGuiDialog {
                               ImVec2(ax + bob - dir * u * 0.4f, ay + u * 0.8f), Theme());
       const float kx = two ? p0.x + u * 3.6f : p1.x - u * 3.6f - line_font::GameWidth(key, key_size);
       line_font::GameText(draw, ImVec2(kx, ky), key_size, key, Rgba(0.9f, 0.93f, 1.0f, 0.9f), std::max(1.0f, key_size * 0.07f));
+      // Page one: where a single Sequence level can be played.
+      if (!two) {
+        const std::string hint = "Practise any Sequence level in Custom modes";
+        const float hint_size = u * 1.4f;
+        line_font::GameText(draw, ImVec2(right - line_font::GameWidth(hint, hint_size), p1.y + u * 1.4f), hint_size, hint,
+                            Rgba(0.8f, 0.85f, 0.95f, 0.75f), std::max(1.0f, hint_size * 0.07f));
+      }
     }
     if (!two) return;
 

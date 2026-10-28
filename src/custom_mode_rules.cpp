@@ -13,7 +13,8 @@ namespace {
 
 constexpr std::string_view kTopKeys[] = {"format", "name", "author", "description", "base", "rules"};
 constexpr std::string_view kRuleKeys[] = {"lives",          "bombs", "time_limit",  "game_speed",  "gates",
-                                          "infinite_bombs", "score", "extra_lives", "extra_bombs", "bonus_bombs_at"};
+                                          "infinite_bombs", "score", "extra_lives", "extra_bombs", "bonus_bombs_at",
+                                          "level"};
 constexpr std::string_view kScores[] = {"points", "time"};
 constexpr size_t kMaxText = 64;
 constexpr size_t kMaxDescription = 200;
@@ -117,6 +118,8 @@ void ReadRules(Reader& reader, const toml::table& table, Rules& rules) {
       rules.extra_lives = reader.Flag(node, k).value_or(true);
     } else if (k == "extra_bombs") {
       rules.extra_bombs = reader.Flag(node, k).value_or(true);
+    } else if (k == "level") {
+      rules.level = reader.Whole(node, k, 1, kSequenceLevels);
     } else if (k == "bonus_bombs_at") {
       const auto* list = node.as_array();
       if (!list) {
@@ -247,6 +250,9 @@ ParseResult Parse(std::string_view toml_text) {
     }
   }
   if (mode.name.empty()) reader.Error(0, "Give the mode a name, like name = \"My mode\"");
+  if (has_base && mode.rules.level && mode.rules.base != kSequenceBase) {
+    reader.Error(0, "\"level\" is only for Sequence, like base = \"sequence\"");
+  }
   if (!has_base && std::none_of(result.errors.begin(), result.errors.end(),
                                 [](const Message& m) { return m.text.starts_with("base"); })) {
     reader.Error(0, "Choose a base mode, like base = \"evolved\"");
@@ -278,7 +284,7 @@ std::vector<uint8_t> Write(const Rules& rules) {
   Put32(out, uint32_t(rules.bombs.value_or(0)));
   Put32(out, std::bit_cast<uint32_t>(rules.time_limit.value_or(0.0f)));
   Put32(out, std::bit_cast<uint32_t>(rules.game_speed));
-  Put32(out, 0);
+  Put32(out, uint32_t(rules.level.value_or(0)));  // once always 0, so older builds refuse a level's replay
   if (!version1) {
     const size_t count = std::min(rules.bonus_bombs_at.size(), kMaxBonusBombs);
     out.push_back(uint8_t(count));
@@ -303,7 +309,11 @@ std::optional<Rules> Read(std::span<const uint8_t> bytes) {
   const int32_t bombs = int32_t(Get32(bytes, 8));
   const float time = std::bit_cast<float>(Get32(bytes, 12));
   const float speed = std::bit_cast<float>(Get32(bytes, 16));
-  if (Get32(bytes, 20) != 0) return std::nullopt;
+  const uint32_t level = Get32(bytes, 20);
+  if (level != 0) {
+    if (level > uint32_t(kSequenceLevels) || rules.base != kSequenceBase) return std::nullopt;
+    rules.level = int32_t(level);
+  }
   if (flags & kLivesSet) {
     if (lives < 1 || lives > kMaxLives) return std::nullopt;
     rules.lives = lives;
@@ -365,6 +375,7 @@ std::vector<std::string> Chips(const Rules& rules) {
   } else if (rules.bombs && *rules.bombs != kBaseBombs[rules.base]) {
     chips.push_back(*rules.bombs == 0 ? "No bombs" : *rules.bombs == 1 ? "1 bomb" : std::format("{} bombs", *rules.bombs));
   }
+  if (rules.level) chips.push_back(std::format("Level {}", *rules.level));
   if (rules.time_limit) {
     const int seconds = int(std::lround(*rules.time_limit));
     chips.push_back(seconds % 60 == 0 ? std::format("{} min", seconds / 60)

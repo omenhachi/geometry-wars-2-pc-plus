@@ -20,6 +20,7 @@
 #include <chrono>
 #include <bit>
 #include <cmath>
+#include <cstdlib>
 #include <cstring>
 #include <format>
 #include <fstream>
@@ -60,6 +61,11 @@ constexpr uint32_t kBombsOffset = 15864;
 // Nonzero: a player is always given another ship (Deadline's setup writes 2). Zero: only while lives remain.
 constexpr uint32_t kRespawnAlwaysOffset = 15836;
 constexpr uint32_t kStepAddress = 0x8219D280;
+// Sequence's level, 0-19, and the level its round starts on, which its round setup (sub_82039628) copies into it: a
+// field the game keeps at 0. sub_820397E8 moves to the next level, and finishes the run after the last.
+constexpr uint32_t kSequenceLevel = 0x8219D3E8;
+constexpr uint32_t kSequenceStartLevel = 0x8219D438 + 32;
+constexpr uint32_t kSequenceLastLevel = 19;
 constexpr uint32_t kStartState = 0x821993F0;  // 0 or 3 in the menus, 1 as a round begins, 2 in play, 4 at Game Over
 constexpr uint32_t kPlaying = 2;
 constexpr uint32_t kPlayingPad = 0x821993E0 + 12;
@@ -117,6 +123,7 @@ State g_state;
 std::atomic<bool> g_active{false};
 std::atomic<bool> g_no_gates{false};
 std::atomic<bool> g_infinite_bombs{false};
+std::atomic<int32_t> g_practice_level{1};  // Sequence practice's level, this session
 std::atomic<int64_t> g_last_tick_ms{0};
 
 int64_t NowMs() {
@@ -235,12 +242,23 @@ void AfterSetup(uint32_t mode, uint8_t* base) {
   }
   if (r.bombs) Touch(base, kSettings + kBombsOffset, uint32_t(*r.bombs));
   if (r.time_limit) Touch(base, kSettings + kTimeLimitOffset, std::bit_cast<uint32_t>(*r.time_limit));
+  if (r.level) Touch(base, kSequenceStartLevel, uint32_t(*r.level - 1));
   REXLOG_INFO("Custom modes: \"{}\" set up on mode {}", g_state.active->mode.name, mode);
 }
 
 void BeforeSetup(uint8_t* base) {
   std::lock_guard lock(g_mutex);
   PutBack(base);
+}
+
+void BeforeNextLevel(uint8_t* base) {
+  std::lock_guard lock(g_mutex);
+  if (!g_state.active || !g_state.active->mode.rules.level) return;
+  REXLOG_INFO("Custom modes: Sequence leaves level {}", LoadBE32(base, kSequenceLevel) + 1);
+  // Its one level cleared: the run ends as if it were the last.
+  if (LoadBE32(base, kSequenceLevel) == uint32_t(*g_state.active->mode.rules.level - 1)) {
+    StoreBE32(base, kSequenceLevel, kSequenceLastLevel);
+  }
 }
 
 bool NoGates() {
@@ -276,8 +294,36 @@ std::vector<Entry> Scan() {
   const auto bests = ReadBests(user);
   std::vector<Entry> entries;
   ScanFolder(user, false, bests, entries);
+  entries.push_back(PracticeEntry(PracticeLevel()));
   ScanFolder(built_in, true, bests, entries);
   return entries;
+}
+
+rules::Mode SequencePractice(int32_t level) {
+  rules::Rules r;
+  r.base = rules::kSequenceBase;
+  r.level = std::clamp(level, 1, rules::kSequenceLevels);
+  return {"Sequence practice", "PC Plus",
+          "One Sequence level, with the usual bombs. The run ends with it.", r};
+}
+
+Entry PracticeEntry(int32_t level) {
+  Entry entry;
+  entry.folder = kPracticeFolder;
+  entry.built_in = true;
+  entry.mode = SequencePractice(level);
+  entry.id = rules::Id(entry.mode->rules);
+  const auto bests = ReadBests(UserFolder());
+  if (const auto best = bests.find(entry.id); best != bests.end()) entry.best = best->second;
+  return entry;
+}
+
+int32_t PracticeLevel() {
+  return g_practice_level.load(std::memory_order_relaxed);
+}
+
+void SetPracticeLevel(int32_t level) {
+  g_practice_level.store(std::clamp(level, 1, rules::kSequenceLevels), std::memory_order_relaxed);
 }
 
 void Play(const rules::Mode& mode) {
@@ -433,6 +479,13 @@ void EachFrame(uint8_t* base) {
         PlayMaster(master);
         found = true;
       }
+      // sequence-practice-N: that level.
+      const std::string practice = std::string(kPracticeFolder) + "-";
+      if (!found && wanted.starts_with(practice)) {
+        SetPracticeLevel(std::atoi(wanted.c_str() + practice.size()));
+        Play(SequencePractice(PracticeLevel()));
+        found = true;
+      }
       for (const Entry& entry : found ? std::vector<Entry>{} : Scan()) {
         if (entry.folder != wanted || !entry.mode) continue;
         Play(*entry.mode);
@@ -577,6 +630,13 @@ GW2_CUSTOM_MODE_SETUP(82035030, 3)
 GW2_CUSTOM_MODE_SETUP(820350B0, 4)
 GW2_CUSTOM_MODE_SETUP(82035130, 5)
 #undef GW2_CUSTOM_MODE_SETUP
+
+// Sequence moves on to its next level, or finishes the run after the last.
+REX_EXTERN(__imp__sub_820397E8);
+REX_HOOK_RAW(sub_820397E8) {
+  gw2::custom_modes::detail::BeforeNextLevel(base);
+  __imp__sub_820397E8(ctx, base);
+}
 
 // Spawns an enemy of type r3 (1-25) and returns it, or 0 when none could be made; callers ignore the result.
 REX_EXTERN(__imp__sub_8203BEE8);

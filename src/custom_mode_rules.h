@@ -46,6 +46,8 @@ inline constexpr float kMinSpeed = 0.5f;
 inline constexpr float kMaxSpeed = 1.5f;
 inline constexpr size_t kMaxBonusBombs = 8;
 inline constexpr uint64_t kMaxBonusScore = 1'000'000'000'000;
+inline constexpr uint32_t kSequenceBase = 2;
+inline constexpr int32_t kSequenceLevels = 20;
 
 struct Rules {
   uint32_t base = 0;
@@ -59,6 +61,7 @@ struct Rules {
   bool extra_lives = true;            // the game's own extra lives at score milestones
   bool extra_bombs = true;            // the game's own extra bombs at score milestones
   std::vector<uint64_t> bonus_bombs_at;  // a bomb each time the score passes one of these, ascending
+  std::optional<int32_t> level;       // Sequence only: just this level (1-20), and the round ends once it is cleared
   // Read from a replay made before lives meant ships in all (rule bytes version 1): `lives` there was spare ships.
   bool legacy_spare_lives = false;
 
