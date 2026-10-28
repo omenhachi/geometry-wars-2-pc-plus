@@ -66,8 +66,13 @@ bool Succeeded(PPCContext& ctx, uint8_t* base, uint32_t overlapped) {
   return status == kErrorSuccess;
 }
 
-// The board the game's leaderboard screen last asked for, for its gamercard button (see sub_82094DF0 below).
+// The board the game's leaderboard screen shows, for its gamercard button (see sub_82094DF0 below): known from the
+// screen's title, which the game looks up as it draws it. Its stats requests can't tell: other boards are read while it
+// shows (Deadline's, which every replay from the screen used to open).
 std::atomic<uint32_t> g_shown_board{0};
+// The titles' text ids, "Evolved Leaderboard" to "King Leaderboard", in the order of the modes' names (28 to 33).
+constexpr uint32_t kFirstLeaderboardTitle = 59;
+constexpr uint32_t kLeaderboardTitleViews[] = {1, 2, 0, 3, 4, 5};
 
 // The leaderboard screen's rows (40 bytes each, the player's xuid first), how many there are and the one selected.
 constexpr uint32_t kLeaderboardRows = 0x821EA128;
@@ -92,11 +97,6 @@ bool CreateStatsEnumerator(PPCContext& ctx, uint8_t* base, StatsQuery::Kind kind
   const auto source = [own](uint32_t view) {
     return own && view == own->base ? own->board : gw2::master_page::LeaderboardSource(view);
   };
-  if (ctx.r6.u32 && ctx.r7.u32) {
-    const std::vector<uint32_t> views = ReadSpecViews(base, ctx.r7.u32, ctx.r6.u32);
-    if (!views.empty()) g_shown_board.store(source(views.front()), std::memory_order_relaxed);
-  }
-
   const bool ranked = kind == StatsQuery::Kind::kRanked;
   const uint64_t pivot = ranked ? ctx.r4.u32 : ctx.r4.u64;
   uint32_t handle = 0;
@@ -337,6 +337,10 @@ uint32_t GuestCopy(uint8_t* base, RenamedText& renamed) {
 REX_EXTERN(__imp__sub_820826D8);
 REX_HOOK_RAW(sub_820826D8) {
   const uint32_t id = ctx.r3.u32;
+  if (id >= kFirstLeaderboardTitle && id < kFirstLeaderboardTitle + std::size(kLeaderboardTitleViews)) {
+    const uint32_t view = kLeaderboardTitleViews[id - kFirstLeaderboardTitle];
+    g_shown_board.store(gw2::master_page::LeaderboardSource(view), std::memory_order_relaxed);
+  }
   if (const std::optional<uint32_t> master = gw2::master_page::Text(id)) {
     ctx.r3.u64 = *master;
     return;
