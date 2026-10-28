@@ -201,6 +201,13 @@ uint64_t RaiseBest(State& state, uint32_t board, uint64_t score) {
   return kTierXp * (uint8_t(to) - uint8_t(from));
 }
 
+// 1,500.
+std::string Commas(uint64_t value) {
+  std::string digits = std::to_string(value);
+  for (int at = int(digits.size()) - 3; at > 0; at -= 3) digits.insert(size_t(at), ",");
+  return digits;
+}
+
 std::string_view EnemyName(int32_t type, bool plural) {
   switch (type) {
     case kBlackHole: return plural ? "black holes" : "black hole";
@@ -257,7 +264,7 @@ std::string BountyText(const Bounty& b) {
     case Goal::kScore: return std::format("Score {} in {}", ShortScore(b.target), board);
     case Goal::kSurvive: return std::format("Last {}:{:02} in {}", b.target / 60, b.target % 60, board);
     case Goal::kNoBomb: return std::format("Score {} in {} without a bomb", ShortScore(b.target), board);
-    case Goal::kKills: return std::format("Destroy {} {} in {}", b.target, EnemyName(b.type, true), board);
+    case Goal::kKills: return std::format("Destroy {} {} in {}", Commas(b.target), EnemyName(b.type, true), board);
     case Goal::kBlast: return std::format("Catch {} enemies in one gate blast in {}", b.target, board);
     case Goal::kPractice: return std::format("Clear Sequence level {} in practice", b.target);
   }
@@ -265,7 +272,7 @@ std::string BountyText(const Bounty& b) {
 }
 
 std::string BountyProgress(const Bounty& b) {
-  return b.goal == Goal::kKills ? std::format("{} of {}", b.progress, b.target) : std::string();
+  return b.goal == Goal::kKills ? std::format("{} of {}", Commas(b.progress), Commas(b.target)) : std::string();
 }
 
 const std::vector<Reward>& Rewards() {

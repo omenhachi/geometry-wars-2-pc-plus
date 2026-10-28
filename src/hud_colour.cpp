@@ -19,13 +19,16 @@ struct PresetInfo {
 
 // Hue, saturation scale, value scale. Blue and purple sit lighter than their pure hues, and with a touch of white,
 // so they glow as brightly as the original green does.
-constexpr std::array<PresetInfo, 7> kPresets = {{
+constexpr std::array<PresetInfo, 10> kPresets = {{
     {Preset::kGreen, "green", "Green", {}},
     {Preset::kBlue, "blue", "Blue", {200, 0.85f, 1.15f}},
     {Preset::kPurple, "purple", "Purple", {270, 0.9f, 1.25f}},
     {Preset::kPink, "pink", "Pink", {325, 0.7f, 1.15f}},
     {Preset::kGold, "gold", "Gold", {34, 1.0f, 1.0f}},
     {Preset::kRainbow, "rainbow", "Rainbow", {0, 0.8f, 1.15f}},
+    {Preset::kSynthwave, "synthwave", "Synthwave", {320, 0.85f, 1.15f}},
+    {Preset::kAurora, "aurora", "Aurora", {150, 0.8f, 1.2f}},
+    {Preset::kPlasma, "plasma", "Plasma", {40, 0.95f, 1.1f}},
     {Preset::kCustom, "custom", "Custom", {}},
 }};
 
@@ -126,6 +129,25 @@ std::optional<Look> LookFor(Preset preset, const std::optional<Look>& custom, do
       look.hue = float(std::fmod(seconds / kRainbowSeconds, 1.0) * 360.0);
       return look;
     }
+    case Preset::kSynthwave: {  // hot pink to cyan and back, every four seconds
+      Look look = Info(preset).look;
+      const double k = 0.5 + 0.5 * std::sin(seconds * 6.2831853 / 4.0);
+      look.hue = float(320.0 - 130.0 * k);
+      return look;
+    }
+    case Preset::kAurora: {  // green through teal to violet, slowly, like the lights
+      Look look = Info(preset).look;
+      const double k = 0.5 + 0.5 * std::sin(seconds * 6.2831853 / 10.0);
+      look.hue = float(140.0 + 140.0 * k);
+      return look;
+    }
+    case Preset::kPlasma: {  // gold to magenta through red, a quick pulse
+      Look look = Info(preset).look;
+      const double k = 0.5 + 0.5 * std::sin(seconds * 6.2831853 / 2.5);
+      look.hue = float(std::fmod(40.0 - 90.0 * k + 360.0, 360.0));
+      look.value = float(1.0 + 0.15 * k);
+      return look;
+    }
     default:
       return Info(preset).look;
   }
@@ -155,9 +177,12 @@ Rgb Swatch(Preset preset, const std::optional<Look>& custom, double seconds) {
   return out;
 }
 
-std::vector<Preset> Cycle(bool has_custom) {
+std::vector<Preset> Cycle(bool has_custom, const std::vector<Preset>& earned) {
   std::vector<Preset> cycle = {Preset::kGreen, Preset::kBlue, Preset::kPurple, Preset::kPink, Preset::kGold,
                                Preset::kRainbow};
+  for (const Preset preset : {Preset::kSynthwave, Preset::kAurora, Preset::kPlasma}) {
+    if (std::find(earned.begin(), earned.end(), preset) != earned.end()) cycle.push_back(preset);
+  }
   if (has_custom) cycle.push_back(Preset::kCustom);
   return cycle;
 }

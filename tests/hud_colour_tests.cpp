@@ -138,6 +138,13 @@ void TestCycleAndCurrent() {
   const auto plain = Cycle(false);
   CHECK(plain.size() == 6 && plain.front() == Preset::kGreen && plain.back() == Preset::kRainbow);
   const auto with_custom = Cycle(true);
+  // Pilot palettes join the row only once earned, after the free colours and before Custom.
+  const auto earned = Cycle(true, {Preset::kPlasma, Preset::kSynthwave});
+  CHECK(earned.size() == plain.size() + 3 && earned[plain.size()] == Preset::kSynthwave &&
+        earned[plain.size() + 1] == Preset::kPlasma && earned.back() == Preset::kCustom);
+  CHECK(Parse("aurora") == Preset::kAurora && Name(Preset::kPlasma) == "plasma");
+  CHECK(LookFor(Preset::kSynthwave, std::nullopt, 0.0) && LookFor(Preset::kSynthwave, std::nullopt, 0.0)->hue !=
+                                                              LookFor(Preset::kSynthwave, std::nullopt, 1.0)->hue);
   CHECK(with_custom.size() == 7 && with_custom.back() == Preset::kCustom);
 
   SetCurrent(Preset::kBlue, std::nullopt);

@@ -26,6 +26,7 @@
 #include "guest_memory.h"
 #include "hud_colour.h"
 #include "launcher_settings.h"
+#include "progression.h"
 
 namespace {
 
@@ -97,6 +98,17 @@ constexpr uint32_t kMenuClickSound = 24;
 uint32_t g_row_input = 0;
 uint32_t g_row_draw = 0;
 
+// The pilot palettes earned so far (progression.h), which the row offers after the free colours.
+std::vector<colour::Preset> EarnedPalettes() {
+  const gw2::progression::State state = gw2::progression::Snapshot();
+  std::vector<colour::Preset> earned;
+  for (const colour::Preset preset : {colour::Preset::kSynthwave, colour::Preset::kAurora, colour::Preset::kPlasma}) {
+    const gw2::progression::Reward* reward = gw2::progression::FindReward(colour::Name(preset));
+    if (reward && gw2::progression::Unlocked(state, *reward)) earned.push_back(preset);
+  }
+  return earned;
+}
+
 int CurrentIndex(const std::vector<colour::Preset>& cycle) {
   const colour::Preset preset = colour::CurrentPreset();
   for (size_t i = 0; i < cycle.size(); ++i) {
@@ -115,7 +127,7 @@ REX_EXTERN(sub_820787F8);  // plays a sound
 namespace {
 
 void ColourRowDraw(PPCContext& ctx, uint8_t* base) {
-  const auto cycle = colour::Cycle(colour::CurrentCustom().has_value());
+  const auto cycle = colour::Cycle(colour::CurrentCustom().has_value(), EarnedPalettes());
   const int index = CurrentIndex(cycle);
   ctx.r4.u64 = GuestText("Colour");
   ctx.r5.u64 = GuestText(colour::Label(cycle[index]));
@@ -126,7 +138,7 @@ void ColourRowDraw(PPCContext& ctx, uint8_t* base) {
 
 void ColourRowInput(PPCContext& ctx, uint8_t* base) {
   const uint32_t buttons = LoadBE32(base, ctx.r3.u32 + 8);
-  const auto cycle = colour::Cycle(colour::CurrentCustom().has_value());
+  const auto cycle = colour::Cycle(colour::CurrentCustom().has_value(), EarnedPalettes());
   const int index = CurrentIndex(cycle);
   int next = index;
   if ((buttons & kButtonLeft) && index > 0) next = index - 1;

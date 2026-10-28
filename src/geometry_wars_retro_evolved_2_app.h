@@ -43,6 +43,7 @@
 #include "log_filter.h"
 #include "log_path.h"
 #include "replays_menu.h"
+#include "pilot_menu.h"
 #include "progression.h"
 #include "progression_overlay.h"
 #include "results_panel.h"
@@ -161,6 +162,7 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
       gw2::CreateProgressionOverlay(drawer);
       gw2::replays_menu::CreateReplaysMenu(drawer);
       gw2::custom_modes_menu::CreateCustomModesMenu(drawer);
+      gw2::pilot_menu::CreatePilotMenu(drawer);
       gw2::benchmark::CreateOverlay(drawer);
       gw2::master_page::CreateOverlay(drawer);
       gw2::main_menu_panels::CreateOverlay(drawer);
@@ -202,6 +204,12 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
     }
     gw2::ApplyHudColourSetting();
     gw2::SetHudColourSaver([this](std::string_view key, std::string value) {
+      app_context().CallInUIThreadDeferred([this, key = std::string(key), value = std::move(value)] {
+        cvars_.Assign(key, value);
+        settings_->SaveNow(key, value);
+      });
+    });
+    gw2::pilot_menu::SetSaver([this](std::string_view key, std::string value) {
       app_context().CallInUIThreadDeferred([this, key = std::string(key), value = std::move(value)] {
         cvars_.Assign(key, value);
         settings_->SaveNow(key, value);

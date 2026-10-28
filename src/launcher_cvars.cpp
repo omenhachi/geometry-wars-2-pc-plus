@@ -40,6 +40,9 @@ REXCVAR_DEFINE_BOOL(gw2_player_name_asked, false, "Geometry Wars",
 REXCVAR_DEFINE_STRING(gw2_hud_colour, "green", "Geometry Wars",
                       "Menu and HUD colour: green, blue, purple, pink, gold, rainbow or custom");
 REXCVAR_DEFINE_STRING(gw2_hud_colour_custom, "", "Geometry Wars", "The custom menu and HUD colour, as #RRGGBB");
+REXCVAR_DEFINE_STRING(gw2_crosshair, "classic", "Geometry Wars",
+                      "The mouse-aim crosshair: classic, or a pilot reward (diamond, reticle, starburst, halo)");
+REXCVAR_DEFINE_STRING(gw2_ship_colour, "", "Geometry Wars", "The ship's colour: the game's own, or a pilot reward");
 // The render target cache reads its path once, as it is built, so a change takes a new process.
 REXCVAR_DEFINE_STRING(gw2_render_path, "auto", "Geometry Wars",
                       "Render path: auto, fast (host render targets) or compatible (rasterizer-ordered, Intel's default)")

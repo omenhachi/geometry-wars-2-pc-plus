@@ -7,6 +7,7 @@
 #include <chrono>
 #include <cstdint>
 #include <mutex>
+#include <string>
 
 #include <imgui.h>
 
@@ -249,9 +250,9 @@ const CrosshairPalette kSpectrum{};
 // negative inner carries the arms past the centre, so they cross. Each arm is a gradient from hue, spread by the
 // palette.
 void DrawCrosshairArms(ImDrawList* draw, ImVec2 p, float angle, float inner, float outer, float hue, float white,
-                       float alpha, float thickness, bool outline, const CrosshairPalette& palette) {
-  for (int i = 0; i < 4; ++i) {
-    const float a = angle + float(i) * 1.5707964f;
+                       float alpha, float thickness, bool outline, const CrosshairPalette& palette, int arms = 4) {
+  for (int i = 0; i < arms; ++i) {
+    const float a = angle + float(i) * 6.2831855f / float(arms);
     const float c = std::cos(a);
     const float s = std::sin(a);
     for (int k = 0; k < kCrosshairSegments; ++k) {
@@ -266,15 +267,75 @@ void DrawCrosshairArms(ImDrawList* draw, ImVec2 p, float angle, float inner, flo
   }
 }
 
+// The crosshair styles: the classic four arms, or a pilot reward (progression_rules.h) worn as gw2_crosshair.
+enum class Style { kClassic, kDiamond, kReticle, kStarburst, kHalo };
+
+Style CurrentStyle() {
+  const std::string name = REXCVAR_GET(gw2_crosshair);
+  if (name == "diamond") return Style::kDiamond;
+  if (name == "reticle") return Style::kReticle;
+  if (name == "starburst") return Style::kStarburst;
+  if (name == "halo") return Style::kHalo;
+  return Style::kClassic;
+}
+
+// A neon ring in the same four passes as the arms, its colour turning with the hue; `gaps` breaks it into that many
+// arcs (0: whole), `sides` makes it a polygon.
+void DrawRing(ImDrawList* draw, ImVec2 p, float r, float angle, float hue, float thickness, const CrosshairPalette& palette,
+              int gaps = 0, int sides = 48) {
+  struct Pass {
+    float white, alpha, width;
+    bool outline;
+  };
+  const Pass passes[] = {{0.0f, 1.0f, thickness + 4.0f, true}, {0.0f, 0.35f, thickness * 3.0f, false},
+                         {0.1f, 1.0f, thickness, false}, {0.75f, 1.0f, thickness * 0.4f, false}};
+  for (const Pass& pass : passes) {
+    for (int i = 0; i < sides; ++i) {
+      if (gaps > 0 && i % (sides / gaps) < 2) continue;  // each arc's first two segments are its gap
+      const float a0 = angle + 6.2831855f * float(i) / float(sides);
+      const float a1 = angle + 6.2831855f * float(i + 1) / float(sides);
+      const ImU32 colour = pass.outline ? kCrosshairOutline
+                                        : Neon(hue + palette.arm_step * float(i) / float(sides) * 4.0f,
+                                               pass.white + (1.0f - pass.white) * palette.white, pass.alpha);
+      draw->AddLine(ImVec2(p.x + std::cos(a0) * r, p.y + std::sin(a0) * r),
+                    ImVec2(p.x + std::cos(a1) * r, p.y + std::sin(a1) * r), colour, pass.width);
+    }
+  }
+}
+
 void DrawCrosshair(ImDrawList* draw, ImVec2 p, float size, float thickness, float angle, float spread, float hue,
-                   const CrosshairPalette& palette) {
+                   const CrosshairPalette& palette, Style style = Style::kClassic) {
   // spread 1 is the resting gap, 0 the arms just meeting, below 0 crossing.
-  const float inner = size * 0.3f * spread;
-  const float outer = inner + size * 0.7f;
-  DrawCrosshairArms(draw, p, angle, inner, outer, hue, 0.0f, 1.0f, thickness + 4.0f, true, palette);
-  DrawCrosshairArms(draw, p, angle, inner, outer, hue, 0.0f, 0.35f, thickness * 3.0f, false, palette);
-  DrawCrosshairArms(draw, p, angle, inner, outer, hue, 0.1f, 1.0f, thickness, false, palette);
-  DrawCrosshairArms(draw, p, angle, inner, outer, hue, 0.75f, 1.0f, thickness * 0.4f, false, palette);
+  float inner = size * 0.3f * spread;
+  float outer = inner + size * 0.7f;
+  int arms = 4;
+  float arm_angle = angle;
+  switch (style) {
+    case Style::kClassic:
+      break;
+    case Style::kDiamond:  // a diamond round arms set between its corners
+      DrawRing(draw, p, size * 0.62f * std::max(spread, 0.4f), angle, hue, thickness * 0.7f, palette, 0, 4);
+      arm_angle = angle + 0.7853982f;
+      outer = inner + size * 0.45f;
+      break;
+    case Style::kReticle:  // a ring, short ticks through it
+      DrawRing(draw, p, size * 0.55f, angle * 0.5f, hue, thickness * 0.6f, palette);
+      inner = size * (0.35f + 0.1f * spread);
+      outer = size * 0.8f;
+      break;
+    case Style::kStarburst:  // eight thinner arms
+      arms = 8;
+      thickness *= 0.7f;
+      outer = inner + size * 0.6f;
+      break;
+    case Style::kHalo:  // a broken ring round the classic arms
+      DrawRing(draw, p, size * 0.85f, -angle, hue + 0.5f, thickness * 0.55f, palette, 4);
+      break;
+  }
+  DrawCrosshairArms(draw, p, arm_angle, inner, outer, hue, 0.0f, 1.0f, thickness + 4.0f, true, palette, arms);
+  DrawCrosshairArms(draw, p, arm_angle, inner, outer, hue, 0.0f, 0.35f, thickness * 3.0f, false, palette, arms);
+  DrawCrosshairArms(draw, p, arm_angle, inner, outer, hue, 0.1f, 1.0f, thickness, false, palette, arms);
+  DrawCrosshairArms(draw, p, arm_angle, inner, outer, hue, 0.75f, 1.0f, thickness * 0.4f, false, palette, arms);
   draw->AddCircleFilled(p, thickness * 0.9f + 2.0f, kCrosshairOutline);
   draw->AddCircleFilled(p, thickness * 0.9f, Neon(hue + palette.centre_offset, 0.6f, 1.0f));
 }
@@ -284,7 +345,9 @@ float TintCrosshair(float hue, CrosshairPalette& palette) {
   using gw2::hud_colour::Preset;
   const Preset preset = gw2::hud_colour::CurrentPreset();
   if (preset == Preset::kGreen || preset == Preset::kRainbow) return hue;
-  const auto look = gw2::hud_colour::CurrentLook(0);
+  // The moving palettes move it too.
+  const double now = std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+  const auto look = gw2::hud_colour::CurrentLook(now);
   if (!look) return hue;
   palette = {0.0f, 0.008f, 0.0f, 1.0f - std::clamp(look->saturation, 0.0f, 1.0f)};
   // The moving hue becomes a gentle shimmer around the chosen one.
@@ -376,7 +439,8 @@ class MouseAimOverlay final : public rex::ui::ImGuiDialog {
     CrosshairPalette palette = kSpectrum;
     hue = TintCrosshair(hue, palette);
     DrawCrosshair(ImGui::GetForegroundDrawList(), io.MousePos, canvas.height * kCrosshairSizeShare,
-                  std::max(3.0f, canvas.height * kCrosshairThicknessShare), angle, spread_, hue, palette);
+                  std::max(3.0f, canvas.height * kCrosshairThicknessShare), angle, spread_, hue, palette,
+                  CurrentStyle());
   }
 
  private:

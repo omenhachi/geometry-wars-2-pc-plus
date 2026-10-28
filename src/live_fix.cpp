@@ -22,6 +22,7 @@
 #include "launcher_settings.h"
 #include "main_menu_panels.h"
 #include "online_leaderboard.h"
+#include "pilot_menu.h"
 #include "progression.h"
 #include "replays_menu.h"
 #include "results_panel.h"
@@ -403,6 +404,7 @@ REX_HOOK_RAW(sub_82094B60) {
   FilterGuestInput(ctx, base, user, state);
   gw2::replays_menu::FilterPad(base, user, ctx.r3.u32 == 0 ? state : 0);
   gw2::custom_modes_menu::FilterPad(base, user, ctx.r3.u32 == 0 ? state : 0);
+  gw2::pilot_menu::FilterPad(base, user, ctx.r3.u32 == 0 ? state : 0);
   gw2::master_page::FilterPad(base, user, ctx.r3.u32 == 0 ? state : 0);
   gw2::main_menu_panels::FilterPad(base, user, ctx.r3.u32 == 0 ? state : 0);
   gw2::FilterResultsPad(base, user, ctx.r3.u32 == 0 ? state : 0);

@@ -12,7 +12,9 @@
 
 namespace gw2::hud_colour {
 
-enum class Preset { kGreen, kBlue, kPurple, kPink, kGold, kRainbow, kCustom };
+// Synthwave, Aurora and Plasma move, and are pilot rewards (progression_rules.h): the in-game row offers them once
+// they are unlocked.
+enum class Preset { kGreen, kBlue, kPurple, kPink, kGold, kRainbow, kSynthwave, kAurora, kPlasma, kCustom };
 
 struct Rgb {
   float r = 0, g = 0, b = 0;
@@ -37,8 +39,8 @@ std::string_view Label(Preset preset);
 std::optional<Look> CustomLook(std::string_view hex);
 std::string FormatHex(Rgb rgb);
 
-// The look to draw with: nullopt for Green, the custom look for Custom (Green when there is none), and for Rainbow a
-// hue that drifts slowly through the spectrum with `seconds`.
+// The look to draw with: nullopt for Green, the custom look for Custom (Green when there is none), for Rainbow a hue
+// that drifts slowly through the spectrum with `seconds`, and for the pilot palettes their own movement.
 std::optional<Look> LookFor(Preset preset, const std::optional<Look>& custom, double seconds);
 
 // The game's text colour (premultiplied by its fade) in that look, or nullopt to draw it as it is.
@@ -47,8 +49,9 @@ std::optional<Rgb> Recolour(Rgb colour, const Look& look);
 // What the game's full-strength menu green looks like in a preset, for a swatch (0..1 per channel).
 Rgb Swatch(Preset preset, const std::optional<Look>& custom, double seconds);
 
-// The order the in-game row steps through; Custom is a stop only when one is saved.
-std::vector<Preset> Cycle(bool has_custom);
+// The order the in-game row steps through: the free colours, the pilot palettes in `earned`, then Custom when one is
+// saved.
+std::vector<Preset> Cycle(bool has_custom, const std::vector<Preset>& earned = {});
 
 // The colour in effect, for the hooks and the crosshair: set at start from the settings and by the in-game row.
 void SetCurrent(Preset preset, std::optional<Look> custom);

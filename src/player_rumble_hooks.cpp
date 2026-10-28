@@ -5,6 +5,7 @@
 #include "player_records.h"
 #include "rumble.h"
 #include "run_stats_hooks.h"
+#include "ship_colour.h"
 
 // Player::Kill. It takes no life, so the lives read before the call is the value the respawn decision uses.
 REX_EXTERN(__imp__sub_8204E988);
@@ -57,7 +58,9 @@ REX_HOOK_RAW(sub_820408D0) {
 REX_EXTERN(__imp__sub_82051448);
 REX_HOOK_RAW(sub_82051448) {
   const uint32_t index = ctx.r7.u32;
+  const uint32_t player = ctx.r3.u32;
   __imp__sub_82051448(ctx, base);
+  gw2::ship_colour::AfterPlayerBuilt(base, player, index);
   if (index < gw2::players::kRecordCount) {
     gw2::rumble::PlayerSpawned(index);
   }

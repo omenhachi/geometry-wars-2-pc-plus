@@ -47,6 +47,8 @@ std::vector<ManagedSetting> BuildManagedSettings() {
       {kPlayerNameAskedKey, ValueKind::kBool},
       {kHudColourKey, ValueKind::kString},
       {kHudColourCustomKey, ValueKind::kString},
+      {kCrosshairKey, ValueKind::kString},
+      {kShipColourKey, ValueKind::kString},
       {kRenderPathKey, ValueKind::kString},
       {kFrameRateKey, ValueKind::kInt},
       {kShowFpsKey, ValueKind::kBool},

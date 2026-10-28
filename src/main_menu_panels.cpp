@@ -25,6 +25,9 @@
 #include "line_font.h"
 #include "master_page.h"
 #include "neon_ui.h"
+#include "pilot_menu.h"
+#include "progression.h"
+#include "progression_ui.h"
 #include "replays_menu.h"
 
 namespace gw2::main_menu_panels {
@@ -45,7 +48,7 @@ constexpr uint32_t kGamepadOffset = 4;  // XINPUT_STATE: packet number, then the
 constexpr uint32_t kGamepadSize = 12;
 constexpr uint32_t kUsers = 4;
 
-enum class Icon { kReplay, kKnobs };
+enum class Icon { kReplay, kKnobs, kPilot };
 
 struct Tile {
   const char* lines[2];  // the name, on one or two lines
@@ -55,7 +58,7 @@ struct Tile {
 
 // Left: what you've played. Right: new things to play.
 const std::array<std::vector<Tile>, 2> kPanels = {{
-    {{{"Watch", "replays"}, Icon::kReplay, replays_menu::Open}},
+    {{{"Watch", "replays"}, Icon::kReplay, replays_menu::Open}, {{"Pilot", nullptr}, Icon::kPilot, pilot_menu::Open}},
     {{{"Custom", "modes"}, Icon::kKnobs, custom_modes_menu::Open}},
 }};
 
@@ -73,7 +76,8 @@ std::array<Seen, kUsers> g_seen{};
 
 // The main menu is up with nothing of PC Plus's over it.
 bool MenuShows() {
-  return master_page::OnMainMenu() && !replays_menu::IsOpen() && !custom_modes_menu::IsOpen() && !demo::Watching();
+  return master_page::OnMainMenu() && !replays_menu::IsOpen() && !custom_modes_menu::IsOpen() && !pilot_menu::IsOpen() &&
+         !demo::Watching();
 }
 
 void Open(int side, int index) {
@@ -108,6 +112,21 @@ void DrawIcon(ImDrawList* draw, Icon icon, ImVec2 centre, float r, ImU32 colour,
       }
       break;
     }
+    case Icon::kPilot: {  // the ship's claw under a chevron of rank
+      Neon(draw,
+           {ImVec2(centre.x - r * 0.75f, centre.y - r * 0.35f), ImVec2(centre.x, centre.y - r * 0.85f),
+            ImVec2(centre.x + r * 0.75f, centre.y - r * 0.35f)},
+           false, colour, thickness);
+      Neon(draw,
+           {ImVec2(centre.x - r * 0.75f, centre.y + r * 0.1f), ImVec2(centre.x, centre.y - r * 0.4f),
+            ImVec2(centre.x + r * 0.75f, centre.y + r * 0.1f)},
+           false, colour, thickness);
+      Neon(draw,
+           {ImVec2(centre.x - r * 0.55f, centre.y + r * 0.95f), ImVec2(centre.x, centre.y + r * 0.35f),
+            ImVec2(centre.x + r * 0.55f, centre.y + r * 0.95f), ImVec2(centre.x, centre.y + r * 0.7f)},
+           true, colour, thickness);
+      break;
+    }
   }
 }
 
@@ -135,6 +154,21 @@ class Panels final : public rex::ui::ImGuiDialog {
     if (side >= 0) {
       draw->AddRectFilled(ImVec2(origin.x + cw * 0.31f, origin.y + ch * 0.38f),
                           ImVec2(origin.x + cw * 0.69f, origin.y + ch * 0.88f), Rgba(0, 0, 0, 0.55f), u * 1.0f);
+    }
+
+    // The pilot's level and title above the left panel: a glance, never a nag.
+    {
+      const progression::State pilot = progression::Snapshot();
+      const progression::Level level = progression::LevelFor(pilot.xp);
+      const float w = cw * 0.14f;
+      const ImVec2 at(origin.x + cw * 0.155f - w * 0.5f, origin.y + ch * 0.27f);
+      progression_ui::DrawLevel(draw, at, u * 3.0f, w, level.level,
+                                float(double(level.into) / double(std::max<uint64_t>(level.needed, 1))), Theme());
+      const progression::Reward* title = pilot.title.empty() ? nullptr : progression::FindReward(pilot.title);
+      if (title) {
+        line_font::GameText(draw, ImVec2(at.x, at.y + u * 5.6f), u * 1.7f, title->name, Rgba(1, 1, 1, 0.8f),
+                            std::max(1.0f, u * 0.12f));
+      }
     }
 
     // Centred in the game's own side frames, level with the menu's first and last rows.

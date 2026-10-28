@@ -198,6 +198,8 @@ set(GW2_SOURCES
     src/progression_rules.cpp
     src/progression.cpp
     src/progression_overlay.cpp
+    src/pilot_menu.cpp
+    src/ship_colour.cpp
     src/demo_file.cpp
     src/demo_library.cpp
     src/effect_random.cpp
