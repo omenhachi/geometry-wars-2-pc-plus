@@ -22,6 +22,7 @@
 #include "boards.h"
 #include "cheats.h"
 #include "custom_modes.h"
+#include "progression.h"
 #include "demo.h"
 #include "demo_library.h"
 #include "launcher_cvars.h"
@@ -373,6 +374,10 @@ std::optional<live::StatsView> FetchBoard(uint32_t view, uint32_t first_rank, ui
   if (!board) {
     WarnOnce("the server's board could not be read");
     return board;
+  }
+  // The player's own row: a best this PC may not have (another install, or a save from before), for the tiers.
+  for (const live::StatsRow& row : board->rows) {
+    if (row.xuid == local_xuid && row.rating > 0) progression::NoteKnownBest(view, uint64_t(row.rating));
   }
   if (const auto runs = ParseTopRuns(response.body, my_id); runs && view < kViews) {
     std::lock_guard lock(g_mutex);

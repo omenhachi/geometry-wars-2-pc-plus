@@ -13,6 +13,7 @@
 #include <rex/system/xmemory.h>
 
 #include "achievements_overlay_rules.h"
+#include "boards.h"
 #include "custom_modes.h"
 #include "custom_modes_menu.h"
 #include "master_page.h"
@@ -21,6 +22,7 @@
 #include "launcher_settings.h"
 #include "main_menu_panels.h"
 #include "online_leaderboard.h"
+#include "progression.h"
 #include "replays_menu.h"
 #include "results_panel.h"
 #include "run_stats_hooks.h"
@@ -150,6 +152,12 @@ void Install(InstallParams params) {
   online::Configure(params.stats_file.parent_path() / "online_token", params.user.xuid);
   auto* services = new Services(std::move(params.stats_file), std::move(params.user));
   const LoadResult loaded = services->stats.Load();
+  // The bests already made count towards the pilot's tiers (progression.h).
+  for (uint32_t view = 0; view < gw2::boards::kBoards; ++view) {
+    if (const auto best = services->stats.Best(services->board.user().xuid, view); best && *best > 0) {
+      gw2::progression::NoteKnownBest(view, uint64_t(*best));
+    }
+  }
   REXLOG_INFO("Local Live services ready, stats file {}",
               loaded == LoadResult::kLoaded    ? "loaded"
               : loaded == LoadResult::kMissing ? "not created yet"

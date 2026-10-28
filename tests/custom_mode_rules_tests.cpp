@@ -224,12 +224,7 @@ bonus_bombs_at = [100000000, 100000, 10000000, 1000000, 100000]
   CHECK(HasError(typo, 5, "did you mean \"extra_lives\""));
 
   // A Sequence level: just that level. Only Sequence has levels; the level rides in the once-reserved word.
-  const ParseResult level = Parse("format = 1
-name = \"x\"
-base = \"sequence\"
-[rules]
-level = 14
-");
+  const ParseResult level = Parse("format = 1\nname = \"x\"\nbase = \"sequence\"\n[rules]\nlevel = 14\n");
   CHECK(level.mode && level.mode->rules.level == 14);
   CHECK(level.mode && Chips(level.mode->rules) == std::vector<std::string>({"Level 14"}));
   if (level.mode) {
@@ -244,19 +239,9 @@ level = 14
     past[20] = 21;
     CHECK(!Read(past));
   }
-  const ParseResult high = Parse("format = 1
-name = \"x\"
-base = \"sequence\"
-[rules]
-level = 25
-");
+  const ParseResult high = Parse("format = 1\nname = \"x\"\nbase = \"sequence\"\n[rules]\nlevel = 25\n");
   CHECK(high.mode && high.mode->rules.level == 20 && high.warnings.size() == 1);
-  const ParseResult evolved = Parse("format = 1
-name = \"x\"
-base = \"evolved\"
-[rules]
-level = 3
-");
+  const ParseResult evolved = Parse("format = 1\nname = \"x\"\nbase = \"evolved\"\n[rules]\nlevel = 3\n");
   CHECK(!evolved.mode && HasError(evolved, 0, "only for Sequence"));
 
   CHECK(ShortScore(100'000) == "100K" && ShortScore(1'000'000) == "1M" && ShortScore(2'500'000) == "2.5M");

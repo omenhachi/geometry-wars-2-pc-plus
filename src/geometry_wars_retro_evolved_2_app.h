@@ -43,6 +43,8 @@
 #include "log_filter.h"
 #include "log_path.h"
 #include "replays_menu.h"
+#include "progression.h"
+#include "progression_overlay.h"
 #include "results_panel.h"
 #include "rumble.h"
 #include "session_log.h"
@@ -156,6 +158,7 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
     if (drawer) {
       gw2::CreateFrameCounter(drawer);
       gw2::CreateResultsPanel(drawer);
+      gw2::CreateProgressionOverlay(drawer);
       gw2::replays_menu::CreateReplaysMenu(drawer);
       gw2::custom_modes_menu::CreateCustomModesMenu(drawer);
       gw2::benchmark::CreateOverlay(drawer);
@@ -281,6 +284,7 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
     gw2::benchmark::SetResultsFile(std::filesystem::absolute(user_data_root()) / "benchmark.txt");
     gw2::custom_modes::SetFolders(rex::filesystem::GetExecutableFolder() / "assets" / "modes",
                                   std::filesystem::absolute(user_data_root()) / "mods");
+    gw2::progression::Load(std::filesystem::absolute(user_data_root()) / "progression.toml");
     gw2::live::Install({
         .stats_file = gw2::StatsFilePath(std::filesystem::absolute(user_data_root()), kernel->title_id()),
         .user = {profile->xuid(), profile->name()},

@@ -20,6 +20,7 @@
 #include "guest_memory.h"
 #include "king_records.h"
 #include "player_records.h"
+#include "progression.h"
 #include "run_stats.h"
 
 namespace gw2::run {
@@ -70,6 +71,7 @@ void Report(const char* why, const uint8_t* base, bool finished) {
     custom_modes::OnRunEnd(base);
     demo::OnRunEnd(base);
   }
+  progression::OnRunEnd(g_run, finished);
   REXLOG_INFO("Run stats ({}), mode {}:", why, g_run.mode());
   for (const std::string& line : g_run.Describe()) REXLOG_INFO("  {}", line);
 }
@@ -84,6 +86,7 @@ bool LocalPlayer(const uint8_t* base, uint32_t player) {
 void OnRoundStart(const uint8_t* base) {
   std::lock_guard lock(g_mutex);
   Report("a new round started", base, false);
+  progression::OnRoundStart();
   const uint32_t mode = LoadBE32(base, king::kModeAddress);
   g_run.Start(mode, Elapsed(base));
   g_results.reset();
