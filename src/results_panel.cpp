@@ -1,10 +1,13 @@
 // The results screen: after a single-player run, a neon panel over the game's post-game screen with the score over time
 // (deaths, bombs and the run's best moment marked on it) beside the enemies killed, black holes and gates. It takes no
-// input, so the game's own buttons (Retry above all) work at once; it goes when the game leaves the round.
+// input but LB (F5), which shows or hides it for every run after, so the game's own buttons work at once; it goes when
+// the game leaves the round. Hidden, a small "LB Show stats" stays in the corner where "LB Hide stats" was.
 
 #include "results_panel.h"
 
 #include <algorithm>
+#include <array>
+#include <atomic>
 #include <chrono>
 #include <cmath>
 #include <format>
@@ -16,8 +19,10 @@
 
 #include <rex/cvar.h>
 #include <rex/ui/imgui_dialog.h>
+#include <rex/ui/keybinds.h>
 
 #include "custom_modes.h"
+#include "guest_memory.h"
 #include "hud_colour.h"
 #include "launcher_cvars.h"
 #include "line_font.h"
@@ -30,6 +35,18 @@ namespace {
 
 namespace stats = gw2::run_stats;
 using namespace gw2::neon;
+
+constexpr uint32_t kGamepadOffset = 4;  // XINPUT_STATE: packet number, then the gamepad
+constexpr uint16_t kLeftShoulder = 0x0100;
+
+std::function<void(std::string_view, std::string)> g_save;
+std::atomic<bool> g_results_up{false};  // a run's results could show now (shown or hidden)
+std::atomic<bool> g_toggle{false};      // LB or F5 asked, applied as the panel draws
+std::array<uint16_t, 4> g_buttons{};    // each pad's buttons the poll before (the game thread's)
+
+bool KeyboardMode() {
+  return rex::cvar::GetFlagByName(kKeyboardKey) == "true";
+}
 
 std::string Short(int64_t value) {
   char text[32];
@@ -157,7 +174,22 @@ class ResultsPanel final : public rex::ui::ImGuiDialog {
 
  protected:
   void OnDraw(ImGuiIO& io) override {
-    const std::optional<stats::Run> run = REXCVAR_GET(gw2_results_screen) ? run::ResultsToShow() : std::nullopt;
+    const std::optional<stats::Run> results = run::ResultsToShow();
+    g_results_up.store(results.has_value(), std::memory_order_relaxed);
+    if (g_toggle.exchange(false, std::memory_order_relaxed) && results) {
+      const std::string on = REXCVAR_GET(gw2_results_screen) ? "false" : "true";
+      rex::cvar::SetFlagByName(kResultsScreenKey, on);
+      if (g_save) g_save(kResultsScreenKey, on);
+      shown_ = false;  // shown again, it comes in as it did
+    }
+    if (!results) {
+      shown_ = false;
+      // The custom mode being played, kept for the panel: the mode ends as its score is written, before the panel shows.
+      if (custom_modes::Ticking()) playing_ = custom_modes::Active();
+      return;
+    }
+    DrawToggleHint(io, REXCVAR_GET(gw2_results_screen));
+    const std::optional<stats::Run> run = REXCVAR_GET(gw2_results_screen) ? results : std::nullopt;
     if (!run) {
       shown_ = false;
       return;
@@ -167,8 +199,8 @@ class ResultsPanel final : public rex::ui::ImGuiDialog {
       shown_ = true;
       appeared_ = now;
       // A Master mode's run is named as the mode, not its base mode, and a Sequence level's with its level; decided
-      // once as the panel appears.
-      const std::optional<custom_modes::Current> active = custom_modes::Active();
+      // once as the panel appears, from the mode the round was played in.
+      const std::optional<custom_modes::Current>& active = playing_;
       title_ = active && active->board ? active->mode.name : ModeName(run->mode());
       if (active && active->mode.rules.level) title_ = std::format("{}  Level {}", title_, *active->mode.rules.level);
     }
@@ -356,7 +388,26 @@ class ResultsPanel final : public rex::ui::ImGuiDialog {
     }
   }
 
+  // Bottom right, below the panel and clear of the game's "Continue" line: what LB (F5) does now.
+  void DrawToggleHint(ImGuiIO& io, bool showing) {
+    const float cw = std::min(io.DisplaySize.x, io.DisplaySize.y * 16.0f / 9.0f);
+    const float ch = cw * 9.0f / 16.0f;
+    const ImVec2 origin((io.DisplaySize.x - cw) * 0.5f, (io.DisplaySize.y - ch) * 0.5f);
+    const float u = ch / 100.0f;
+    const std::string text = std::string(KeyboardMode() ? "F5" : "LB") + (showing ? "  Hide stats" : "  Show stats");
+    const float size = u * 1.8f;
+    const float w = line_font::GameWidth(text, size);
+    const ImVec2 at(origin.x + cw * 0.955f - w, origin.y + ch * 0.905f);
+    ImDrawList* draw = ImGui::GetForegroundDrawList();
+    draw->AddRectFilled(ImVec2(at.x - u, at.y - u * 0.7f), ImVec2(at.x + w + u, at.y + size + u * 0.7f),
+                        Rgba(0.02f, 0.03f, 0.08f, 0.8f), u * 0.6f);
+    draw->AddRect(ImVec2(at.x - u, at.y - u * 0.7f), ImVec2(at.x + w + u, at.y + size + u * 0.7f), Theme(0.0, 0.6f),
+                  u * 0.6f, 0, 1.5f);
+    line_font::GameText(draw, at, size, text, Rgba(0.9f, 0.93f, 1.0f, 0.9f), std::max(1.0f, size * 0.07f));
+  }
+
   bool shown_ = false;
+  std::optional<custom_modes::Current> playing_;
   double appeared_ = 0;
   std::string title_;
 };
@@ -365,6 +416,23 @@ class ResultsPanel final : public rex::ui::ImGuiDialog {
 
 void CreateResultsPanel(rex::ui::ImGuiDrawer* drawer) {
   new ResultsPanel(drawer);  // retained by the drawer for the session
+  rex::ui::RegisterBind("bind_gw2_results_screen", "F5", "Show or hide the results after a run", [] {
+    if (g_results_up.load(std::memory_order_relaxed)) g_toggle.store(true, std::memory_order_relaxed);
+  });
+}
+
+void SetResultsScreenSaver(std::function<void(std::string_view key, std::string value)> save) {
+  g_save = std::move(save);
+}
+
+void FilterResultsPad(const uint8_t* base, uint32_t user, uint32_t state) {
+  if (state == 0 || user >= g_buttons.size()) return;
+  const uint16_t buttons = LoadBE16(base, state + kGamepadOffset);
+  const uint16_t pressed = uint16_t(buttons & ~g_buttons[user]);
+  g_buttons[user] = buttons;
+  if ((pressed & kLeftShoulder) && g_results_up.load(std::memory_order_relaxed)) {
+    g_toggle.store(true, std::memory_order_relaxed);
+  }
 }
 
 }  // namespace gw2

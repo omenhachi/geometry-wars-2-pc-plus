@@ -204,6 +204,12 @@ class GeometryWarsRetroEvolved2App : public rex::ReXApp {
         settings_->SaveNow(key, value);
       });
     });
+    gw2::SetResultsScreenSaver([this](std::string_view key, std::string value) {
+      app_context().CallInUIThreadDeferred([this, key = std::string(key), value = std::move(value)] {
+        cvars_.Assign(key, value);
+        settings_->SaveNow(key, value);
+      });
+    });
     const bool show = gw2::LauncherWanted(game_ready, gw2::ShowLauncherSetting(*settings_), gw2::ShiftHeld(),
                                           gw2::TakeSkipLauncher());
     if (!show || !imgui_drawer()) {
