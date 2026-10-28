@@ -34,7 +34,7 @@ constexpr std::string_view kBoardNames[kBoards] = {"Deadline", "Evolved",  "Sequ
 
 // How a reward is earned.
 struct Condition {
-  enum Kind : uint8_t { kLevel, kTier, kTierCount, kBounties, kKills, kPractice } kind;
+  enum Kind : uint8_t { kLevel, kTier, kTierCount, kBounties, kKills, kPractice, kGeoms } kind;
   uint32_t board = 0;  // kTier: the board, or kBoards for any Master board
   Tier tier = Tier::kNone;
   uint64_t count = 0;  // the level, the number of boards, bounties, kills or clears
@@ -71,6 +71,7 @@ const std::vector<Entry>& Entries() {
        {C::kKills, 0, Tier::kNone, 250, kGate}},
       {{RewardKind::kTitle, "black-hole-gourmet", "Black Hole Gourmet", "Destroy 100 black holes"},
        {C::kKills, 0, Tier::kNone, 100, kBlackHole}},
+      {{RewardKind::kTitle, "geom-hoarder", "Geom Hoarder", "Collect 10,000 geoms"}, {C::kGeoms, 0, Tier::kNone, 10'000}},
       {{RewardKind::kTitle, "globetrotter", "Globetrotter", "Bronze on all 8 boards"},
        {C::kTierCount, 0, Tier::kBronze, kBoards}},
       {{RewardKind::kTitle, "bounty-hunter", "Bounty Hunter", "Finish 10 bounties"}, {C::kBounties, 0, Tier::kNone, 10}},
@@ -95,10 +96,13 @@ struct Template {
 
 constexpr Template kTemplates[] = {
     {Goal::kScore, 0, 0, 0},       {Goal::kBlast, 0, 0, 20},          {Goal::kKills, 0, 0, 1'500},
+    {Goal::kGeoms, 0, 0, 1'000},
     {Goal::kScore, 1, 0, 0},       {Goal::kSurvive, 1, 0, 300},       {Goal::kKills, 1, kBlackHole, 15},
+    {Goal::kGeoms, 1, 0, 1'500},
     {Goal::kScore, 2, 0, 0},       {Goal::kPractice, 2, 0, 0},
     {Goal::kScore, 3, 0, 0},       {Goal::kKills, 3, kRocket, 600},   {Goal::kSurvive, 3, 0, 150},
     {Goal::kScore, 4, 0, 0},       {Goal::kKills, 4, kGate, 150},     {Goal::kSurvive, 4, 0, 180},
+    {Goal::kGeoms, 4, 0, 600},
     {Goal::kScore, 5, 0, 0},       {Goal::kNoBomb, 5, 0, 0},          {Goal::kKills, 5, 0, 1'000},
     {Goal::kScore, 6, 0, 0},       {Goal::kScore, 7, 0, 0},           {Goal::kSurvive, 7, 0, 240},
 };
@@ -183,6 +187,9 @@ bool Finishes(Bounty& bounty, const Run& run) {
       return run.bombs == 0 && run.score >= bounty.target;
     case Goal::kBlast:
       return uint64_t(std::max(run.best_blast, 0)) >= bounty.target;
+    case Goal::kGeoms:
+      bounty.progress = std::min<uint64_t>(bounty.target, bounty.progress + uint64_t(std::max<int64_t>(run.geoms, 0)));
+      return bounty.progress >= bounty.target;
     case Goal::kKills: {
       const int64_t got = bounty.type == 0 ? EnemyKills(run.kills) : KillsOf(run.kills, bounty.type);
       bounty.progress = std::min<uint64_t>(bounty.target, bounty.progress + uint64_t(std::max<int64_t>(got, 0)));
@@ -268,12 +275,15 @@ std::string BountyText(const Bounty& b) {
     case Goal::kKills: return std::format("Destroy {} {} in {}", Commas(b.target), EnemyName(b.type, true), board);
     case Goal::kBlast: return std::format("Catch {} enemies in one gate blast in {}", b.target, board);
     case Goal::kPractice: return std::format("Survive Sequence level {} in practice", b.target);
+    case Goal::kGeoms: return std::format("Collect {} geoms in {}", Commas(b.target), board);
   }
   return {};
 }
 
 std::string BountyProgress(const Bounty& b) {
-  return b.goal == Goal::kKills ? std::format("{} of {}", Commas(b.progress), Commas(b.target)) : std::string();
+  return b.goal == Goal::kKills || b.goal == Goal::kGeoms
+             ? std::format("{} of {}", Commas(b.progress), Commas(b.target))
+             : std::string();
 }
 
 const std::vector<Reward>& Rewards() {
@@ -326,6 +336,8 @@ bool Unlocked(const State& state, const Reward& reward) {
       }
       case Condition::kPractice:
         return state.life.practice_clears >= c.count;
+      case Condition::kGeoms:
+        return uint64_t(state.life.geoms) >= c.count;
     }
   }
   return false;
@@ -394,7 +406,9 @@ Outcome Apply(State& state, const Run& run) {
     m.seconds += std::max(run.seconds, 0.0);
     m.kills += EnemyKills(run.kills);
     m.best_blast = std::max(m.best_blast, run.best_blast);
+    m.geoms += std::max<int64_t>(run.geoms, 0);
   }
+  state.life.geoms += std::max<int64_t>(run.geoms, 0);
   for (const auto& [type, count] : run.kills) state.life.kills[type] += count;
   state.life.deaths += run.deaths;
   state.life.bombs += run.bombs;
@@ -444,6 +458,7 @@ std::string Write(const State& s) {
   toml::table life;
   life.insert("deaths", s.life.deaths);
   life.insert("bombs", s.life.bombs);
+  life.insert("geoms", s.life.geoms);
   life.insert("best_blast", int64_t(s.life.best_blast));
   life.insert("bounties", int64_t(s.life.bounties));
   life.insert("practice_clears", int64_t(s.life.practice_clears));
@@ -453,7 +468,7 @@ std::string Write(const State& s) {
   toml::array modes;
   for (const ModeTotals& m : s.life.modes) {
     modes.push_back(toml::table{{"runs", int64_t(m.runs)}, {"seconds", m.seconds}, {"kills", m.kills},
-                                {"best_blast", int64_t(m.best_blast)}});
+                                {"best_blast", int64_t(m.best_blast)}, {"geoms", m.geoms}});
   }
   life.insert("modes", modes);
   root.insert("life", life);
@@ -530,6 +545,10 @@ std::optional<State> Read(std::string_view text) {
   const auto* kills = life->get("kills") ? life->get("kills")->as_table() : nullptr;
   const auto* modes = life->get("modes") ? life->get("modes")->as_array() : nullptr;
   if (!deaths || !bombs || !blast || !done || !clears || !kills || !modes || modes->size() != kModes) return std::nullopt;
+  // Geoms came later than the rest: a file without them has none yet.
+  const auto geoms = life->get("geoms") ? whole(life->get("geoms"), 0, kMax) : std::optional<int64_t>(0);
+  if (!geoms) return std::nullopt;
+  s.life.geoms = *geoms;
   s.life.deaths = *deaths;
   s.life.bombs = *bombs;
   s.life.best_blast = int32_t(*blast);
@@ -554,12 +573,14 @@ std::optional<State> Read(std::string_view text) {
     const auto mk = whole(m->get("kills"), 0, kMax);
     const auto mb = whole(m->get("best_blast"), 0, INT32_MAX);
     if (!runs || !seconds || !std::isfinite(seconds->get()) || seconds->get() < 0 || !mk || !mb) return std::nullopt;
-    s.life.modes[i] = {uint32_t(*runs), seconds->get(), *mk, int32_t(*mb)};
+    const auto mg = m->get("geoms") ? whole(m->get("geoms"), 0, kMax) : std::optional<int64_t>(0);
+    if (!mg) return std::nullopt;
+    s.life.modes[i] = {uint32_t(*runs), seconds->get(), *mk, int32_t(*mb), *mg};
   }
   for (const auto& node : *bounties) {
     const auto* b = node.as_table();
     if (!b) return std::nullopt;
-    const auto goal = whole(b->get("goal"), 0, int64_t(Goal::kPractice));
+    const auto goal = whole(b->get("goal"), 0, int64_t(Goal::kGeoms));
     const auto board = whole(b->get("board"), 0, kBoards - 1);
     const auto type = whole(b->get("type"), 0, 255);
     const auto target = whole(b->get("target"), 1, kMax);

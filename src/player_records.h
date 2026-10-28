@@ -13,6 +13,8 @@ inline constexpr uint32_t kFirstRecordAddress = 0x8219D068;
 inline constexpr uint32_t kRecordStride = 0x78;
 inline constexpr uint32_t kLivesOffset = 48;
 inline constexpr uint32_t kBombsOffset = 52;
+// The score multiplier (u32, from 1): each geom collected adds one; +68 is the next milestone the game announces.
+inline constexpr uint32_t kMultiplierOffset = 64;
 inline constexpr uint32_t kShieldHitCountOffset = 104;
 inline constexpr uint32_t kCenterXOffset = 4;
 inline constexpr uint32_t kCenterYOffset = 8;

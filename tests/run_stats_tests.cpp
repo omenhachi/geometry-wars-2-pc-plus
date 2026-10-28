@@ -110,6 +110,26 @@ void TestDescribe() {
   CHECK(lines.back().find("other 25") != std::string::npos);
 }
 
+// Geoms: each rise of the multiplier, from the first frame seen; a fall (a death, a mode's rules) collects none.
+void TestGeoms() {
+  Run run;
+  run.Multiplier(5);  // not started: nothing
+  run.Start(0, 0.0f);
+  run.Multiplier(1);
+  CHECK(run.geoms() == 0);
+  run.Multiplier(4);
+  run.Multiplier(4);
+  run.Multiplier(10);
+  CHECK(run.geoms() == 9);
+  run.Multiplier(1);  // reset
+  run.Multiplier(3);
+  CHECK(run.geoms() == 11);
+  CHECK(run.Describe().back().find("11 geoms") != std::string::npos);
+  run.Start(1, 0.0f);
+  run.Multiplier(40);  // the first frame is only noted
+  CHECK(run.geoms() == 0);
+}
+
 }  // namespace
 
 int main() {
@@ -117,6 +137,7 @@ int main() {
   TestSamples();
   TestBlasts();
   TestDescribe();
+  TestGeoms();
   std::printf("%d checks, %d failures\n", g_checks, g_failures);
   return g_failures == 0 ? 0 : 1;
 }

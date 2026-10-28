@@ -68,6 +68,7 @@ struct Run {
   int32_t best_blast = 0;            // kills in the run's biggest gate blast
   int32_t deaths = 0;
   int32_t bombs = 0;
+  int64_t geoms = 0;
   bool finished = true;  // ended in play (its last life, its time or its level), not quit from the pause menu
 };
 
@@ -78,6 +79,7 @@ enum class Goal : uint8_t {
   kKills,       // destroy `target` of enemy `type` (0: any enemy), over any number of runs
   kBlast,       // catch `target` enemies in one gate blast
   kPractice,    // clear Sequence level `target` in practice
+  kGeoms,       // collect `target` geoms, over any number of runs
 };
 
 struct Bounty {
@@ -97,6 +99,7 @@ struct ModeTotals {
   double seconds = 0;
   int64_t kills = 0;
   int32_t best_blast = 0;
+  int64_t geoms = 0;
   bool operator==(const ModeTotals&) const = default;
 };
 
@@ -105,6 +108,7 @@ struct Lifetime {
   std::map<int32_t, int64_t> kills;  // by enemy type, black holes and gates included
   int64_t deaths = 0;
   int64_t bombs = 0;
+  int64_t geoms = 0;
   int32_t best_blast = 0;
   uint32_t bounties = 0;
   uint32_t practice_clears = 0;

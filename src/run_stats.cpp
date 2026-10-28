@@ -12,6 +12,12 @@ void Run::Start(uint32_t mode, float time) {
   samples_.push_back({time, 0});
 }
 
+void Run::Multiplier(int64_t value) {
+  if (!active_) return;
+  if (multiplier_ >= 0 && value > multiplier_) geoms_ += value - multiplier_;
+  multiplier_ = value;
+}
+
 void Run::Kill(float time, int32_t type, int32_t killer, int64_t points, uint32_t killer_id) {
   if (!active_) return;
   TypeTally& tally = by_type_[type];
@@ -72,9 +78,9 @@ std::vector<std::string> Run::Describe() const {
   lines.push_back(std::format("black holes {} points, gates {} points, best moment type {} for {} at {:.1f}s",
                               black_hole_points_, gate_points_, best_.type, best_.points, best_.time));
   lines.push_back(std::format("biggest gate blast: {} kills for {} points", best_blast_.kills, best_blast_.points));
-  lines.push_back(std::format("final score {}, kill points {}, other {}, {} deaths, {} bombs, {} samples, {:.1f}s",
+  lines.push_back(std::format("final score {}, kill points {}, other {}, {} deaths, {} bombs, {} geoms, {} samples, {:.1f}s",
                               final_score(), kill_points_, final_score() - kill_points_, deaths_.size(), bombs_.size(),
-                              samples_.size(), samples_.empty() ? 0.0f : samples_.back().time));
+                              geoms_, samples_.size(), samples_.empty() ? 0.0f : samples_.back().time));
   return lines;
 }
 

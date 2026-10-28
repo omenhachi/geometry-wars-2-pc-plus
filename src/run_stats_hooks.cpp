@@ -137,6 +137,7 @@ void OnHud(const uint8_t* base) {
   const float elapsed = Elapsed(base), limit = LoadF(base, kLimitAddress);
   std::lock_guard lock(g_mutex);
   g_last_hud = std::chrono::steady_clock::now();
+  g_run.Multiplier(LoadBE32(base, players::kFirstRecordAddress + players::kMultiplierOffset));
   g_run.Observe(elapsed, Score(base));
   if (!g_timer_logged && limit > 0 && elapsed >= limit) {
     g_timer_logged = true;

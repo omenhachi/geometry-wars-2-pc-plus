@@ -310,7 +310,7 @@ class PilotScreen final : public rex::ui::ImGuiDialog {
     };
     const float head = u * 1.6f;
     right_text(cols[1], top, head, "Best", dim);
-    right_text(cols[2], top, head, "Next tier", dim);
+    right_text(cols[2], top, head, "Next", dim);
     right_text(cols[3], top, head, "Runs", dim);
     right_text(cols[4], top, head, "Time", dim);
     const float row = (bottom - top - u * 3.0f) / float(pr::kBoards);
@@ -359,6 +359,7 @@ class PilotScreen final : public rex::ui::ImGuiDialog {
         {"Enemies destroyed", Grouped(enemies)},
         {"Black holes", Grouped(kills_of(pr::kBlackHole))},
         {"Gates", Grouped(kills_of(pr::kGate))},
+        {"Geoms collected", Grouped(state_.life.geoms)},
         {"Biggest gate blast", std::to_string(state_.life.best_blast)},
         {"Favourite target", favourite ? std::string(EnemyName(favourite)) : std::string("-")},
         {"Bombs used", Grouped(state_.life.bombs)},
@@ -391,7 +392,7 @@ class PilotScreen final : public rex::ui::ImGuiDialog {
       const std::string sub = progress.empty() ? std::string("In one run") : progress;
       line_font::GameText(draw, ImVec2(r0.x + u * 8.0f, r0.y + u * 2.0f + text + u * 1.4f), u * 1.8f, sub,
                           Rgba(0.75f, 0.8f, 0.9f, 0.85f), std::max(1.0f, u * 0.13f));
-      if (b.goal == pr::Goal::kKills && b.target > 0) {  // its bar, after the count
+      if ((b.goal == pr::Goal::kKills || b.goal == pr::Goal::kGeoms) && b.target > 0) {  // its bar, after the count
         const float bx0 = r0.x + u * 10.0f + line_font::GameWidth(sub, u * 1.8f), bx1 = r1.x - u * 22.0f;
         const float by = r0.y + u * 2.0f + text + u * 2.0f;
         draw->AddRectFilled(ImVec2(bx0, by), ImVec2(bx1, by + u * 0.8f), Rgba(1, 1, 1, 0.1f), u * 0.4f);

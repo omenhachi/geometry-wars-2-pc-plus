@@ -195,6 +195,22 @@ void Bounties() {
   again.score = 8'000;
   CHECK(Apply(c, again).new_best);
 
+  // Geoms add up over runs, in their own board, and to the lifetime total and the mode's.
+  State g;
+  g.bounties = {{Goal::kGeoms, 1, 0, 100, 0}};
+  Run evolved;
+  evolved.mode = 1;
+  evolved.board = 1;
+  evolved.seconds = 30;
+  evolved.geoms = 60;
+  CHECK(Apply(g, evolved).finished.empty());
+  CHECK(g.life.geoms == 60 && g.life.modes[1].geoms == 60);
+  CHECK(BountyText({Goal::kGeoms, 1, 0, 1'500, 0}) == "Collect 1,500 geoms in Evolved");
+  CHECK(Apply(g, evolved).finished.size() == 1);
+  CHECK(g.life.geoms == 120);
+  g.life.geoms = 10'000;
+  CHECK(Unlocked(g, *FindReward("geom-hoarder")));
+
   // A reroll changes the bounty and keeps three open.
   State r;
   FillBounties(r);
@@ -255,6 +271,18 @@ void SaveFile() {
     damaged.replace(at, 5, "xp = -");
     CHECK(!Read(damaged));
   }
+  // Geoms survive the round trip, and a save from before geoms reads as none.
+  State with_geoms = s;
+  with_geoms.life.geoms = 4'321;
+  with_geoms.life.modes[0].geoms = 321;
+  const auto geoms_back = Read(Write(with_geoms));
+  CHECK(geoms_back && *geoms_back == with_geoms);
+  std::string older = Write(s);
+  for (size_t at; (at = older.find("geoms = ")) != std::string::npos;) older.erase(at, older.find('\n', at) - at + 1);
+  for (size_t at; (at = older.find(", geoms = 0")) != std::string::npos;) older.erase(at, 11);
+  const auto older_back = Read(older);
+  CHECK(older_back && older_back->life.geoms == 0);
+
   // A title that isn't a title is dropped.
   State t = s;
   t.title = "diamond";

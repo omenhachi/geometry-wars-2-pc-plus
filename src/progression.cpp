@@ -125,6 +125,7 @@ void OnRunEnd(const run_stats::Run& r, bool finished) {
   run.best_blast = r.best_blast().kills;
   run.deaths = int32_t(r.deaths().size());
   run.bombs = int32_t(r.bombs().size());
+  run.geoms = r.geoms();
   run.finished = finished;
   Outcome outcome = Apply(g_state, run);
   REXLOG_INFO("Progression: +{} XP (time {}, best {}, tiers {}, bounties {}), level {}{}", outcome.total(),

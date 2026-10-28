@@ -55,6 +55,9 @@ class Run {
   void Kill(float time, int32_t type, int32_t killer, int64_t points, uint32_t killer_id = 0);
   void Death(float time);
   void Bomb(float time);
+  // The multiplier as it stands, every frame: each rise is geoms collected (a fall, from a death or a mode's rules,
+  // collects none).
+  void Multiplier(int64_t value);
   // Called every frame; keeps a sample every kSampleSeconds, and always the latest score.
   void Observe(float time, int64_t score);
   void Finish();
@@ -68,6 +71,7 @@ class Run {
   const std::vector<Sample>& samples() const { return samples_; }
   const std::vector<float>& deaths() const { return deaths_; }
   const std::vector<float>& bombs() const { return bombs_; }
+  int64_t geoms() const { return geoms_; }
   const Moment& best() const { return best_; }
   const Blast& best_blast() const { return best_blast_; }
   // How long the run has lasted, on its own clock.
@@ -89,6 +93,8 @@ class Run {
   std::vector<Sample> samples_;
   std::vector<float> deaths_;
   std::vector<float> bombs_;
+  int64_t geoms_ = 0;
+  int64_t multiplier_ = -1;  // as last seen; -1 before the first frame
   Moment best_;
   uint32_t blast_id_ = 0;
   float blast_time_ = 0;

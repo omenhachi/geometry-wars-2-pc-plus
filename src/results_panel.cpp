@@ -241,6 +241,10 @@ class ResultsPanel final : public rex::ui::ImGuiDialog {
     const ImU32 label = Rgba(0.7f, 0.75f, 0.85f, 0.8f * ease);
     put("Time", label, fact * 0.6f);
     put(Clock2(run->duration()), Theme(0.0, ease), fact * 2.0f);
+    if (run->geoms() > 0) {
+      put("Geoms", label, fact * 0.6f);
+      put(Grouped(run->geoms()), Theme(0.0, ease), fact * 2.0f);
+    }
     if (run->best_blast().kills > 0) {
       put("Best gate blast", label, fact * 0.6f);
       put("x" + Grouped(run->best_blast().kills), Rgba(1, 1, 1, ease), fact * 0.8f);
