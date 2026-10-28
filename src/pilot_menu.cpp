@@ -52,6 +52,7 @@ ListInput g_input;
 std::vector<Action> g_actions;
 bool g_opened = false;
 std::function<void(std::string_view, std::string)> g_save;
+std::string g_palette_before;  // the free colour worn before a pilot palette, this session
 
 bool KeyboardMode() {
   return rex::cvar::GetFlagByName(kKeyboardKey) == "true";
@@ -154,6 +155,7 @@ class PilotScreen final : public rex::ui::ImGuiDialog {
   }
 
   void Apply(Action action) {
+    if (action != Action::kStar) confirm_ = -1;
     switch (action) {
       case Action::kPreviousTab:
       case Action::kNextTab:
@@ -168,11 +170,19 @@ class PilotScreen final : public rex::ui::ImGuiDialog {
       case Action::kDown:
         if (cursor_ + 1 < Rows()) ++cursor_;
         break;
-      case Action::kStar:  // Y: a different bounty
+      case Action::kStar:  // Y: a different bounty; one with progress asks twice, so none is lost by a slip
         if (tab_ == 1 && cursor_ < int(state_.bounties.size())) {
+          const pr::Bounty& b = state_.bounties[size_t(cursor_)];
+          if (b.progress > 0 && confirm_ != cursor_) {
+            confirm_ = cursor_;
+            message_ = std::format("Press {} again to swap it. The {} you've done would start over.",
+                                   KeyboardMode() ? "L" : "Y", Grouped(int64_t(b.progress)));
+            break;
+          }
+          confirm_ = -1;
           pr::RerollBounty(size_t(cursor_));
           state_ = pr::Snapshot();
-          message_ = "Swapped. Rerolls are always free.";
+          message_ = "Swapped. Swaps are always free.";
         }
         break;
       case Action::kWatch:  // A: wear or take off a reward; the list stays open
@@ -195,7 +205,16 @@ class PilotScreen final : public rex::ui::ImGuiDialog {
     if (r.kind == pr::RewardKind::kTitle) {
       pr::SetTitle(worn ? std::string_view() : r.id);
     } else {
-      const std::string value = worn ? Unworn(r.kind) : std::string(r.id);
+      // Taking a palette off goes back to the colour worn before it (Rainbow, Custom ...), not always Green.
+      if (!worn && r.kind == pr::RewardKind::kPalette) {
+        const std::string current = rex::cvar::GetFlagByName(kHudColourKey);
+        const pr::Reward* earned = pr::FindReward(current);
+        if (!earned || earned->kind != pr::RewardKind::kPalette) g_palette_before = current;
+      }
+      const std::string value =
+          worn ? (r.kind == pr::RewardKind::kPalette && !g_palette_before.empty() ? g_palette_before
+                                                                                  : std::string(Unworn(r.kind)))
+               : std::string(r.id);
       rex::cvar::SetFlagByName(SettingFor(r.kind), value);
       if (g_save) g_save(SettingFor(r.kind), value);
       if (r.kind == pr::RewardKind::kPalette) {  // the colour in effect, as the Colour row sets it
@@ -435,6 +454,7 @@ class PilotScreen final : public rex::ui::ImGuiDialog {
   int tab_ = 0;
   int cursor_ = 0;
   int first_ = 0;
+  int confirm_ = -1;  // the bounty a swap was asked for once
   std::string message_;
 };
 

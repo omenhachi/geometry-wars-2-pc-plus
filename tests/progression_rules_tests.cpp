@@ -165,6 +165,36 @@ void Bounties() {
   king.bombs = 0;
   CHECK(Apply(n, king).finished.size() == 1);
 
+  // A score bounty is always above the best (Luna's 813,865 on Master Deadline once drew 500K), and a round number.
+  State t;
+  const uint64_t bests[] = {3'000'000, 64'071'720, 27'184'080, 3'030'910, 72'826'275, 2'354'265, 813'865, 150'000'000};
+  for (uint32_t board = 0; board < kBoards; ++board) t.bests[board] = bests[board];
+  int scores = 0;
+  for (int i = 0; i < 400; ++i) {
+    for (const Bounty& b : t.bounties) {
+      if (b.goal != Goal::kScore) continue;
+      ++scores;
+      CHECK(b.target > t.bests[b.board]);
+      if (b.target <= t.bests[b.board]) std::printf("  board %u best %llu target %llu\n", b.board,
+                                                    (unsigned long long)t.bests[b.board], (unsigned long long)b.target);
+    }
+    Reroll(t, size_t(i) % kOpenBounties);
+    FillBounties(t);
+  }
+  CHECK(scores > 50);
+
+  // A custom best known from before is not a new best again.
+  State c;
+  NoteCustomBest(c, "a7f6edd007fad798", 7'000);
+  Run again;
+  again.mode = 2;
+  again.custom_id = "a7f6edd007fad798";
+  again.score = 6'000;
+  again.seconds = 20;
+  CHECK(!Apply(c, again).new_best);
+  again.score = 8'000;
+  CHECK(Apply(c, again).new_best);
+
   // A reroll changes the bounty and keeps three open.
   State r;
   FillBounties(r);

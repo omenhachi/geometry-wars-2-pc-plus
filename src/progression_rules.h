@@ -139,6 +139,8 @@ bool Unlocked(const State& state, const Reward& reward);
 // A best known from elsewhere (the saved local bests, or the player's own row on an online board): its tiers' XP, and
 // no announcement. Returns the XP given.
 uint64_t NoteBest(State& state, uint32_t board, uint64_t score);
+// The same for a custom mode's best, by its id: no XP, only so its next run isn't a new best by mistake.
+void NoteCustomBest(State& state, const std::string& id, uint64_t score);
 
 struct TierUp {
   uint32_t board;

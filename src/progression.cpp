@@ -2,6 +2,7 @@
 
 #include <fstream>
 #include <iterator>
+#include <map>
 #include <mutex>
 #include <string>
 
@@ -58,6 +59,7 @@ void Save() {
 }  // namespace
 
 void Load(const std::filesystem::path& file) {
+  const std::map<std::string, uint64_t> custom_bests = custom_modes::SavedBests();  // before the lock: never nested
   std::lock_guard lock(g_mutex);
   g_file = file;
   std::error_code error;
@@ -75,6 +77,8 @@ void Load(const std::filesystem::path& file) {
   } else {
     REXLOG_INFO("Progression: a new pilot (no {} yet)", file.filename().string());
   }
+  // Custom modes' and practice levels' bests from before, so the first run after doesn't call itself a new best.
+  for (const auto& [id, best] : custom_bests) NoteCustomBest(g_state, id, best);
   FillBounties(g_state);
   g_loaded = true;
   Save();

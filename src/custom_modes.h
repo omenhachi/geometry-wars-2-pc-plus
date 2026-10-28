@@ -13,6 +13,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <map>
 #include <optional>
 #include <string>
 #include <vector>
@@ -50,6 +51,9 @@ Entry PracticeEntry(int32_t level);
 // The level Sequence practice was last set to, this session.
 int32_t PracticeLevel();
 void SetPracticeLevel(int32_t level);
+
+// Every custom mode's saved best, by id (practice levels included).
+std::map<std::string, uint64_t> SavedBests();
 
 // Starts `mode` from the menus, on the game thread's next pad poll.
 void Play(const custom_mode::Mode& mode);

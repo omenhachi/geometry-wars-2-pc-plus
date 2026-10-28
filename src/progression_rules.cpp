@@ -62,7 +62,7 @@ const std::vector<Entry>& Entries() {
       {{RewardKind::kTitle, "rookie", "Rookie", "Reach level 2"}, {C::kLevel, 0, Tier::kNone, 2}},
       {{RewardKind::kTitle, "deadline-dancer", "Deadline Dancer", "Gold in Deadline"}, {C::kTier, 0, Tier::kGold}},
       {{RewardKind::kTitle, "evolutionary", "Evolutionary", "Gold in Evolved"}, {C::kTier, 1, Tier::kGold}},
-      {{RewardKind::kTitle, "sequence-breaker", "Sequence Breaker", "Clear 10 Sequence levels in practice"},
+      {{RewardKind::kTitle, "sequence-breaker", "Sequence Breaker", "Survive 10 Sequence levels in practice"},
        {C::kPractice, 0, Tier::kNone, 10}},
       {{RewardKind::kTitle, "wave-rider", "Wave Rider", "Gold in Waves"}, {C::kTier, 3, Tier::kGold}},
       {{RewardKind::kTitle, "pacifist", "Pacifist", "Gold in Pacifism"}, {C::kTier, 4, Tier::kGold}},
@@ -112,21 +112,22 @@ uint64_t NextRandom(State& state) {
   return x * 0x2545F4914F6CDD1Dull;
 }
 
-// 1, 2 or 5 times a power of ten, at or below `value`.
+// The first of 1, 1.5, 2, 2.5, 3, 4, 5, 6, 8 times a power of ten at or above `value`: a round number, never lower.
 uint64_t Nice(uint64_t value) {
   uint64_t unit = 1;
   while (unit * 10 <= value) unit *= 10;
-  for (const uint64_t step : {5, 2}) {
-    if (unit * step <= value) return unit * step;
+  for (const uint64_t tenths : {10, 15, 20, 25, 30, 40, 50, 60, 80, 100}) {
+    if (unit * tenths / 10 >= value) return unit * tenths / 10;
   }
-  return unit;
+  return unit * 10;
 }
 
-// A score to aim for on `board`: halfway to the next tier, or most of the best at the top.
+// A score to aim for on `board`: halfway to the next tier, or a tenth past the best at the top; always above the best,
+// so a bounty is never done before it starts. Without a bomb: half of that, which may be below the best.
 uint64_t ScoreTarget(const State& state, uint32_t board, bool no_bomb) {
   const uint64_t best = state.bests[board];
   const std::optional<uint64_t> next = NextTierScore(board, best);
-  uint64_t target = next ? std::max(*next / 2, best + best / 10) : best - best / 5;
+  uint64_t target = std::max(next ? *next / 2 : 0, best + best / 10 + 1);
   target = std::max<uint64_t>(target, kTiers[board][0] / 2);
   if (no_bomb) target /= 2;
   return Nice(target);
@@ -266,7 +267,7 @@ std::string BountyText(const Bounty& b) {
     case Goal::kNoBomb: return std::format("Score {} in {} without a bomb", ShortScore(b.target), board);
     case Goal::kKills: return std::format("Destroy {} {} in {}", Commas(b.target), EnemyName(b.type, true), board);
     case Goal::kBlast: return std::format("Catch {} enemies in one gate blast in {}", b.target, board);
-    case Goal::kPractice: return std::format("Clear Sequence level {} in practice", b.target);
+    case Goal::kPractice: return std::format("Survive Sequence level {} in practice", b.target);
   }
   return {};
 }
@@ -334,6 +335,12 @@ uint64_t NoteBest(State& state, uint32_t board, uint64_t score) {
   const uint64_t xp = RaiseBest(state, board, score);
   state.xp += xp;
   return xp;
+}
+
+void NoteCustomBest(State& state, const std::string& id, uint64_t score) {
+  if (id.empty() || score == 0) return;
+  uint64_t& best = state.custom_bests[id];
+  best = std::max(best, score);
 }
 
 void FillBounties(State& state) {

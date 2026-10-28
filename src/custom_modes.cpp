@@ -299,6 +299,10 @@ std::vector<Entry> Scan() {
   return entries;
 }
 
+std::map<std::string, uint64_t> SavedBests() {
+  return ReadBests(UserFolder());
+}
+
 rules::Mode SequencePractice(int32_t level) {
   rules::Rules r;
   r.base = rules::kSequenceBase;
