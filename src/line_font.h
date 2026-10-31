@@ -237,5 +237,10 @@ inline float GameWidth(std::string_view text, float size) {
 inline float GameText(ImDrawList* draw, ImVec2 pos, float size, std::string_view text, ImU32 color, float thickness) {
   return Draw(draw, pos, size, text, color, thickness, kGameText);
 }
+// `size`, or smaller if the text would be wider than `width` at it.
+inline float GameFit(std::string_view text, float size, float width) {
+  const float w = GameWidth(text, size);
+  return w > width && width > 0.0f ? size * width / w : size;
+}
 
 }  // namespace gw2::line_font

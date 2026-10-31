@@ -234,6 +234,7 @@ class CustomModesMenu final : public rex::ui::ImGuiDialog {
     ImDrawList* draw = ImGui::GetForegroundDrawList();
     draw->AddRectFilled(ImVec2(0, 0), io.DisplaySize, Rgba(0, 0, 0, 0.45f));
     draw->AddRectFilled(p0, p1, Rgba(0.02f, 0.03f, 0.08f, 1.0f), u * 1.2f);
+    TileGrid(draw, p0, p1, u);
     draw->AddRect(p0, p1, Theme(0.0, 0.25f), u * 1.2f, 0, u * 0.9f);
     draw->AddRect(p0, p1, Theme(0.0, 0.9f), u * 1.2f, 0, u * 0.25f);
     const float pad = u * 3.0f;

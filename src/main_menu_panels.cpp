@@ -166,8 +166,8 @@ class Panels final : public rex::ui::ImGuiDialog {
                                 float(double(level.into) / double(std::max<uint64_t>(level.needed, 1))), Theme());
       const progression::Reward* title = pilot.title.empty() ? nullptr : progression::FindReward(pilot.title);
       if (title) {
-        line_font::GameText(draw, ImVec2(at.x, at.y + u * 5.6f), u * 1.7f, title->name, Rgba(1, 1, 1, 0.8f),
-                            std::max(1.0f, u * 0.12f));
+        line_font::GameText(draw, ImVec2(at.x, at.y + u * 5.6f), line_font::GameFit(title->name, u * 1.7f, w), title->name,
+                            Rgba(1, 1, 1, 0.8f), std::max(1.0f, u * 0.12f));
       }
     }
 
@@ -195,6 +195,7 @@ class Panels final : public rex::ui::ImGuiDialog {
         const bool focused = s == side && i == index;
         const float glow = focused ? 0.75f + 0.25f * pulse : hovered ? 0.6f : 0.28f;
         draw->AddRectFilled(p0, p1, Rgba(0.02f, 0.03f, 0.08f, 0.85f), u * 1.2f);
+        TileGrid(draw, p0, p1, u);
         if (focused) draw->AddRectFilled(p0, p1, Theme(0.0, 0.10f + 0.06f * pulse), u * 1.2f);
         Neon(draw, {p0, ImVec2(p1.x, p0.y), p1, ImVec2(p0.x, p1.y)}, true, Theme(0.0, glow),
              focused ? u * 0.45f : u * 0.25f);

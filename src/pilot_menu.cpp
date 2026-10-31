@@ -237,6 +237,7 @@ class PilotScreen final : public rex::ui::ImGuiDialog {
     ImDrawList* draw = ImGui::GetForegroundDrawList();
     draw->AddRectFilled(ImVec2(0, 0), io.DisplaySize, Rgba(0, 0, 0, 0.5f));
     draw->AddRectFilled(p0, p1, Rgba(0.02f, 0.03f, 0.08f, 1.0f), u * 1.2f);
+    TileGrid(draw, p0, p1, u);
     draw->AddRect(p0, p1, Theme(0.0, 0.25f), u * 1.2f, 0, u * 0.9f);
     draw->AddRect(p0, p1, Theme(0.0, 0.9f), u * 1.2f, 0, u * 0.25f);
     const float pad = u * 3.0f;
@@ -248,9 +249,6 @@ class PilotScreen final : public rex::ui::ImGuiDialog {
     ui::DrawLevel(draw, ImVec2(left, p0.y + pad), lsize, cw * 0.22f, level.level,
                   float(double(level.into) / double(std::max<uint64_t>(level.needed, 1))), Theme());
     const float tx = left + cw * 0.25f;
-    const pr::Reward* title = state_.title.empty() ? nullptr : pr::FindReward(state_.title);
-    line_font::GameText(draw, ImVec2(tx, p0.y + pad), u * 3.2f, title ? title->name : "Pilot", Rgba(1, 1, 1, 0.95f),
-                        std::max(1.2f, u * 0.25f));
     const std::string xp = std::format("{} of {} XP to level {}", Grouped(int64_t(level.into)),
                                        Grouped(int64_t(level.needed)), level.level + 1);
     line_font::GameText(draw, ImVec2(tx, p0.y + pad + u * 4.6f), u * 1.7f, xp, Rgba(0.8f, 0.85f, 0.95f, 0.8f),
@@ -276,6 +274,13 @@ class PilotScreen final : public rex::ui::ImGuiDialog {
                           i == tab_ ? Theme() : Rgba(0.8f, 0.85f, 0.95f, hovered ? 0.9f : 0.6f), std::max(1.0f, size * 0.07f));
       x -= u * 1.0f;
     }
+
+    // The title, as large as the room left of the tabs allows, sitting on the XP line.
+    const pr::Reward* title = state_.title.empty() ? nullptr : pr::FindReward(state_.title);
+    const std::string_view name = title ? std::string_view(title->name) : std::string_view("Pilot");
+    const float tsize = line_font::GameFit(name, u * 3.2f, x - tx - u);
+    line_font::GameText(draw, ImVec2(tx, p0.y + pad + u * 3.2f - tsize), tsize, name, Rgba(1, 1, 1, 0.95f),
+                        std::max(1.2f, tsize * 0.08f));
 
     const float top = p0.y + pad + u * 10.0f;
     const float bottom = p1.y - pad - u * 6.0f;

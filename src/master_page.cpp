@@ -165,6 +165,7 @@ class Overlay final : public rex::ui::ImGuiDialog {
       const float w = std::max(line_font::GameWidth(page, size), line_font::GameWidth(key, key_size) + u * 4.0f);
       const ImVec2 p0(right - w - u * 2.0f, top), p1(right, top + size + key_size + u * 3.2f);
       draw->AddRectFilled(p0, p1, Rgba(0.02f, 0.03f, 0.08f, 0.85f), u);
+      TileGrid(draw, p0, p1, u);
       draw->AddRect(p0, p1, Theme(0.0, pulse), u, 0, std::max(1.5f, u * 0.3f));
       line_font::GameText(draw, ImVec2(p0.x + u, top + u), size, page, Theme(), std::max(1.2f, size * 0.08f));
       const float ky = top + size + u * 2.0f;
@@ -190,6 +191,7 @@ class Overlay final : public rex::ui::ImGuiDialog {
     // Page two's right half, where the game has no tiles: what the Master modes are.
     const ImVec2 p0(o.x + cw * 0.53f, o.y + ch * 0.18f), p1(o.x + cw * 0.935f, o.y + ch * 0.66f);
     draw->AddRectFilled(p0, p1, Rgba(0.02f, 0.03f, 0.08f, 0.75f), u * 1.2f);
+    TileGrid(draw, p0, p1, u);
     draw->AddRect(p0, p1, Theme(0.0, 0.3f), u * 1.2f, 0, u * 0.9f);
     draw->AddRect(p0, p1, Theme(0.0, pulse), u * 1.2f, 0, u * 0.25f);
     float y = p0.y + u * 3.0f;

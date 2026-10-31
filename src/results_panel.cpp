@@ -218,15 +218,18 @@ class ResultsPanel final : public rex::ui::ImGuiDialog {
     const ImVec2 p1(origin.x + cw * 0.96f, p0.y + ch * 0.54f);
     ImDrawList* draw = ImGui::GetForegroundDrawList();
     draw->AddRectFilled(p0, p1, Rgba(0.02f, 0.03f, 0.08f, ease), u * 1.2f);
+    TileGrid(draw, p0, p1, u, ease);
     draw->AddRect(p0, p1, Theme(0.0, 0.25f * ease), u * 1.2f, 0, u * 0.9f);
     draw->AddRect(p0, p1, Theme(0.0, 0.9f * ease), u * 1.2f, 0, u * 0.25f);
 
     const float pad = u * 3.0f;
     const float title = u * 4.2f;
-    line_font::GameText(draw, ImVec2(p0.x + pad, p0.y + pad), title, title_, Theme(0.0, ease),
-                    std::max(1.2f, title * 0.06f));
     const std::string final_score = Grouped(run->final_score());
     const float fw = line_font::GameWidth(final_score, title);
+    // A long custom mode's name shrinks rather than running into the score.
+    const float name_size = line_font::GameFit(title_, title, p1.x - p0.x - pad * 2.0f - fw - u * 3.0f);
+    line_font::GameText(draw, ImVec2(p0.x + pad, p0.y + pad + title - name_size), name_size, title_, Theme(0.0, ease),
+                    std::max(1.2f, name_size * 0.06f));
     line_font::GameText(draw, ImVec2(p1.x - pad - fw, p0.y + pad), title, final_score, Rgba(1, 1, 1, ease),
                     std::max(1.2f, title * 0.06f));
 

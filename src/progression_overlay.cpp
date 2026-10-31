@@ -97,6 +97,7 @@ class PilotCard final : public rex::ui::ImGuiDialog {
     const ImVec2 l0(origin.x + cw * (0.065f - 0.03f * (1.0f - ease)), origin.y + ch * 0.195f);
     const ImVec2 l1(l0.x + cw * 0.30f, origin.y + ch * 0.315f);
     draw->AddRectFilled(l0, l1, Rgba(0.02f, 0.03f, 0.08f, 0.88f * ease), u);
+    TileGrid(draw, l0, l1, u, ease);
     const float counted = float(std::clamp((t - 0.25) / kCount, 0.0, 1.0));
     const float eased = 1.0f - (1.0f - counted) * (1.0f - counted) * (1.0f - counted);
     const uint64_t before_total = TotalOf(o.before);
@@ -147,6 +148,7 @@ class PilotCard final : public rex::ui::ImGuiDialog {
     const ImVec2 r0(origin.x + cw * (0.635f + 0.03f * (1.0f - ease)), origin.y + ch * 0.195f);
     const ImVec2 r1(origin.x + cw * 0.935f, origin.y + ch * 0.315f);
     draw->AddRectFilled(r0, r1, Rgba(0.02f, 0.03f, 0.08f, 0.88f * ease), u);
+    TileGrid(draw, r0, r1, u, ease);
     const size_t visible = std::min<size_t>(lines_.size(), 3);
     // Past three, the newest three, stepping through them all.
     const size_t shown = std::min<size_t>(lines_.size(), size_t(std::max(0.0, (t - 0.5) / kStep)) + 1);

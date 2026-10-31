@@ -131,6 +131,7 @@ class Overlay final : public rex::ui::ImGuiDialog {
     const ImVec2 p0((io.DisplaySize.x - width) * 0.5f, u * 8.0f);
     const ImVec2 p1(p0.x + width, p0.y + title + big + line_height * 2.6f + u * 7.0f);
     draw->AddRectFilled(p0, p1, Rgba(0.02f, 0.03f, 0.08f, 0.92f), u);
+    TileGrid(draw, p0, p1, u);
     draw->AddRect(p0, p1, Theme(0.0, 0.9f), u, 0, std::max(1.5f, u * 0.25f));
     float y = p0.y + u * 2.0f;
     line_font::GameText(draw, ImVec2(p0.x + u * 3.0f, y), title, "Benchmark", Theme(), std::max(1.0f, title * 0.07f));

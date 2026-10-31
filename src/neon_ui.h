@@ -78,6 +78,17 @@ inline void Neon(ImDrawList* draw, const std::vector<ImVec2>& points, bool close
   }
 }
 
+// The grid behind the game's own tiles, in the interface colour: thin lines three hundredths of the canvas height
+// apart (`u` is one hundredth), counted from the panel's corner. Draw it over the panel's fill, under its border.
+inline void TileGrid(ImDrawList* draw, ImVec2 p0, ImVec2 p1, float u, float alpha = 1.0f) {
+  const float step = u * 3.0f;
+  if (step <= 0.0f) return;
+  const ImU32 colour = Theme(0.0, 0.12f * alpha);
+  const float thickness = std::max(1.0f, u * 0.14f);
+  for (float x = p0.x + step; x < p1.x; x += step) draw->AddLine(ImVec2(x, p0.y), ImVec2(x, p1.y), colour, thickness);
+  for (float y = p0.y + step; y < p1.y; y += step) draw->AddLine(ImVec2(p0.x, y), ImVec2(p1.x, y), colour, thickness);
+}
+
 inline std::vector<ImVec2> Ring(ImVec2 c, float r, int sides, float turn = 0.0f) {
   std::vector<ImVec2> points;
   for (int i = 0; i < sides; ++i) {
