@@ -2,7 +2,7 @@
 
 A custom mode is one of the game's six modes with your own rules: Deadline at speed, Evolved with a single ship, Pacifism with no gates where the score is how long you last. Open **Custom modes** (press right on the main menu, or click its panel), choose one, and play.
 
-Custom runs never count officially. Nothing goes to the online leaderboards or the local boards, nothing unlocks (achievements or modes), and nothing is saved to the game's profile. Each custom mode keeps its own best, and its runs are kept as replays like any other.
+Custom runs never count officially. Nothing goes to the online leaderboards or the local boards, nothing unlocks (achievements or modes), and nothing is saved to the game's profile. Each custom mode keeps its own best, and its runs are kept as replays like any other. They do earn Pilot XP, which only ever shows on your own screen: full XP for time survived, and 250 for a new best in the mode.
 
 ## Making one
 
