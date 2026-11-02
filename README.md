@@ -126,6 +126,7 @@ Window size, Monitor, VSync, Aspect Ratio and the graphics card apply when you p
 
 **Gameplay**
 - **Frame rate**: 30 to 240, or Unlimited (60 is the original). The game itself always runs at 60 updates per second; higher rates smooth the motion in between, with about 17 ms of extra visual delay.
+- **Audio buffer**: Low (about 43 ms), Medium (64 ms) or High (85 ms, the default). Lower answers sooner; if the sound crackles or falls out of step in busy modes, choose more. Linux players often prefer Low or Medium.
 - **Frame rate in title**, **Render resolution in title**, and the **Frame counter** (F2)
 - **Results screen**: On or Off, and **Deadline rank info**: Hidden or Shown (see above)
 - **Online leaderboards**, **Player name** and **Delete my online scores** (see above)

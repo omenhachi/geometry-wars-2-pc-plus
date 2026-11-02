@@ -39,6 +39,7 @@ std::vector<ManagedSetting> BuildManagedSettings() {
       {kMultisamplingKey, ValueKind::kBool},
       {kTextureFilteringKey, ValueKind::kInt},
       {kBloomKey, ValueKind::kString},
+      {kAudioBufferKey, ValueKind::kInt},
       {kKeyboardKey, ValueKind::kBool},
       {kVibrationKey, ValueKind::kBool},
       {kOnlineLeaderboardsKey, ValueKind::kBool},
@@ -75,9 +76,10 @@ std::vector<ManagedSetting> BuildManagedSettings() {
 
 const std::vector<ManagedSetting> kManagedSettings = BuildManagedSettings();
 
-// The graphics card and the aspect ratio are applied while the process starts, before the launcher shows.
+// The graphics card and the aspect ratio are applied while the process starts, before the launcher shows, and the audio
+// buffer is read as the audio starts: a change to any of these starts the game in a new process.
 constexpr std::string_view kWindowKeys[] = {kWindowWidthKey, kWindowHeightKey, kMonitorKey, kVSyncKey,
-                                            kGraphicsAdapterKey, kAspectKey};
+                                            kGraphicsAdapterKey, kAspectKey, kAudioBufferKey};
 
 constexpr std::string_view kPlacementKeys[] = {kLauncherXKey, kLauncherYKey, kLauncherWidthKey, kLauncherHeightKey,
                                                 kLauncherMaximizedKey, kLauncherFullscreenKey};

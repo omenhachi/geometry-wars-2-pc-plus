@@ -36,6 +36,8 @@ inline constexpr char kMultisamplingKey[] = "gw2_msaa_compatibility";
 inline constexpr char kNative2xMsaaKey[] = "native_2x_msaa";
 inline constexpr char kTextureFilteringKey[] = "anisotropic_override";
 inline constexpr char kBloomKey[] = "gw2_bloom";
+// ReXGlue's audio frames queued ahead of playback, each about 5.3 ms. Read once, as the audio starts.
+inline constexpr char kAudioBufferKey[] = "audio_maxqframes";
 inline constexpr char kKeyboardKey[] = "mnk_mode";
 inline constexpr char kVibrationKey[] = "gw2_vibration";
 inline constexpr bool kVibrationDefault = false;

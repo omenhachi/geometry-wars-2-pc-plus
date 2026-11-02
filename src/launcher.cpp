@@ -936,6 +936,11 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
 
   void PageGameplay(trg::Ui& ui) {
     ui.Choice("Frame rate", kFrameRateHelp, kFrameRateKey, "60", ToTrgOptions(FrameRateChoices()), 4);
+    ui.Choice("Audio buffer",
+              "How much sound is queued ahead. Low answers soonest; if the sound crackles or falls out of step in "
+              "busy modes, choose more. On Linux, Low or Medium often feels better. A change restarts the game once "
+              "when you press Play.",
+              kAudioBufferKey, "16", {{"8", "Low (43 ms)"}, {"12", "Medium (64 ms)"}, {"16", "High (85 ms)"}});
     ui.Toggle("Frame rate in title", kShowFpsHelp, kShowFpsKey, kShowFpsDefault, "Off", "On");
     ui.Toggle("Render resolution in title", kShowResolutionHelp, kShowResolutionKey, kShowResolutionDefault,
               "Off", "On");

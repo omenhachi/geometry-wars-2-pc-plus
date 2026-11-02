@@ -132,6 +132,7 @@ void RegisterGameDefaults(FakeCvars& cvars) {
   cvars.Register(kNative2xMsaaKey, "true");
   cvars.Register(kTextureFilteringKey, "3");
   cvars.Register(kBloomKey, "original");
+  cvars.Register(kAudioBufferKey, "16");
   cvars.Register(kKeyboardKey, "true");
   cvars.Register(kVibrationKey, kVibrationDefault ? "true" : "false");
   cvars.Register(kFrameRateKey, std::to_string(kFrameRateDefault));
@@ -276,6 +277,14 @@ void TestWindowChangeDetection() {
 
   settings.Set(kMonitorKey, "2");
   CHECK(settings.WindowChanged());
+  settings.Set(kMonitorKey, "1");
+  CHECK(!settings.WindowChanged());
+
+  // The audio buffer is read as the audio starts, so a change takes a new process too.
+  settings.Set(kAudioBufferKey, "8");
+  CHECK(settings.WindowChanged());
+  settings.Set(kAudioBufferKey, "16");
+  CHECK(!settings.WindowChanged());
 }
 
 void TestWindowChangeIgnoresFitAndCapture() {
