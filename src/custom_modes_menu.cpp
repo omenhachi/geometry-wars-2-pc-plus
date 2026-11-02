@@ -63,6 +63,7 @@ std::mutex g_mutex;
 ListInput g_input;
 std::vector<Action> g_actions;  // from the game thread, applied as the list draws
 bool g_opened = false;          // the list was opened and has not drawn yet
+std::string g_last_played;      // the folder of the mode last played from the list, this session
 
 bool KeyboardMode() {
   return rex::cvar::GetFlagByName(kKeyboardKey) == "true";
@@ -168,7 +169,10 @@ class CustomModesMenu final : public rex::ui::ImGuiDialog {
  private:
   void Reload() {
     entries_ = custom_modes::Scan();
-    cursor_ = 0;
+    cursor_ = 0;  // on the mode last played, so playing it again is one press
+    for (int i = 0; i < int(entries_.size()); ++i) {
+      if (entries_[size_t(i)].folder == g_last_played) cursor_ = i;
+    }
     first_ = 0;
     message_.clear();
   }
@@ -216,6 +220,7 @@ class CustomModesMenu final : public rex::ui::ImGuiDialog {
           Reopen();
           break;
         }
+        g_last_played = e.folder;
         custom_modes::Play(*e.mode);  // the list has closed; the round starts next frame
         break;
       }

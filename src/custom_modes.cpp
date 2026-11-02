@@ -35,6 +35,7 @@
 #include <rex/ui/keybinds.h>
 
 #include "boards.h"
+#include "custom_modes_menu.h"
 #include "demo.h"
 #include "master_page.h"
 #include "guest_memory.h"
@@ -47,6 +48,7 @@ REXCVAR_DEFINE_STRING(gw2_play_mode, "", "Geometry Wars",
 REX_EXTERN(sub_8208FFF0);  // switches the screen (here to the in-game HUD, sub_8207CA48)
 REX_EXTERN(sub_82032F90);  // queues the function that sets up the next round
 REX_EXTERN(sub_820334F8);  // asks for a round to start, for the pad in r3
+REX_EXTERN(sub_8208FD00);  // builds the main menu and switches to it (r3 0, as Back from Single Player calls it)
 
 namespace gw2::custom_modes {
 namespace {
@@ -125,6 +127,8 @@ std::atomic<bool> g_no_gates{false};
 std::atomic<bool> g_infinite_bombs{false};
 std::atomic<int32_t> g_practice_level{1};  // Sequence practice's level, this session
 std::atomic<int64_t> g_last_tick_ms{0};
+// A mode from the Custom modes list was played: leaving its Game Over goes back to the list, not to Single Player.
+std::atomic<bool> g_back_to_list{false};
 
 int64_t NowMs() {
   return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
@@ -269,6 +273,20 @@ void EndForSinglePlayer() {
   std::lock_guard lock(g_mutex);
   if (g_state.active) REXLOG_INFO("Custom modes: \"{}\" ends; the Single Player screen starts a round", g_state.active->mode.name);
   SetActive(std::nullopt);
+  g_back_to_list.store(false, std::memory_order_relaxed);
+}
+
+// The Single Player screen is about to be built: after a round from the Custom modes list (its Game Over, or a quit from
+// pause) the main menu is built instead, as Back from Single Player builds it, and the list opens over it. Picking
+// Single player on the main menu always goes there.
+bool BackToList(PPCContext& ctx, uint8_t* base) {
+  if (!g_back_to_list.exchange(false, std::memory_order_relaxed) || master_page::OnMainMenu()) return false;
+  REXLOG_INFO("Custom modes: back to the Custom modes list");
+  PPCContext call = ctx;
+  call.r3.u64 = 0;
+  sub_8208FD00(call, base);
+  custom_modes_menu::Open();
+  return true;
 }
 
 }  // namespace detail
@@ -411,6 +429,7 @@ bool Ticking() {
 }
 
 void ForReplay(std::optional<rules::Mode> mode) {
+  g_back_to_list.store(false, std::memory_order_relaxed);
   std::lock_guard lock(g_mutex);
   g_state.requested.reset();
   g_state.requested_board.reset();
@@ -448,6 +467,7 @@ void StartRequested(PPCContext& ctx, uint8_t* base) {
     g_state.requested_board.reset();
     mode = current.mode.rules.base;
     REXLOG_INFO("Custom modes: playing \"{}\" ({}), on mode {}", current.mode.name, current.id, mode);
+    g_back_to_list.store(!current.board, std::memory_order_relaxed);  // a Master tile's round goes back to its page
     SetActive(std::move(current));
   }
   uint32_t pad = LoadBE32(base, kPlayingPad);
@@ -658,4 +678,11 @@ REX_HOOK_RAW(sub_8208D410) {
   if (gw2::master_page::StartTile(ctx, base)) return;  // a Master tile: its mode starts instead
   gw2::custom_modes::detail::EndForSinglePlayer();
   __imp__sub_8208D410(ctx, base);
+}
+
+// Builds the Single Player screen (after a Game Over too): a round from the Custom modes list goes back to the list.
+REX_EXTERN(__imp__sub_8208ED00);
+REX_HOOK_RAW(sub_8208ED00) {
+  if (gw2::custom_modes::detail::BackToList(ctx, base)) return;
+  __imp__sub_8208ED00(ctx, base);
 }
