@@ -162,6 +162,13 @@ struct ParseResult {
 
 ParseResult Parse(std::string_view toml_text);
 
+// A mode as a mode.toml (format 2) that Parse reads back as the same mode: only what differs from the base mode is
+// written, so its id is the one a hand-written file with the same rules has. `builder` adds the mode builder's note at
+// the top (kBuilderNote), which marks a file the builder may rewrite.
+std::string WriteModeFile(const Mode& mode, bool builder);
+inline constexpr std::string_view kBuilderNote =
+    "# Made in the game's mode builder. Changing it there rewrites this file.";
+
 // The id: 16 hex digits from the base and the rules.
 std::string Id(const Rules& rules);
 

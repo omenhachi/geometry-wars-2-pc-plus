@@ -193,6 +193,7 @@ set(GW2_SOURCES
     src/custom_modes.cpp
     src/benchmark.cpp
     src/custom_modes_menu.cpp
+    src/mode_builder.cpp
     src/master_page.cpp
     src/main_menu_panels.cpp
     src/custom_mode_rules.cpp
@@ -434,6 +435,7 @@ gw2_add_test(demo_file_tests src/demo_file.cpp)
 gw2_add_test(demo_library_tests src/demo_library.cpp src/demo_file.cpp)
 gw2_add_test(replays_menu_tests)
 gw2_add_test(custom_mode_rules_tests src/custom_mode_rules.cpp)
+gw2_add_test(mode_builder_rules_tests src/custom_mode_rules.cpp)
 gw2_add_test(progression_rules_tests src/progression_rules.cpp src/custom_mode_rules.cpp)
 gw2_add_test(boards_tests)
 target_link_libraries(keyboard_tests PRIVATE gw2_trg_test_support)

@@ -8,6 +8,11 @@
 // that can't be read stays in the list with its first error and the line it is on, so a typo is never silent. Y opens
 // the mods folder (made with a copy of the template the first time). A best shows only once a mode has one.
 // Sequence practice's row takes Left and Right for its level, and shows that level's best only.
+//
+// X opens the mode builder (mode_builder.h) on the highlighted mode: a builder file is edited, any other mode is
+// copied. The last row makes a new mode. While a name is typed in the builder, the pad is hidden from the game and the
+// list reads none of it, so every key is a letter. After a run played from the builder, the list opens on the builder
+// again, on that mode.
 
 #include "custom_modes_menu.h"
 
@@ -17,6 +22,7 @@
 #include <cmath>
 #include <cstring>
 #include <format>
+#include <fstream>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -38,9 +44,14 @@
 #include "launcher_platform.h"
 #include "launcher_settings.h"
 #include "line_font.h"
+#include "master_page.h"
+#include "mode_builder.h"
 #include "neon_ui.h"
 #include "replays_menu.h"
 #include "replays_menu_rules.h"
+
+REXCVAR_DEFINE_STRING(gw2_dev_builder, "", "Geometry Wars",
+                      "Testing: open the mode builder once the main menu shows (new: a new mode; or a mod's folder name)");
 
 namespace gw2::custom_modes_menu {
 namespace {
@@ -64,6 +75,9 @@ ListInput g_input;
 std::vector<Action> g_actions;  // from the game thread, applied as the list draws
 bool g_opened = false;          // the list was opened and has not drawn yet
 std::string g_last_played;      // the folder of the mode last played from the list, this session
+std::string g_builder_folder;   // a builder file played from the builder: the list opens on the builder again
+bool g_typing = false;          // a name is being typed in the builder: the list reads no pad
+std::string g_dev_builder;      // --gw2_dev_builder, once
 
 bool KeyboardMode() {
   return rex::cvar::GetFlagByName(kKeyboardKey) == "true";
@@ -116,6 +130,16 @@ std::string Drawable(std::string text) {
   return out;
 }
 
+// A file the builder made (custom_mode::kBuilderNote first), which the builder may rewrite.
+bool IsBuilderFile(const custom_modes::Entry& e) {
+  if (e.built_in) return false;
+  std::ifstream in(custom_modes::UserFolder() / e.folder / custom_modes::kModeFile);
+  std::string first;
+  std::getline(in, first);
+  if (!first.empty() && first.back() == '\r') first.pop_back();
+  return first == rules::kBuilderNote;
+}
+
 std::string FirstProblem(const custom_modes::Entry& e) {
   if (e.errors.empty()) return {};
   const rules::Message& m = e.errors.front();
@@ -145,6 +169,13 @@ class CustomModesMenu final : public rex::ui::ImGuiDialog {
 
  protected:
   void OnDraw(ImGuiIO& io) override {
+    // --gw2_dev_builder: the list, then the builder, as soon as the main menu shows.
+    static bool dev_done = false;
+    if (!dev_done && !REXCVAR_GET(gw2_dev_builder).empty() && master_page::OnMainMenu()) {
+      dev_done = true;
+      g_dev_builder = REXCVAR_GET(gw2_dev_builder);
+      Open();
+    }
     std::vector<Action> actions;
     bool open = false, opened = false;
     {
@@ -154,10 +185,30 @@ class CustomModesMenu final : public rex::ui::ImGuiDialog {
       g_opened = false;
     }
     if (opened) Reload();
-    for (const Action action : actions) Apply(action);
+    // Each action goes to the builder while it shows, else to the list (B in the builder can hand back mid-way).
+    for (const Action action : actions) {
+      if (builder_) {
+        Handle(builder_->Apply(action, KeyboardMode()), action);
+      } else {
+        Apply(action);
+      }
+    }
     {
       std::lock_guard lock(g_mutex);
       open = g_input.open();
+    }
+    if (open && builder_) {
+      const bool was_typing = builder_->Typing();
+      const mode_builder::Outcome outcome = builder_->Draw(io, KeyboardMode());
+      const bool typing = builder_ && builder_->Typing();
+      {
+        std::lock_guard lock(g_mutex);
+        g_typing = typing;
+      }
+      // Typing over: whatever key ended it is still held, and isn't a fresh press for the list.
+      if (was_typing && !typing) Reopen();
+      Handle(outcome, Action::kNone);
+      return;
     }
     if (open) {
       DrawList(io);
@@ -175,6 +226,77 @@ class CustomModesMenu final : public rex::ui::ImGuiDialog {
     }
     first_ = 0;
     message_.clear();
+    builder_.reset();
+    if (!g_dev_builder.empty()) {
+      std::string which = g_dev_builder;
+      g_dev_builder.clear();
+      const bool enemies = which.ends_with(":enemies");
+      if (enemies) which.resize(which.size() - 8);
+      cursor_ = int(entries_.size());
+      for (int i = 0; i < int(entries_.size()); ++i) {
+        if (entries_[size_t(i)].folder == which) cursor_ = i;
+      }
+      OpenBuilder();
+      if (builder_ && enemies) builder_->SetTab(mode_builder::Tab::kEnemies);
+      return;
+    }
+    // Back from a run played from the builder: the builder again, on that mode.
+    if (!g_builder_folder.empty()) {
+      for (const custom_modes::Entry& e : entries_) {
+        if (e.folder == g_builder_folder && e.mode && IsBuilderFile(e)) {
+          builder_.emplace(*e.mode, e.folder, entries_, false);
+        }
+      }
+    }
+  }
+
+  // The builder's outcome for an action: play, back to the list, or stay. A or B closed the list as it was pressed,
+  // so staying (a typed name begun, a delete armed, a save that failed) opens it again.
+  void Handle(const mode_builder::Outcome& outcome, Action action) {
+    switch (outcome.kind) {
+      case mode_builder::Outcome::kPlay:
+        g_builder_folder = outcome.folder;
+        if (!outcome.folder.empty()) g_last_played = outcome.folder;
+        builder_.reset();
+        {
+          std::lock_guard lock(g_mutex);
+          g_input.SetOpen(false);
+          g_typing = false;
+        }
+        custom_modes::Play(*outcome.mode);  // the round starts next frame
+        return;
+      case mode_builder::Outcome::kBack: {
+        g_builder_folder.clear();
+        if (!outcome.folder.empty()) g_last_played = outcome.folder;
+        const std::string message = outcome.message;
+        Reload();
+        message_ = message;
+        Reopen();
+        return;
+      }
+      case mode_builder::Outcome::kStay:
+        if (action == Action::kWatch || action == Action::kClose) Reopen();
+        return;
+    }
+  }
+
+  // X: the builder on the highlighted mode (edited if the builder made it, else copied); the last row: a new mode.
+  void OpenBuilder() {
+    if (cursor_ >= int(entries_.size())) {
+      rules::Mode fresh{"", "", "", rules::Rules{.base = 1}};
+      builder_.emplace(fresh, std::string(), entries_, true);
+      return;
+    }
+    const custom_modes::Entry& e = entries_[size_t(cursor_)];
+    if (!e.mode) {
+      message_ = "Fix this mode's file before building on it.";
+      return;
+    }
+    if (IsBuilderFile(e)) {
+      builder_.emplace(*e.mode, e.folder, entries_, false);
+    } else {
+      builder_.emplace(*e.mode, std::string(), entries_, true);
+    }
   }
 
   bool OnPractice() const {
@@ -193,7 +315,10 @@ class CustomModesMenu final : public rex::ui::ImGuiDialog {
         if (cursor_ > 0) --cursor_;
         break;
       case Action::kDown:
-        if (cursor_ + 1 < int(entries_.size())) ++cursor_;
+        if (cursor_ < int(entries_.size())) ++cursor_;  // the last row makes a new mode
+        break;
+      case Action::kDelete:  // X: build on this mode
+        OpenBuilder();
         break;
       case Action::kLeft:
       case Action::kRight:
@@ -209,7 +334,12 @@ class CustomModesMenu final : public rex::ui::ImGuiDialog {
         message_ = "Opened your mods folder. Copy _template, rename the folder, and edit mode.toml.";
         break;
       }
-      case Action::kWatch: {  // A: play
+      case Action::kWatch: {  // A: play, or on the last row, make a new mode
+        if (cursor_ == int(entries_.size())) {
+          OpenBuilder();
+          Reopen();
+          break;
+        }
         if (cursor_ < 0 || cursor_ >= int(entries_.size())) {
           Reopen();
           break;
@@ -258,6 +388,7 @@ class CustomModesMenu final : public rex::ui::ImGuiDialog {
     const float row_h = u * 7.2f;
     const int visible = std::max(1, int((p1.y - footer - list_top) / row_h));
     first_ = std::clamp(first_, std::max(0, cursor_ - visible + 1), cursor_);
+    const int rows = int(entries_.size()) + 1;  // the modes, then "Make a new mode"
     const float text = u * 2.5f;
     const float note_size = u * 1.7f;
     const float thin = std::max(1.0f, text * 0.07f);
@@ -272,9 +403,30 @@ class CustomModesMenu final : public rex::ui::ImGuiDialog {
       line_font::GameText(draw, ImVec2(left, list_top + u * 6.0f), note_size,
                       "Press Y to open your mods folder: copy _template and make one.", dim, note_thin);
     }
-    for (int i = first_; i < int(entries_.size()) && i < first_ + visible; ++i) {
-      const custom_modes::Entry& e = entries_[i];
+    for (int i = first_; i < rows && i < first_ + visible; ++i) {
       const float y = list_top + float(i - first_) * row_h;
+      if (i == int(entries_.size())) {
+        const ImVec2 r0(left, y), r1(right, y + row_h - u * 0.8f);
+        const bool hovered = ImGui::IsMouseHoveringRect(r0, r1, false);
+        if (hovered && (io.MouseDelta.x != 0 || io.MouseDelta.y != 0)) cursor_ = i;
+        if (hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+          cursor_ = i;
+          OpenBuilder();
+        }
+        if (i == cursor_) {
+          draw->AddRectFilled(r0, r1, Theme(0.0, 0.12f), u * 0.6f);
+          draw->AddRect(r0, r1, Theme(0.0, 0.8f), u * 0.6f, 0, 1.5f);
+        }
+        const float x = left + u * 2.0f, top = y + u * 1.0f;
+        const float plus = text * 0.5f;
+        draw->AddLine(ImVec2(x, top + plus), ImVec2(x + text, top + plus), Theme(), 2.0f);
+        draw->AddLine(ImVec2(x + plus, top), ImVec2(x + plus, top + text), Theme(), 2.0f);
+        line_font::GameText(draw, ImVec2(x + text + u * 1.6f, top), text, "Make a new mode", Theme(), thin);
+        line_font::GameText(draw, ImVec2(x + text + u * 1.6f, top + text + u * 1.4f), note_size,
+                            "Pick the rules and enemies from menus, then play it straight away", dim, note_thin);
+        continue;
+      }
+      const custom_modes::Entry& e = entries_[i];
       const ImVec2 r0(left, y), r1(right, y + row_h - u * 0.8f);
       const bool hovered = ImGui::IsMouseHoveringRect(r0, r1, false);
       if (hovered && (io.MouseDelta.x != 0 || io.MouseDelta.y != 0)) cursor_ = i;
@@ -331,9 +483,12 @@ class CustomModesMenu final : public rex::ui::ImGuiDialog {
     }
     fy += u * 4.0f;
     if (!message_.empty()) line_font::GameText(draw, ImVec2(left, fy), hint, message_, amber, hint_thin);
+    const bool own = cursor_ < int(entries_.size()) && IsBuilderFile(entries_[size_t(cursor_)]);
+    const std::string build = cursor_ >= int(entries_.size()) ? "" : own ? " Edit   " : " Copy and edit   ";
     std::string hints = KeyboardMode() ? std::string(KeyFor("keybind_start", "Enter")) + " Play   " +
+                                             (build.empty() ? "" : KeyFor("keybind_x", "H") + build) +
                                              KeyFor("keybind_y", "L") + " Mods folder   Esc Back"
-                                       : "A Play   Y Mods folder   B Back";
+                                       : "A Play   " + (build.empty() ? "" : "X" + build) + "Y Mods folder   B Back";
     if (OnPractice()) hints = "Left Right Level   " + hints;
     line_font::GameText(draw, ImVec2(left, p1.y - pad - hint), hint, hints, dim, hint_thin);
   }
@@ -420,6 +575,7 @@ class CustomModesMenu final : public rex::ui::ImGuiDialog {
   }
 
   std::vector<custom_modes::Entry> entries_;
+  std::optional<mode_builder::Screen> builder_;
   int cursor_ = 0;
   int first_ = 0;
   std::string message_;
@@ -448,8 +604,12 @@ void CreateCustomModesMenu(rex::ui::ImGuiDrawer* drawer) {
 void FilterPad(uint8_t* base, uint32_t user, uint32_t state) {
   if (state == 0) return;
   std::lock_guard lock(g_mutex);
-  if (!g_input.HidesInput()) return;
   const uint32_t pad = state + kGamepadOffset;
+  if (g_typing) {  // every key is a letter: the game and the list see nothing
+    std::memset(base + pad, 0, kGamepadSize);
+    return;
+  }
+  if (!g_input.HidesInput()) return;
   const replays_menu::Pad read{LoadBE16(base, pad), int16_t(LoadBE16(base, pad + 6)), int16_t(LoadBE16(base, pad + 10)),
                                int16_t(LoadBE16(base, pad + 4)), int16_t(LoadBE16(base, pad + 8))};
   const ListInput::Verdict verdict = g_input.Poll(user, read);

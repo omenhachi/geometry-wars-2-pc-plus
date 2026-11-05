@@ -580,6 +580,61 @@ std::vector<std::string> ListChips(const Rules& rules, size_t most) {
   return chips;
 }
 
+std::string WriteModeFile(const Mode& mode, bool builder) {
+  // Text the parser reads back as written: a quoted string, its quotes and backslashes escaped.
+  const auto quoted = [](std::string_view text) {
+    std::string out = "\"";
+    for (const char c : text) {
+      if (c == '"' || c == '\\') out += '\\';
+      out += c;
+    }
+    return out + "\"";
+  };
+  // The shortest text that reads back as the same float, so a speed or a time keeps its id ("1.15", "120").
+  const auto number = [](float value) { return std::format("{}", value); };
+  const Rules& r = mode.rules;
+  std::string out;
+  if (builder) out += std::string(kBuilderNote) + "\n";
+  out += "format = 2\n";
+  out += "name = " + quoted(mode.name) + "\n";
+  if (!mode.author.empty()) out += "author = " + quoted(mode.author) + "\n";
+  if (!mode.description.empty()) out += "description = " + quoted(mode.description) + "\n";
+  out += "base = " + quoted(kBaseNames[r.base]) + "\n";
+
+  std::string rules;
+  if (r.lives) rules += std::format("lives = {}\n", r.legacy_spare_lives ? *r.lives + 1 : *r.lives);
+  if (!r.extra_lives) rules += "extra_lives = false\n";
+  if (r.bombs) rules += std::format("bombs = {}\n", *r.bombs);
+  if (!r.extra_bombs) rules += "extra_bombs = false\n";
+  if (!r.bonus_bombs_at.empty()) {
+    rules += "bonus_bombs_at = [";
+    for (size_t i = 0; i < r.bonus_bombs_at.size(); ++i) rules += (i ? ", " : "") + std::to_string(r.bonus_bombs_at[i]);
+    rules += "]\n";
+  }
+  if (r.infinite_bombs) rules += "infinite_bombs = true\n";
+  if (r.time_limit) rules += "time_limit = " + number(*r.time_limit) + "\n";
+  if (r.game_speed != 1.0f) rules += "game_speed = " + number(r.game_speed) + "\n";
+  if (!r.gates) rules += "gates = false\n";
+  if (r.score == Score::kTime) rules += "score = \"time\"\n";
+  if (r.level) rules += std::format("level = {}\n", *r.level);
+  if (!rules.empty()) out += "\n[rules]\n" + rules;
+
+  std::string off;
+  for (size_t i = 0; i < kEnemyCount; ++i) {
+    if (r.EnemyOff(Enemy(i))) off += std::string(kEnemyNames[i]) + " = false\n";
+  }
+  if (!off.empty()) out += "\n[enemies]\n" + off;
+  std::string swaps;
+  for (size_t i = 0; i < kEnemyCount; ++i) {
+    if (!r.swap_to[i]) continue;
+    for (const SwapTarget& t : kSwapTargets) {
+      if (t.spawn == r.swap_to[i]) swaps += std::string(kEnemyNames[i]) + " = " + quoted(t.name) + "\n";
+    }
+  }
+  if (!swaps.empty()) out += "\n[enemies.swap]\n" + swaps;
+  return out;
+}
+
 std::string ShortScore(uint64_t score) {
   const auto scaled = [](uint64_t value, uint64_t unit, const char* suffix) {
     const uint64_t tenths = value * 10 / unit;

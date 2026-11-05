@@ -463,6 +463,68 @@ grunt = "weaver"
   for (const SwapTarget& t : kSwapTargets) CHECK(t.spawn != 5 && t.spawn != 12 && t.spawn != 13 && t.spawn != 14 && t.spawn != 16);
 }
 
+// The mode builder's files: whatever valid mode is written reads back as the same mode with the same id, and a speed
+// written by the builder is the same number a hand-written file has.
+void Writer() {
+  std::mt19937 random(2026);
+  const auto pick = [&](int lo, int hi) { return lo + int(random() % uint32_t(hi - lo + 1)); };
+  int round_trips = 0;
+  for (int n = 0; n < 3000; ++n) {
+    Mode m;
+    m.name = "Mode " + std::to_string(n) + (n % 7 == 0 ? " \"quoted\" \\ back" : "");
+    m.author = n % 3 ? "Omenhachi" : "";
+    m.description = n % 5 ? "" : "One line about it.";
+    Rules& r = m.rules;
+    r.base = uint32_t(pick(0, 5));
+    if (pick(0, 1)) r.lives = pick(1, kMaxLives);
+    if (pick(0, 1)) r.bombs = pick(0, kMaxBombs);
+    if (pick(0, 2) == 0) r.time_limit = float(pick(10, 3600));
+    r.game_speed = float(pick(10, 30)) / 20.0f;  // the builder's 0.05 steps
+    r.gates = pick(0, 3) != 0;
+    r.infinite_bombs = pick(0, 4) == 0;
+    r.score = pick(0, 3) == 0 ? Score::kTime : Score::kPoints;
+    r.extra_lives = pick(0, 3) != 0;
+    r.extra_bombs = pick(0, 3) != 0;
+    if (pick(0, 4) == 0) r.bonus_bombs_at = {100'000, 1'000'000, 10'000'000, 100'000'000};
+    if (r.base == kSequenceBase && pick(0, 1)) r.level = pick(1, kSequenceLevels);
+    if (r.base != kSequenceBase && r.base != kWavesBase) {
+      r.enemies_off = uint16_t(random() % kAllEnemies);  // never all of them
+      for (size_t i = 0; i < kEnemyCount; ++i) {
+        if (pick(0, 3) != 0) continue;
+        const uint8_t to = kSwapTargets[size_t(pick(0, int(kSwapTargets.size()) - 1))].spawn;
+        if (!EnemyForSpawn(to) || EnemyForSpawn(to) != Enemy(i)) r.swap_to[i] = to;
+      }
+    }
+    const std::string text = WriteModeFile(m, n % 2 == 0);
+    const ParseResult back = Parse(text);
+    const bool same = back.mode && back.errors.empty() && back.mode->name == m.name && back.mode->author == m.author &&
+                      back.mode->description == m.description && back.mode->rules == r && Id(back.mode->rules) == Id(r);
+    if (!same && round_trips == n) std::printf("  first mismatch:\n%s\n", text.c_str());
+    round_trips += same;
+  }
+  CHECK(round_trips == 3000);
+
+  // A plain mode writes nothing it doesn't need, and the builder's note comes first.
+  Mode plain{"Plain", "", "", Rules{.base = 1}};
+  CHECK(WriteModeFile(plain, false) == "format = 2\nname = \"Plain\"\nbase = \"evolved\"\n");
+  CHECK(WriteModeFile(plain, true).starts_with(std::string(kBuilderNote) + "\n"));
+
+  // The builder's speed and a hand-written one are the same mode.
+  for (int steps = 10; steps <= 30; ++steps) {
+    Rules built{.base = 0};
+    built.game_speed = float(steps) / 20.0f;
+    const std::string typed = std::format("format = 1\nname = \"x\"\nbase = \"deadline\"\n[rules]\ngame_speed = {:.2f}\n",
+                                          double(steps) / 20.0);
+    const ParseResult hand = Parse(typed);
+    CHECK(hand.mode && (steps == 20 || Id(hand.mode->rules) == Id(built)));
+  }
+  // Master Pacifism written out is Master Pacifism.
+  Mode master{"Master Pacifism", "PC Plus", "", Rules{.base = 4}};
+  master.rules.swap_to[size_t(Enemy::kGrunt)] = 3;
+  const ParseResult mp = Parse(WriteModeFile(master, true));
+  CHECK(mp.mode && Id(mp.mode->rules) == "37ec9b4747054c3d");
+}
+
 void Text() {
   CHECK(TimeText(0) == "0:00.00");
   CHECK(TimeText(12345) == "2:03.45");
@@ -524,6 +586,7 @@ int main() {
   TunedBytes();
   ListChipsCap();
   Swaps();
+  Writer();
   Text();
   std::printf("custom_mode_rules_tests: %d checks, %d failures\n", g_checks, g_failures);
   return g_failures == 0 ? 0 : 1;

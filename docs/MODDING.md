@@ -4,7 +4,21 @@ A custom mode is one of the game's six modes with your own rules: Deadline at sp
 
 Custom runs never count officially. Nothing goes to the online leaderboards or the local boards, nothing unlocks (achievements or modes), and nothing is saved to the game's profile. Each custom mode keeps its own best, and its runs are kept as replays like any other. They do earn Pilot XP, which only ever shows on your own screen: full XP for time survived, and 250 for a new best in the mode.
 
-## Making one
+## Making one in the game
+
+**Make a new mode**, the last row of the Custom modes list, opens the mode builder. Press **X** on any mode to build on it: your own builder modes are edited, and any other mode is copied, so the original never changes.
+
+- **Rules** and **Enemies** are two tabs (LB and RB, or 1 and 3 on the keyboard). Up and down pick a row, left and right change it, and **X** puts the row back to the game's own.
+- **A** (Enter) saves and plays. After the run, Continue brings you back to the builder, so trying a change is two presses.
+- **B** (Esc) saves and goes back to the list.
+- **The name.** Left and right roll a new one. With the keyboard, Enter on the name row types your own, and every key is a letter until Enter keeps it (Esc puts the old one back).
+- The chips at the bottom show the mode as it stands, with its best so far. Modes with the same rules share a best, and the builder tells you when yours matches one.
+- The game's unused enemies are in the enemy rows too, marked **untested** in amber.
+- A builder mode can be deleted from the last row of its Rules tab: press A twice.
+
+The builder saves a normal `mode.toml` in `user_data/mods`, starting with a line that says the builder made it. It only ever rewrites files with that line, so your hand-written modes are safe. Delete the line if you'd rather edit a file by hand from then on.
+
+## Making one by hand
 
 1. On the Custom modes list press **Y** (or the key the list shows) to open your mods folder, `user_data/mods`. The first time, it is made with a `_template` folder inside.
 2. Copy `_template`, rename the copy (the folder name is only for you), and edit its `mode.toml`.
