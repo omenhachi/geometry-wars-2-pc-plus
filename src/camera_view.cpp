@@ -189,9 +189,13 @@ int64_t SecretChangedMs() {
 
 void BeforeTurn(uint8_t* base, uint32_t pad) {
   const uint16_t buttons = LoadBE16(base, pad);
+  // The d-pad or either stick: on the keyboard WASD is the left stick and the arrow keys are the right.
   const int16_t lx = int16_t(LoadBE16(base, pad + 4)), ly = int16_t(LoadBE16(base, pad + 6));
-  const bool up = (buttons & 0x0001) || ly > kStickPress, down = (buttons & 0x0002) || ly < -kStickPress;
-  const bool left = (buttons & 0x0004) || lx < -kStickPress, right = (buttons & 0x0008) || lx > kStickPress;
+  const int16_t sx = int16_t(LoadBE16(base, pad + 8)), sy = int16_t(LoadBE16(base, pad + 10));
+  const bool up = (buttons & 0x0001) || ly > kStickPress || sy > kStickPress;
+  const bool down = (buttons & 0x0002) || ly < -kStickPress || sy < -kStickPress;
+  const bool left = (buttons & 0x0004) || lx < -kStickPress || sx < -kStickPress;
+  const bool right = (buttons & 0x0008) || lx > kStickPress || sx > kStickPress;
   const uint16_t pressed = uint16_t(buttons & ~g_last_buttons);
   const bool new_up = up && !g_last_up, new_down = down && !g_last_down;
   const bool new_left = left && !g_last_left, new_right = right && !g_last_right;

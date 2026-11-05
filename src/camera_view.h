@@ -30,7 +30,8 @@ float LookPerPixel();
 bool LookHoldsMouse();
 float LookYaw();
 
-// The Konami code on the pause screen (Up Up Down Down Left Right Left Right X Y) cycles the secret views: the chase
+// The Konami code on the pause screen (Up Up Down Down Left Right Left Right X Y, on the d-pad or either stick; on
+// the keyboard the arrow keys or WASD, then H L) cycles the secret views: the chase
 // camera you turn yourself, first person, then classic. For this session only. BeforeTurn reads it, and in look mode
 // takes the controller's right stick (turning the view) and triggers; AfterTurn, once the sticks are turned, fires
 // ahead on RT and bombs on LT. Both on the pad of XamInputGetState's gamepad at `pad`.
