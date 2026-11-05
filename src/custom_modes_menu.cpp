@@ -43,6 +43,7 @@
 #include "guest_memory.h"
 #include "launcher_platform.h"
 #include "launcher_settings.h"
+#include "key_hints.h"
 #include "line_font.h"
 #include "master_page.h"
 #include "mode_builder.h"
@@ -220,6 +221,8 @@ class CustomModesMenu final : public rex::ui::ImGuiDialog {
  private:
   void Reload() {
     entries_ = custom_modes::Scan();
+    own_.clear();
+    for (const custom_modes::Entry& e : entries_) own_.push_back(IsBuilderFile(e));
     cursor_ = 0;  // on the mode last played, so playing it again is one press
     for (int i = 0; i < int(entries_.size()); ++i) {
       if (entries_[size_t(i)].folder == g_last_played) cursor_ = i;
@@ -232,6 +235,7 @@ class CustomModesMenu final : public rex::ui::ImGuiDialog {
       g_dev_builder.clear();
       const bool enemies = which.ends_with(":enemies");
       if (enemies) which.resize(which.size() - 8);
+      if (which == "list") return;  // just the list
       cursor_ = int(entries_.size());
       for (int i = 0; i < int(entries_.size()); ++i) {
         if (entries_[size_t(i)].folder == which) cursor_ = i;
@@ -384,7 +388,17 @@ class CustomModesMenu final : public rex::ui::ImGuiDialog {
                       Rgba(0.7f, 0.75f, 0.85f, 0.6f), std::max(1.0f, size * 0.07f));
     }
     const float list_top = p0.y + pad + title + u * 5.0f;
-    const float footer = u * 13.0f;  // the selected mode's description, a message and the hints
+    // The footer holds the hints, a message and the selected mode's description: as tall as they are, so the rows get
+    // the rest.
+    const std::vector<key_hints::Hint> hints = Hints();
+    const float hint_size = u * 1.8f;
+    float footer = key_hints::Draw(nullptr, hints, p0.x + pad, p1.x - pad, 0, hint_size) + u * 1.8f + pad;
+    if (!message_.empty()) footer += float(key_hints::Wrap(message_, u * 1.9f, p1.x - p0.x - pad * 2, 2).size()) * u * 2.8f;
+    const std::string description = Description();
+    if (!description.empty()) {
+      footer += float(key_hints::Wrap(description, u * 1.7f * 1.15f, p1.x - p0.x - pad * 2, 2).size()) * (u * 1.955f + u * 0.9f);
+    }
+    footer += u * 1.0f;
     const float row_h = u * 7.2f;
     const int visible = std::max(1, int((p1.y - footer - list_top) / row_h));
     first_ = std::clamp(first_, std::max(0, cursor_ - visible + 1), cursor_);
@@ -469,28 +483,42 @@ class CustomModesMenu final : public rex::ui::ImGuiDialog {
       }
     }
 
-    // The selected mode's description, any message, and the hints.
-    const float hint = u * 2.0f;
-    const float hint_thin = std::max(1.0f, hint * 0.07f);
-    float fy = p1.y - footer + u * 1.5f;
-    if (cursor_ >= 0 && cursor_ < int(entries_.size())) {
-      const custom_modes::Entry& e = entries_[cursor_];
-      std::string line;
-      if (e.mode) line = e.mode->description;
-      if (e.mode && !e.warnings.empty() && line.empty()) line = std::format("Line {}: {}", e.warnings.front().line, e.warnings.front().text);
-      if (!e.mode && e.errors.size() > 1) line = std::format("Line {}: {}", e.errors[1].line, e.errors[1].text);
-      if (!line.empty()) line_font::GameText(draw, ImVec2(left, fy), note_size * 1.15f, Drawable(line), white, note_thin);
-    }
-    fy += u * 4.0f;
-    if (!message_.empty()) line_font::GameText(draw, ImVec2(left, fy), hint, message_, amber, hint_thin);
-    const bool own = cursor_ < int(entries_.size()) && IsBuilderFile(entries_[size_t(cursor_)]);
-    const std::string build = cursor_ >= int(entries_.size()) ? "" : own ? " Edit   " : " Copy and edit   ";
-    std::string hints = KeyboardMode() ? std::string(KeyFor("keybind_start", "Enter")) + " Play   " +
-                                             (build.empty() ? "" : KeyFor("keybind_x", "H") + build) +
-                                             KeyFor("keybind_y", "L") + " Mods folder   Esc Back"
-                                       : "A Play   " + (build.empty() ? "" : "X" + build) + "Y Mods folder   B Back";
-    if (OnPractice()) hints = "Left Right Level   " + hints;
-    line_font::GameText(draw, ImVec2(left, p1.y - pad - hint), hint, hints, dim, hint_thin);
+    // From the bottom up: the key hints, any message, and the selected mode's description, wrapped to the panel.
+    float fy = p1.y - pad - key_hints::Draw(draw, hints, left, right, p1.y - pad, hint_size) - u * 1.8f;
+    const auto lines_up = [&](const std::string& s, float size, ImU32 colour) {
+      const auto lines = key_hints::Wrap(s, size, right - left, 2);
+      for (size_t i = lines.size(); i-- > 0;) {
+        fy -= size + u * 0.9f;
+        line_font::GameText(draw, ImVec2(left, fy), size, lines[i], colour, std::max(1.0f, size * 0.07f));
+      }
+    };
+    if (!message_.empty()) lines_up(message_, u * 1.9f, amber);
+    if (!description.empty()) lines_up(description, note_size * 1.15f, white);
+  }
+
+  // The key hints for the highlighted row.
+  std::vector<key_hints::Hint> Hints() const {
+    const bool own = cursor_ < int(own_.size()) && own_[size_t(cursor_)];
+    const bool on_new = cursor_ >= int(entries_.size());
+    const bool keyboard = KeyboardMode();
+    std::vector<key_hints::Hint> hints;
+    if (OnPractice()) hints.push_back({"<>", "Level"});
+    hints.push_back({keyboard ? KeyFor("keybind_start", "Enter") : "A", on_new ? "Make a new mode" : "Play"});
+    if (!on_new) hints.push_back({keyboard ? KeyFor("keybind_x", "H") : "X", own ? "Edit" : "Copy and edit"});
+    hints.push_back({keyboard ? KeyFor("keybind_y", "L") : "Y", "Mods folder"});
+    hints.push_back({keyboard ? "Esc" : "B", "Back"});
+    return hints;
+  }
+
+  // The highlighted mode's description, or what's wrong with it.
+  std::string Description() const {
+    if (cursor_ < 0 || cursor_ >= int(entries_.size())) return {};
+    const custom_modes::Entry& e = entries_[size_t(cursor_)];
+    std::string line;
+    if (e.mode) line = e.mode->description;
+    if (e.mode && !e.warnings.empty() && line.empty()) line = std::format("Line {}: {}", e.warnings.front().line, e.warnings.front().text);
+    if (!e.mode && e.errors.size() > 1) line = std::format("Line {}: {}", e.errors[1].line, e.errors[1].text);
+    return Drawable(line);
   }
 
   // While a custom mode plays: its title card as each round begins, then a tag at the bottom.
@@ -576,6 +604,7 @@ class CustomModesMenu final : public rex::ui::ImGuiDialog {
 
   std::vector<custom_modes::Entry> entries_;
   std::optional<mode_builder::Screen> builder_;
+  std::vector<bool> own_;  // each entry: a file the builder made (it can be edited, not just copied)
   int cursor_ = 0;
   int first_ = 0;
   std::string message_;

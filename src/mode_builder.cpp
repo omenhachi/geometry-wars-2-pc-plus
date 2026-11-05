@@ -10,6 +10,9 @@
 #include <rex/cvar.h>
 #include <rex/logging.h>
 
+#include <imgui_internal.h>
+
+#include "key_hints.h"
 #include "launcher_settings.h"
 #include "line_font.h"
 #include "neon_ui.h"
@@ -241,8 +244,8 @@ Outcome Screen::Draw(ImGuiIO& io, bool keyboard) {
   const int count = int(rows.size()) + (delete_row ? 1 : 0);
   row_ = std::clamp(row_, 0, std::max(0, count - 1));
   const float list_top = p0.y + pad + title + u * 4.0f;
-  const float row_h = u * 4.6f;
-  const float size = u * 2.3f;
+  const float row_h = u * 4.2f;
+  const float size = u * 2.2f;
   const float value_x = left + (right - left) * 0.42f;
   if (rows.empty() && tab_ == Tab::kEnemies) {
     text(ImVec2(left + u * 2.0f, list_top + u * 1.5f), size, builder_.EnemiesReason(), dim);
@@ -291,62 +294,88 @@ Outcome Screen::Draw(ImGuiIO& io, bool keyboard) {
     }
   }
 
-  // The mode as it stands: its chips (popping when something changes), its best, and what the file check says.
+  // The footer, from the bottom up: the key hints, then the mode as it stands (its chips, popping when something
+  // changes), its best, and what the file check says, each wrapped to the panel.
+  std::vector<key_hints::Hint> hints;
+  const bool name_row = tab_ == Tab::kRules && row_ < int(rows.size()) && rows[size_t(row_)].row == Row::kName;
+  if (typing_) {
+    hints = {{"Enter", "Keep this name"}, {"Esc", "Cancel"}, {"Backspace", "Delete a letter"}};
+  } else if (keyboard) {
+    hints.push_back(name_row ? key_hints::Hint{"Enter", "Type a name"} : key_hints::Hint{"Enter", "Play"});
+    hints.push_back({"<>", name_row ? "New name" : "Change"});
+    hints.push_back({KeyName("keybind_left_shoulder", "1") + " " + KeyName("keybind_right_shoulder", "3"), "Tabs"});
+    hints.push_back({KeyName("keybind_x", "H"), "Game's own"});
+    hints.push_back({"Esc", "Save and back"});
+  } else {
+    hints = {{"A", "Play"}, {"<>", name_row ? "New name" : "Change"}, {"LB RB", "Tabs"}, {"X", "Game's own"},
+             {"B", "Save and back"}};
+  }
+  const float hint = u * 1.7f;
+  float fy = p1.y - pad - key_hints::Draw(draw, hints, left, right, p1.y - pad, hint) - u * 2.2f;
+
   const rules::Mode mode = builder_.Mode();
   const rules::ParseResult check = rules::Parse(rules::WriteModeFile(mode, true));
-  const float chip = u * 1.7f;
-  const float pop = float(std::max(0.0, 1.0 - (Seconds() - pop_) / 0.3));
-  float cy = p1.y - pad - u * 15.0f;
-  float cx = left;
-  const auto chips = rules::Chips(mode.rules);
-  if (chips.empty()) text(ImVec2(cx, cy), chip, "Plays exactly as " + std::string(ModeName(mode.rules.base)), dim);
-  for (size_t i = 0; i < chips.size(); ++i) {
-    const float w = line_font::GameWidth(chips[i], chip) + chip * 1.1f;
-    if (cx + w > right) {
-      cx = left;
-      cy += chip * 2.4f;
+  const float note = u * 1.75f;
+  const auto lines_up = [&](const std::string& s, ImU32 colour) {
+    const auto lines = key_hints::Wrap(s, note, right - left, 2);
+    for (size_t i = lines.size(); i-- > 0;) {
+      fy -= note + u * 0.9f;
+      text(ImVec2(left, fy), note, lines[i], colour);
     }
-    const ImVec2 a(cx, cy - chip * 0.45f), b(cx + w, cy + chip * 1.45f);
-    draw->AddRectFilled(a, b, Theme(double(i) * 0.2, 0.10f + 0.5f * pop), chip * 0.5f);
-    draw->AddRect(a, b, Theme(double(i) * 0.2, 0.95f), chip * 0.5f, 0, std::max(1.0f, chip * 0.08f));
-    text(ImVec2(cx + chip * 0.55f, cy), chip, chips[i], Theme(double(i) * 0.2, 0.95f));
-    cx += w + u;
+  };
+  if (!message_.empty()) {
+    lines_up(message_, amber);
+  } else if (!check.warnings.empty()) {
+    lines_up(check.warnings.front().text, amber);
   }
-  float fy = p1.y - pad - u * 8.5f;
   const std::string id = rules::Id(mode.rules);
-  std::string best_line;
+  const auto best = bests_.find(id);
+  lines_up(best != bests_.end() ? "Best for these rules: " + custom_modes::ScoreText(mode.rules, best->second)
+                                : std::string("Best for these rules: none yet"),
+           white);
   for (const custom_modes::Entry& e : entries_) {
     if (e.mode && e.id == id && e.folder != folder_) {
-      best_line = "Same rules as " + e.mode->name + ", so it shares its best.  ";
+      lines_up("Same rules as " + e.mode->name + ", so it shares its best", dim);
       break;
     }
   }
-  const auto best = bests_.find(id);
-  best_line += best != bests_.end() ? "Best for these rules: " + custom_modes::ScoreText(mode.rules, best->second)
-                                    : std::string("Best for these rules: none yet");
-  text(ImVec2(left, fy), u * 1.8f, best_line, white);
-  fy += u * 3.2f;
-  if (!message_.empty()) {
-    text(ImVec2(left, fy), u * 1.8f, message_, amber);
-  } else if (!check.warnings.empty()) {
-    text(ImVec2(left, fy), u * 1.8f, check.warnings.front().text, amber);
-  }
 
-  float hint = u * 1.9f;
-  std::string hints;
-  if (typing_) {
-    hints = "Type a name   Enter Keep it   Esc Cancel";
-  } else if (keyboard) {
-    const bool name_row = tab_ == Tab::kRules && row_ < int(rows.size()) && rows[size_t(row_)].row == Row::kName;
-    hints = name_row ? "Enter Type a name   Left Right New name   " : "Enter Play   Left Right Change   ";
-    hints += KeyName("keybind_left_shoulder", "1") + " " + KeyName("keybind_right_shoulder", "3") + " Tabs   " +
-             KeyName("keybind_x", "H") + " Game's own   Esc Save and back";
-  } else {
-    hints = "A Play   Left Right Change   LB RB Tabs   X Game's own   B Save and back";
+  // The chips, laid out first so their rows can sit above the best line.
+  const float chip = u * 1.7f;
+  const float pop = float(std::max(0.0, 1.0 - (Seconds() - pop_) / 0.3));
+  const auto chips = rules::Chips(mode.rules);
+  std::vector<std::vector<size_t>> chip_rows(1);
+  float cx = left;
+  for (size_t i = 0; i < chips.size(); ++i) {
+    const float w = line_font::GameWidth(chips[i], chip) + chip * 1.1f;
+    if (cx > left && cx + w > right) {
+      chip_rows.emplace_back();
+      cx = left;
+    }
+    chip_rows.back().push_back(i);
+    cx += w + u;
   }
-  // As big as fits the panel.
-  hint = std::min(hint, hint * (right - left) / std::max(1.0f, line_font::GameWidth(hints, hint)));
-  text(ImVec2(left, p1.y - pad - hint), hint, hints, dim);
+  const float chip_h = chip * 2.4f;
+  fy -= u * 1.4f + chip_h * float(chip_rows.size());
+  if (chips.empty()) text(ImVec2(left, fy + chip * 0.45f), chip, "Plays exactly as " + std::string(ModeName(mode.rules.base)), dim);
+  for (size_t r = 0; r < chip_rows.size(); ++r) {
+    cx = left;
+    const float cy = fy + chip * 0.45f + chip_h * float(r);
+    for (const size_t i : chip_rows[r]) {
+      const float w = line_font::GameWidth(chips[i], chip) + chip * 1.1f;
+      const ImVec2 a(cx, cy - chip * 0.45f), b(cx + w, cy + chip * 1.45f);
+      draw->AddRectFilled(a, b, Theme(double(i) * 0.2, 0.10f + 0.5f * pop), chip * 0.5f);
+      draw->AddRect(a, b, Theme(double(i) * 0.2, 0.95f), chip * 0.5f, 0, std::max(1.0f, chip * 0.08f));
+      text(ImVec2(cx + chip * 0.55f, cy), chip, chips[i], Theme(double(i) * 0.2, 0.95f));
+      cx += w + u;
+    }
+  }
+  // A faint line between the rows and the footer.
+  draw->AddLine(ImVec2(left, fy - u * 1.4f), ImVec2(right, fy - u * 1.4f), Theme(0.0, 0.3f), 1.0f);
+
+  // While typing, the window takes text: SDL only sends characters while ImGui says it wants text input, and the
+  // builder draws its own field instead of an ImGui text box.
+  if (typing_) ImGui::GetCurrentContext()->PlatformImeData.WantTextInput = true;
   return outcome;
 }
 
