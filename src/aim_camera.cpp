@@ -246,6 +246,8 @@ constexpr float kCrosshairEase = 14.0f;
 constexpr auto kCrosshairLinger = std::chrono::seconds(3);
 // Look mode's crosshair: this far ahead of the ship on the arena floor.
 constexpr float kLookCrossDistance = 140.0f;
+// Look mode's edge arrows: at most this many, the nearest.
+constexpr size_t kEdgeArrows = 12;
 // As a share of the canvas height: about one ship radius at 720 lines.
 constexpr float kDeadZoneShare = 0.025f;
 
@@ -446,6 +448,8 @@ class MouseAimOverlay final : public rex::ui::ImGuiDialog {
     aim::g_bomb.store((active || look) && bomb, std::memory_order_relaxed);
     aim::g_override_time.store(aim::Ticks(now), std::memory_order_relaxed);
 
+    // The arrows only draw, so they show whenever look mode does, focused or not.
+    if (in_round && !demo::Watching() && camera_view::LookActive()) DrawEdgeArrows(state, canvas);
     // Look mode: the crosshair sits ahead of the ship, where the shots go.
     ImVec2 cross = io.MousePos;
     bool look_cross = false;
@@ -486,6 +490,52 @@ class MouseAimOverlay final : public rex::ui::ImGuiDialog {
   }
 
  private:
+  // Look mode's edge arrows: each enemy off the screen gets an arrow at the screen's edge, pointing its way from the
+  // ship, bigger and brighter the closer it is. The nearest dozen, so a swarm reads as a direction, not a wall.
+  void DrawEdgeArrows(const aim::State& state, const aim::Rect& canvas) {
+    const aim::CameraState& camera = state.cameras[size_t(aim::kGameplayCamera)];
+    if (!camera.has_view || !camera.has_proj) return;
+    const float yaw = camera_view::LookYaw();
+    const float fx = std::cos(yaw), fy = std::sin(yaw);  // ahead on the arena; screen right is (-fy, fx)
+    struct Arrow {
+      float distance, angle;
+    };
+    std::vector<Arrow> arrows;
+    for (const camera_view::Blip& b : camera_view::Enemies()) {
+      const auto ndc = aim::ProjectToNdc(camera.view, camera.proj, b.x, b.y, 0.0f);
+      if (ndc && std::fabs(ndc->x) < 0.97f && std::fabs(ndc->y) < 0.97f) continue;  // on screen
+      const float rx = b.x - state.player_x, ry = b.y - state.player_y;
+      const float side = rx * -fy + ry * fx, ahead = rx * fx + ry * fy;
+      arrows.push_back({std::hypot(rx, ry), std::atan2(-ahead, side)});  // window angle, y down
+    }
+    std::sort(arrows.begin(), arrows.end(), [](const Arrow& a, const Arrow& b) { return a.distance < b.distance; });
+    if (arrows.size() > kEdgeArrows) arrows.resize(kEdgeArrows);
+    ImDrawList* draw = ImGui::GetForegroundDrawList();
+    const ImVec2 centre(canvas.x + canvas.width * 0.5f, canvas.y + canvas.height * 0.5f);
+    const float rx = canvas.width * 0.46f, ry = canvas.height * 0.43f;
+    const double now = std::chrono::duration<double>(Clock::now().time_since_epoch()).count();
+    for (const Arrow& a : arrows) {
+      const float closeness = std::clamp(1.0f - a.distance / 700.0f, 0.15f, 1.0f);
+      const float size = canvas.height * (0.014f + 0.018f * closeness);
+      const float c = std::cos(a.angle), s = std::sin(a.angle);
+      const ImVec2 tip(centre.x + c * rx, centre.y + s * ry);
+      // Long and narrow, so the point is plain: 2.6 sizes long, 1.4 wide at the back.
+      const ImVec2 back(tip.x - c * size * 2.6f, tip.y - s * size * 2.6f);
+      const float half = size * 0.7f;
+      const ImVec2 l(back.x - s * half, back.y + c * half), r(back.x + s * half, back.y - c * half);
+      const float pulse = 0.75f + 0.25f * float(std::sin(now * 8.0 + a.distance * 0.02));
+      // Hot red near, orange further off; a soft glow behind and a white-hot edge.
+      const float hue = 0.0f + 0.07f * (1.0f - closeness);
+      const ImU32 glow = Neon(hue, 0.0f, 0.45f * closeness * pulse);
+      const ImU32 fill = Neon(hue, 0.0f, (0.6f + 0.4f * closeness) * pulse);
+      const float g = size * 0.45f;
+      draw->AddTriangleFilled(ImVec2(tip.x + c * g, tip.y + s * g), ImVec2(l.x - c * g - s * g, l.y - s * g + c * g),
+                              ImVec2(r.x - c * g + s * g, r.y - s * g - c * g), glow);
+      draw->AddTriangleFilled(tip, l, r, fill);
+      draw->AddTriangle(tip, l, r, Neon(hue, 0.7f, 0.9f * pulse), std::max(1.5f, size * 0.12f));
+    }
+  }
+
   // Look mode: each frame the cursor's move from the window's middle turns the view, and the cursor goes back to the
   // middle, so it never reaches an edge. Only while the game window has focus and a round is on; the first frame only
   // places it.

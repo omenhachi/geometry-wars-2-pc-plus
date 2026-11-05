@@ -6,6 +6,7 @@
 // "classic" the game's own matrix is never touched. gw2_dev_camera = "log" writes Chase's numbers once a second.
 
 #include <cstdint>
+#include <vector>
 
 #include "aim_camera.h"
 
@@ -28,6 +29,12 @@ float LookPerPixel();
 // Whether look mode may hold the cursor (gw2_dev_look_mouse; automated tests turn it off).
 bool LookHoldsMouse();
 float LookYaw();
+
+// Look mode's edge arrows: the enemies on the arena, gathered on the game's thread each frame look mode shows.
+struct Blip {
+  float x, y;
+};
+std::vector<Blip> Enemies();
 
 // The local player, each frame of a round (cheat_hooks.cpp): its centre, its heading (Player +20, radians, eased by
 // Player::Update towards the atan2 of its velocity) and its velocity (+12, +16).

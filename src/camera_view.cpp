@@ -54,6 +54,31 @@ std::atomic<bool> g_chase_on{false};  // Chase shows, at least partly: the stick
 // Look mode: the camera's yaw is the player's own, turned by the mouse (AddLook), and it is shown (nearly) in full.
 std::atomic<float> g_look_yaw{-1.5707963f};
 std::atomic<bool> g_look_on{false};
+
+// Every enemy is linked into one list as its base constructor (sub_82047030) runs: a circular, doubly linked list
+// whose head is here, each node {object, next, previous}; an enemy's position is +4, +8 as a player's is, its type
+// +68, and +36 bit 0 marks it removed.
+constexpr uint32_t kEnemyList = 0x8218139C;
+constexpr uint32_t kEnemyTypeOffset = 68;
+constexpr int32_t kGateType = 24;
+constexpr uint32_t kMaxEnemies = 1024;
+std::mutex g_blips_mutex;
+std::vector<Blip> g_blips;
+
+void GatherEnemies(const uint8_t* base) {
+  std::vector<Blip> blips;
+  uint32_t node = LoadBE32(base, kEnemyList + 4);
+  for (uint32_t i = 0; node != 0 && node != kEnemyList && i < kMaxEnemies; ++i) {
+    const uint32_t object = LoadBE32(base, node);
+    if (object != 0 && !(LoadBE32(base, object + players::kFlagsOffset) & players::kRemovedBit) &&
+        int32_t(LoadBE32(base, object + kEnemyTypeOffset)) != kGateType) {
+      blips.push_back({std::bit_cast<float>(LoadBE32(base, object + 4)), std::bit_cast<float>(LoadBE32(base, object + 8))});
+    }
+    node = LoadBE32(base, node + 4);
+  }
+  std::lock_guard lock(g_blips_mutex);
+  g_blips = std::move(blips);
+}
 // One latch per stick (left, right), used only by the input hook's thread.
 cam::StickLatch g_latches[2];
 
@@ -72,8 +97,8 @@ bool LookChosen() {
 
 cam::ChaseTuning Tuning() {
   cam::ChaseTuning t;
-  // Look mode sits lower and closer, behind the ship.
-  if (LookChosen()) t = {240.0f, 300.0f, 160.0f};
+  // Look mode sits low and close behind the ship, so what's near is big and the far arena stays out of sight.
+  if (LookChosen()) t = {150.0f, 220.0f, 40.0f};
   if (const int v = REXCVAR_GET(gw2_dev_chase_behind)) t.behind = float(v);
   if (const int v = REXCVAR_GET(gw2_dev_chase_height)) t.height = float(v);
   if (const int v = REXCVAR_GET(gw2_dev_chase_ahead)) t.ahead = float(v);
@@ -114,6 +139,11 @@ void ObservePlayer(float x, float y, float heading, float vx, float vy) {
 
 bool LookActive() {
   return g_look_on.load(std::memory_order_relaxed);
+}
+
+std::vector<Blip> Enemies() {
+  std::lock_guard lock(g_blips_mutex);
+  return g_blips;
 }
 
 void AddLook(float radians) {
@@ -211,6 +241,7 @@ void OnGameplayView(uint8_t* base, uint32_t out, const aim::Mat4& world) {
   }
   g_chase_on.store(true, std::memory_order_relaxed);
   g_look_on.store(turn == "look" && g_blend > 0.5f, std::memory_order_relaxed);
+  if (turn == "look") GatherEnemies(base);
   for (uint32_t i = 0; i < 16; ++i) StoreBE32(base, out + i * 4, std::bit_cast<uint32_t>(view[i]));
   if (dev == "log") LogNumbers(pose, view, x, y);
 }
