@@ -41,6 +41,10 @@ void AfterTurn(uint8_t* base, uint32_t pad);
 uint8_t SecretViewNow();
 int64_t SecretChangedMs();
 
+// The gameplay camera's vertical field of view (radians) as the game asks for it, widened in first person (the
+// game's own 36 degrees is narrow from a ship's eye view), easing with the glide in and out.
+double GameplayFov(double fov);
+
 // Look mode's edge arrows: the enemies on the arena, gathered on the game's thread each frame look mode shows.
 struct Blip {
   float x, y;

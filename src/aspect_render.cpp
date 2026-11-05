@@ -11,6 +11,7 @@
 #include <rex/system/xvideo.h>
 
 #include "aim_camera.h"
+#include "camera_view.h"
 #include "aspect_ratio.h"
 #include "guest_memory.h"
 #include "launcher_cvars.h"
@@ -83,6 +84,8 @@ REX_HOOK_RAW(sub_8206A300) {
   }
   const uint32_t matrix = ctx.r3.u32;
   const uint32_t lr = uint32_t(ctx.lr);
+  // First person (camera_view.h) widens the gameplay camera's view.
+  if (gw2::aim::CameraForReturn(lr) == gw2::aim::Camera::kB) ctx.f1.f64 = gw2::camera_view::GameplayFov(ctx.f1.f64);
   __imp__sub_8206A300(ctx, base);
   gw2::aim::CaptureProjection(base, matrix, lr);
 }

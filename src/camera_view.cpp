@@ -58,6 +58,9 @@ std::atomic<bool> g_chase_on{false};  // Chase shows, at least partly: the stick
 // Look mode: the camera's yaw is the player's own, turned by the mouse (AddLook), and it is shown (nearly) in full.
 std::atomic<float> g_look_yaw{-1.5707963f};
 std::atomic<bool> g_look_on{false};
+// How far first person shows (0 to 1), for widening the field of view with it.
+std::atomic<float> g_first_blend{0.0f};
+constexpr double kFirstPersonFov = 50.0 * 3.14159265358979 / 180.0;
 
 // Every enemy is linked into one list as its base constructor (sub_82047030) runs: a circular, doubly linked list
 // whose head is here, each node {object, next, previous}; an enemy's position is +4, +8 as a player's is, its type
@@ -253,6 +256,11 @@ void AfterTurn(uint8_t* base, uint32_t pad) {
   if (g_pad_bomb) base[pad + 3] = 255;  // the game bombs on the right trigger
 }
 
+double GameplayFov(double fov) {
+  const float t = g_first_blend.load(std::memory_order_relaxed);
+  return t > 0.0f ? fov + (kFirstPersonFov - fov) * double(t) : fov;
+}
+
 std::vector<Blip> Enemies() {
   std::lock_guard lock(g_blips_mutex);
   return g_blips;
@@ -315,6 +323,7 @@ void OnGameplayView(uint8_t* base, uint32_t out, const aim::Mat4& world) {
     g_look_yaw.store(cam::kFacingUp, std::memory_order_relaxed);  // each round starts facing up the arena
     g_chase_on.store(false, std::memory_order_relaxed);
     g_look_on.store(false, std::memory_order_relaxed);
+    g_first_blend.store(0.0f, std::memory_order_relaxed);
     return;  // the game's own camera, untouched
   }
 
@@ -355,6 +364,7 @@ void OnGameplayView(uint8_t* base, uint32_t out, const aim::Mat4& world) {
   }
   g_chase_on.store(true, std::memory_order_relaxed);
   g_look_on.store(turn == "look" && g_blend > 0.5f, std::memory_order_relaxed);
+  g_first_blend.store(Secret() == cam::SecretView::kFirstPerson ? cam::Ease(g_blend) : 0.0f, std::memory_order_relaxed);
   if (turn == "look") GatherEnemies(base);
   for (uint32_t i = 0; i < 16; ++i) StoreBE32(base, out + i * 4, std::bit_cast<uint32_t>(view[i]));
   if (dev == "log") LogNumbers(pose, view, x, y);
