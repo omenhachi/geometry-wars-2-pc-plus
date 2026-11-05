@@ -27,7 +27,7 @@ constexpr std::array<std::array<uint64_t, kTopTier>, kAllBoards> kTiers = {{
     {250'000, 1'000'000, 3'000'000, 8'000'000, 12'000'000},                 // King
     {250'000, 1'000'000, 5'000'000, 15'000'000, 50'000'000},                // Master Deadline
     {500'000, 2'000'000, 8'000'000, 25'000'000, 50'000'000},                // Master Evolved
-    {100'000, 500'000, 2'000'000, 10'000'000, 50'000'000},                  // Master Pacifism: PROVISIONAL, set from real runs
+    {500'000, 3'000'000, 15'000'000, 50'000'000, 150'000'000},              // Master Pacifism (from the user's first runs)
 }};
 
 constexpr std::string_view kBoardNames[kAllBoards] = {"Deadline",        "Evolved",        "Sequence",

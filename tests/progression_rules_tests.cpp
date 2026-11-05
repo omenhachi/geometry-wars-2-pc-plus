@@ -306,7 +306,10 @@ void MasterPacifism() {
   CHECK(s.extra_bests.at("master-pacifism") == 2'500'000);
   for (const uint64_t b : s.bests) CHECK(b == 0);  // the eight are untouched
   CHECK(BoardName(kMasterPacifismBoard) == "Master Pacifism");
-  CHECK(TierOf(s, kMasterPacifismBoard) != Tier::kNone);
+  CHECK(TierOf(s, kMasterPacifismBoard) == Tier::kBronze);
+  // Set from the user's first runs: their 26,183,625 is Gold.
+  CHECK(TierFor(kMasterPacifismBoard, 26'183'625) == Tier::kGold);
+  CHECK(TierFor(kMasterPacifismBoard, 499'999) == Tier::kNone && TierFor(kMasterPacifismBoard, 150'000'000) == Tier::kMaster);
 
   // The file: still eight bests, and the new one in its own table.
   const std::string text = Write(s);
