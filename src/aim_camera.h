@@ -123,6 +123,18 @@ inline std::optional<Vec2> UnprojectToArena(const Mat4& view, const Mat4& proj, 
   return Vec2{float(x / w), float(y / w)};
 }
 
+// The same, for a camera that looks across the floor (Chase): a point above the horizon has no floor under it (its
+// line meets the floor behind the eye), so it is brought down to just below the horizon, along the same screen
+// column, and the aim keeps pointing the way the cursor is. Looking straight down, every point is below it.
+inline std::optional<Vec2> UnprojectToArenaBelowHorizon(const Mat4& view, const Mat4& proj, Vec2 ndc) {
+  for (int i = 0; i < 200; ++i, ndc.y -= 0.01f) {
+    const auto floor = UnprojectToArena(view, proj, ndc);
+    if (floor && ProjectToNdc(view, proj, floor->x, floor->y, 0.0f)) return floor;
+    if (ndc.y < -1.0f) break;
+  }
+  return std::nullopt;
+}
+
 struct Stick {
   int16_t x;
   int16_t y;
@@ -145,6 +157,9 @@ inline Stick AimStick(const Vec2& ship, const Vec2& target, float dead_zone, Sti
 void CaptureProjection(const uint8_t* base, uint32_t matrix, uint32_t lr);
 // The ship moves on the arena plane, z = 0.
 void ObservePlayer(float x, float y);
+
+// The gameplay camera's projection, once the game has built one. Any thread.
+std::optional<Mat4> GameplayProjection();
 
 // Whether the mouse aimed and fired in the last minute: what a run that just ended was played with. Any thread.
 bool MouseAimedRecently();

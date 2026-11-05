@@ -20,6 +20,7 @@
 #include <rex/ui/imgui_dialog.h>
 
 #include "aspect_ratio.h"
+#include "camera_view.h"
 #include "cheat_menu.h"
 #include "demo.h"
 #include "guest_memory.h"
@@ -117,6 +118,13 @@ void CaptureProjection(const uint8_t* base, uint32_t matrix, uint32_t lr) {
   ++state.frames;
 }
 
+std::optional<Mat4> GameplayProjection() {
+  std::lock_guard lock(g_mutex);
+  const CameraState& state = g_state.cameras[size_t(kGameplayCamera)];
+  if (!state.has_proj) return std::nullopt;
+  return state.proj;
+}
+
 bool MouseAimedRecently() {
   const int64_t fired = g_mouse_fired.load(std::memory_order_relaxed);
   return fired != 0 &&
@@ -160,10 +168,14 @@ REX_HOOK_RAW(sub_8204EFD0) {
 REX_EXTERN(__imp__sub_8206A1C8);
 REX_HOOK_RAW(sub_8206A1C8) {
   const uint32_t out = ctx.r3.u32;
+  const uint32_t world = ctx.r4.u32;
   const gw2::aim::Camera camera = gw2::aim::CameraForReturn(uint32_t(ctx.lr));
   __imp__sub_8206A1C8(ctx, base);
   if (camera == gw2::aim::Camera::kCount) {
     return;
+  }
+  if (camera == gw2::aim::kGameplayCamera) {
+    gw2::camera_view::OnGameplayView(base, out, gw2::aim::LoadMatrix(base, world));
   }
   const gw2::aim::Mat4 view = gw2::aim::LoadMatrix(base, out);
   std::lock_guard lock(gw2::aim::g_mutex);
@@ -185,6 +197,8 @@ REX_HOOK_RAW(__imp__XamInputGetState) {
   const int64_t now = Ticks(Clock::now());
   // The gamepad follows the 4-byte packet number: buttons, triggers, then the four stick axes.
   const uint32_t pad = state_ptr + 4;
+  // Chase facing another way: the sticks turn with it. The mouse below aims on the arena itself, so it isn't turned.
+  gw2::camera_view::TurnSticks(base, pad);
   if (now < g_pulse_until.load(std::memory_order_relaxed)) {
     const uint16_t buttons = gw2::LoadBE16(base, pad) | g_pulse_buttons.load(std::memory_order_relaxed);
     gw2::StoreBE<uint16_t>(base, pad, buttons);
@@ -396,8 +410,8 @@ class MouseAimOverlay final : public rex::ui::ImGuiDialog {
                         camera.has_view && camera.has_proj;
 
     if (active && fire) {
-      const auto target = aim::UnprojectToArena(camera.view, camera.proj,
-                                                aim::WindowToNdc({io.MousePos.x, io.MousePos.y}, canvas));
+      const auto target = aim::UnprojectToArenaBelowHorizon(camera.view, camera.proj,
+                                                            aim::WindowToNdc({io.MousePos.x, io.MousePos.y}, canvas));
       const auto ship_ndc = aim::ProjectToNdc(camera.view, camera.proj, state.player_x, state.player_y, 0.0f);
       if (target && ship_ndc) {
         // The dead zone is measured on screen, where the player sees the cursor resting on the ship.

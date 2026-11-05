@@ -177,6 +177,7 @@ set(GW2_SOURCES
     src/live_fix.cpp
     src/achievements_overlay.cpp
     src/aim_camera.cpp
+    src/camera_view.cpp
     src/aspect_render.cpp
     src/keyboard_prompts.cpp
     src/title_logo.cpp
@@ -453,6 +454,7 @@ gw2_add_test(launcher_settings_tests src/launcher_settings.cpp src/launcher_opti
 gw2_add_test(graphics_adapter_tests src/graphics_adapters.cpp)
 gw2_add_test(diagnostics_tests src/diagnostics.cpp)
 gw2_add_test(aspect_ratio_tests)
+gw2_add_test(camera_rules_tests)
 target_compile_definitions(aspect_ratio_tests PRIVATE GW2_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src")
 gw2_add_test(update_tests
     src/updater/github_release.cpp
