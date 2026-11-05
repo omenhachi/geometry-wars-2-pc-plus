@@ -1,8 +1,0 @@
-format = 2
-name = "Green Pacifism"
-author = "Omen"
-description = "Pacifism, but every grunt is a weaver. They're quicker and they dodge, and you still can't shoot."
-base = "pacifism"
-
-[enemies.swap]
-grunt = "weaver"

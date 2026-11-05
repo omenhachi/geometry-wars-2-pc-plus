@@ -499,6 +499,10 @@ void PinnedIds() {
   CHECK(Id(master_deadline) == "a89274a6a20fee0f");
   CHECK(Id(master_evolved) == "5fd1275bc87aa3c2");
   CHECK(Id(Rules{.base = kSequenceBase, .level = 1}) == "e7ec45e0b46650ba");
+  // Master Pacifism (custom_modes.cpp Masters): Pacifism with grunts as weavers, as Green Pacifism was played.
+  Rules master_pacifism{.base = 4};
+  master_pacifism.swap_to[size_t(Enemy::kGrunt)] = 3;
+  CHECK(Id(master_pacifism) == "37ec9b4747054c3d");
   CHECK(Id(Rules{.base = kSequenceBase, .level = 14}) == "c806e9b70559a1e5");
   // The same rules in a format 2 file: the same mode.
   CHECK(Id(Parse("format = 2\nname = \"x\"\nbase = \"deadline\"\n[rules]\ngame_speed = 1.3\n").mode.value_or(Mode{}).rules) ==

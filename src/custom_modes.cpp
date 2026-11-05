@@ -412,7 +412,16 @@ const std::vector<Master>& Masters() {
                         "Evolved with a single ship and no extra lives, ever. Bombs only at 100K, 1M, 10M and 100M.",
                         master};
     evolved.rules.base = 1;
-    return std::vector<Master>{{boards::kMasterDeadlineBoard, deadline}, {boards::kMasterEvolvedBoard, evolved}};
+    // Pacifism with every grunt a weaver (the user's Green Pacifism): only the swap, the rest as Pacifism has it.
+    rules::Rules pacifism_rules;
+    pacifism_rules.base = 4;
+    pacifism_rules.swap_to[size_t(rules::Enemy::kGrunt)] = 3;  // weaver
+    rules::Mode pacifism{"Master Pacifism", "PC Plus",
+                         "Pacifism where every grunt is a weaver: quicker, and they dodge. You still can't shoot.",
+                         pacifism_rules};
+    return std::vector<Master>{{boards::kMasterDeadlineBoard, deadline},
+                               {boards::kMasterEvolvedBoard, evolved},
+                               {boards::kMasterPacifismBoard, pacifism}};
   }();
   return masters;
 }

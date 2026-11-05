@@ -18,8 +18,13 @@
 
 namespace gw2::progression {
 
-// The leaderboards (boards.h): 0 Deadline .. 5 King, 6 Master Deadline, 7 Master Evolved.
+// The leaderboards (boards.h): 0 Deadline .. 5 King, 6 Master Deadline, 7 Master Evolved, 8 Master Pacifism.
+// A save keeps the first kBoards in `bests`, and bounties are only ever drawn on them: builds before 1.3 refuse a save
+// with any other count, or with a bounty on a board they don't know, so this stays 8 for good. Boards after them keep
+// their bests in `extra_bests`, which older builds ignore.
 inline constexpr uint32_t kBoards = 8;
+inline constexpr uint32_t kMasterPacifismBoard = 8;
+inline constexpr uint32_t kAllBoards = 9;
 inline constexpr uint32_t kModes = 6;
 inline constexpr uint32_t kSequence = 2;
 inline constexpr int32_t kSequenceLevels = 20;
@@ -130,6 +135,7 @@ struct State {
   uint64_t xp = 0;
   std::array<uint64_t, kBoards> bests{};
   std::map<std::string, uint64_t> custom_bests;  // custom modes and practice levels, by id
+  std::map<std::string, uint64_t> extra_bests;   // the boards from kBoards on, by name ("master-pacifism")
   Lifetime life;
   std::vector<Bounty> bounties;
   uint64_t seed = 0x9E3779B97F4A7C15ull;
@@ -138,6 +144,8 @@ struct State {
   bool operator==(const State&) const = default;
 };
 
+// The best on any board, from `bests` or `extra_bests`.
+uint64_t BestOn(const State& state, uint32_t board);
 Tier TierOf(const State& state, uint32_t board);
 uint32_t LevelOf(const State& state);
 bool Unlocked(const State& state, const Reward& reward);

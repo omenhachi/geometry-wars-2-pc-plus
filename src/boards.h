@@ -11,7 +11,8 @@ namespace gw2::boards {
 inline constexpr uint32_t kGameBoards = 6;             // 0 Deadline .. 5 King, the game's own
 inline constexpr uint32_t kMasterDeadlineBoard = 6;
 inline constexpr uint32_t kMasterEvolvedBoard = 7;
-inline constexpr uint32_t kBoards = 8;
+inline constexpr uint32_t kMasterPacifismBoard = 8;
+inline constexpr uint32_t kBoards = 9;
 
 // How the run being played counts (demo::HowRunCounts):
 //  - kOfficial: the game's own mode, on its own board, with achievements, unlocks and the profile;
@@ -36,7 +37,12 @@ constexpr std::optional<uint32_t> ScoreBoard(Counting counting, uint32_t view, u
 
 // The game mode a board's runs are played in: its own for the game's boards, the base mode for a Master board.
 constexpr uint32_t BaseMode(uint32_t board) {
-  return board >= kGameBoards ? board - kGameBoards : board;
+  switch (board) {
+    case kMasterDeadlineBoard: return 0;
+    case kMasterEvolvedBoard: return 1;
+    case kMasterPacifismBoard: return 4;
+    default: return board;
+  }
 }
 
 // Only the game's own modes unlock achievements, move unlock progress and save to the profile.

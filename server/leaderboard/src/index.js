@@ -10,9 +10,9 @@
 // The token is a secret the client generates once and keeps; the public id is derived from it, so seeing a board
 // never lets anyone post as someone else. Runs with cheats on are never sent by the client.
 
-// 0-5 the game's own modes (Deadline, Evolved, Sequence, Waves, Pacifism, King), 6 Master Deadline and 7 Master
-// Evolved, PC Plus's own (src/boards.h in the game).
-const MODES = 8;
+// 0-5 the game's own modes (Deadline, Evolved, Sequence, Waves, Pacifism, King), then PC Plus's own Master modes:
+// 6 Master Deadline, 7 Master Evolved, 8 Master Pacifism (src/boards.h in the game).
+const MODES = 9;
 const GAME_MODES = 6;
 const NAME = /^[A-Za-z0-9 _.\-]{1,15}$/;
 const TOKEN = /^[0-9a-f]{64}$/;
@@ -21,10 +21,15 @@ const INPUTS = new Set(["mouse", "keyboard", "controller"]);
 // score as the viewer's own, so every board needs 1.0.1 or newer.
 const MIN_VERSION = [1, 0, 1];
 const MASTER_MIN_VERSION = MIN_VERSION;
+// Each board's own minimum where it is newer than the rest: Master Pacifism came with 1.3.0.
+const BOARD_MIN_VERSION = { 8: [1, 3, 0] };
+function minimumFor(mode, minimum) {
+  return BOARD_MIN_VERSION[mode] ?? minimum;
+}
 // Far above any real score; tighten per mode as the boards show what is plausible.
 const MAX_SCORE = [
   100_000_000_000, 100_000_000_000, 100_000_000_000, 100_000_000_000, 100_000_000_000, 100_000_000_000,
-  100_000_000_000, 100_000_000_000,
+  100_000_000_000, 100_000_000_000, 100_000_000_000,
 ];
 // One submission per player this often. A one-ship Master run can end within seconds, Game Over screen and all, so
 // this stays short enough that no finished run is turned away.
@@ -37,7 +42,9 @@ const MAX_REPLAY_BYTES = 24 << 20;
 const PIECE_BYTES = 1 << 20; // a D1 row holds at most 2 MB
 // The game's replay rules (kReplayRules in src/demo_file.h): a replay with others would play differently.
 const REPLAY_RULES = 1;
-const MASTER_NAMES = { 6: "Master Deadline", 7: "Master Evolved" };
+const MASTER_NAMES = { 6: "Master Deadline", 7: "Master Evolved", 8: "Master Pacifism" };
+// The game mode each Master board is played in.
+const MASTER_BASE = { 6: 0, 7: 1, 8: 4 };
 
 function json(body, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -82,7 +89,7 @@ async function submitScore(request, env) {
   if (!Number.isInteger(mode) || mode < 0 || mode >= MODES) return error(400, "bad mode");
   if (!Number.isSafeInteger(score) || score < 0 || score > MAX_SCORE[mode]) return error(400, "bad score");
   if (!INPUTS.has(input)) return error(400, "bad input");
-  if (!versionAllowed(version, mode >= GAME_MODES ? MASTER_MIN_VERSION : MIN_VERSION)) {
+  if (!versionAllowed(version, minimumFor(mode, mode >= GAME_MODES ? MASTER_MIN_VERSION : MIN_VERSION))) {
     return error(426, "please update Geometry Wars 2 PC Plus");
   }
 
@@ -216,7 +223,7 @@ async function uploadReplay(request, env, mode) {
   if (!Number.isInteger(mode) || mode < 0 || mode >= MODES) return error(400, "bad mode");
   const token = /^Bearer ([0-9a-f]{64})$/.exec(request.headers.get("authorization") ?? "")?.[1];
   if (!token) return error(400, "bad token");
-  if (!versionAllowed(request.headers.get("x-gw2-version"), REPLAY_MIN_VERSION)) {
+  if (!versionAllowed(request.headers.get("x-gw2-version"), minimumFor(mode, REPLAY_MIN_VERSION))) {
     return error(426, "please update Geometry Wars 2 PC Plus");
   }
   if (Number(request.headers.get("content-length") ?? "0") > MAX_REPLAY_BYTES) return error(413, "replay too large");
@@ -229,7 +236,7 @@ async function uploadReplay(request, env, mode) {
   const demo = readDemoHeader(bytes);
   if (demo.refused) return error(400, demo.refused);
   if (demo.cheats) return error(400, "a run with cheats on");
-  const base = mode >= GAME_MODES ? mode - GAME_MODES : mode;
+  const base = MASTER_BASE[mode] ?? mode;
   if (demo.mode !== base || (MASTER_NAMES[mode] ?? null) !== demo.custom) return error(400, "a replay of another mode");
   if (demo.score !== BigInt(best.score)) return error(409, "not the replay of your best");
 

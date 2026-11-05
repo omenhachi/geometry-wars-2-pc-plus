@@ -5,7 +5,7 @@
 // sub_8208D548, which opens a newly unlocked mode's rules first (sub_82093748) and starts it (sub_8208D410). The tile
 // drawer reads the tile's scores with XUserReadStats. Every mode is unlocked and counts as played (custom_modes.cpp).
 //
-// Page two rebuilds the screen with only the Deadline and Evolved rows. While it shows, their names are the Master
+// Page two rebuilds the screen with only the Deadline, Evolved and Pacifism rows. While it shows, their names are the Master
 // modes', their views are read from the Master boards
 // (live_fix.cpp), and starting one starts the Master mode (custom_modes.h) instead of the game's.
 
@@ -40,6 +40,8 @@
 REXCVAR_DEFINE_INT32(gw2_dev_master_page, 0, "Geometry Wars",
                      "Open the Single Player screen as the menus come up, on page 1 or 2; 3: page 1, then page 2, then "
                      "start Master Deadline (for testing; 0: no)");
+REXCVAR_DEFINE_INT32(gw2_dev_master_base, 0, "Geometry Wars",
+                     "With --gw2_dev_master_page=3, the Master mode started, by base mode (0 Deadline, 1 Evolved, 4 Pacifism)");
 
 REX_EXTERN(sub_8208ED00);  // builds the Single Player screen and switches to it
 
@@ -54,8 +56,10 @@ constexpr uint32_t kMainMenuScreen = 0x8208F9B8;
 constexpr uint32_t kTileAction = 0x8208D548;          // every Single Player tile's action
 constexpr uint32_t kDeadlineText = 30;
 constexpr uint32_t kEvolvedText = 28;
+constexpr uint32_t kPacifismText = 32;
 constexpr uint32_t kDeadlineLeaderboardText = 61;  // "Deadline Leaderboard", the leaderboard screen's title
 constexpr uint32_t kEvolvedLeaderboardText = 59;
+constexpr uint32_t kPacifismLeaderboardText = 63;
 constexpr uint32_t kStartState = 0x821993F0;  // 0 or 3 in the menus
 constexpr uint16_t kRightShoulder = 0x0200;
 // The Single Player screen's score reads (sub_8208BA90's state at 0x821EBE78): the byte at +36 asks for them again,
@@ -95,6 +99,7 @@ uint32_t GuestText(const char* text) {
 const custom_modes::Master* MasterForText(uint32_t id) {
   if (id == kDeadlineText) return custom_modes::MasterFor(0);
   if (id == kEvolvedText) return custom_modes::MasterFor(1);
+  if (id == kPacifismText) return custom_modes::MasterFor(4);
   return nullptr;
 }
 
@@ -113,7 +118,7 @@ struct TilePlace {
   int column, row;
 };
 constexpr TilePlace kPageOne[] = {{0, 0, 0}, {4, 1, 0}, {5, 0, 1}, {3, 1, 1}, {1, 0, 2}, {2, 1, 2}};
-constexpr TilePlace kPageTwo[] = {{6, 0, 0}, {7, 0, 1}};
+constexpr TilePlace kPageTwo[] = {{6, 0, 0}, {7, 0, 1}, {8, 0, 2}};
 
 // The pilot's tier on each tile (progression.h), in its top-left corner above the mode's icon.
 void DrawTiers(ImDrawList* draw, ImVec2 o, float cw, float ch, float u, bool two) {
@@ -122,7 +127,7 @@ void DrawTiers(ImDrawList* draw, ImVec2 o, float cw, float ch, float u, bool two
   // The tiles' top-left corners as shares of the canvas: the two columns, and each page's rows.
   constexpr float kColumns[] = {0.052f, 0.504f};
   constexpr float kRowsOne[] = {0.158f, 0.391f, 0.638f};
-  constexpr float kRowsTwo[] = {0.124f, 0.384f};
+  constexpr float kRowsTwo[] = {0.124f, 0.384f, 0.636f};
   const auto places = two ? std::span<const TilePlace>(kPageTwo) : std::span<const TilePlace>(kPageOne);
   for (const TilePlace& place : places) {
     const progression::Tier tier = progression::TierOf(state, place.board);
@@ -189,7 +194,7 @@ class Overlay final : public rex::ui::ImGuiDialog {
     if (!two) return;
 
     // Page two's right half, where the game has no tiles: what the Master modes are.
-    const ImVec2 p0(o.x + cw * 0.53f, o.y + ch * 0.18f), p1(o.x + cw * 0.935f, o.y + ch * 0.66f);
+    const ImVec2 p0(o.x + cw * 0.53f, o.y + ch * 0.18f), p1(o.x + cw * 0.935f, o.y + ch * 0.86f);
     draw->AddRectFilled(p0, p1, Rgba(0.02f, 0.03f, 0.08f, 0.75f), u * 1.2f);
     TileGrid(draw, p0, p1, u);
     draw->AddRect(p0, p1, Theme(0.0, 0.3f), u * 1.2f, 0, u * 0.9f);
@@ -203,17 +208,29 @@ class Overlay final : public rex::ui::ImGuiDialog {
     y += title + u * 3.0f;
     const ImU32 white = Rgba(1, 1, 1, 0.95f);
     const ImU32 dim = Rgba(0.8f, 0.85f, 0.95f, 0.85f);
-    constexpr const char* kRules[] = {"One ship. No extra lives, ever.", "A bomb at 100K, 1M, 10M and 100M.",
-                                      "Three bombs to start, and no others."};
+    // Each Master mode's rules under its name (custom_modes.cpp Masters).
+    struct Line {
+      const char* text;
+      bool heading;
+    };
+    constexpr Line kRules[] = {{"Master Deadline and Master Evolved", true},
+                               {"One ship. No extra lives, ever.", false},
+                               {"A bomb at 100K, 1M, 10M and 100M.", false},
+                               {"Three bombs to start, and no others.", false},
+                               {"Master Pacifism", true},
+                               {"Every grunt is a weaver: quicker, and", false},
+                               {"they dodge. You still can't shoot.", false}};
     constexpr const char* kNotes[] = {"Their own leaderboards.", "No achievements or unlocks."};
     // Each line as big as fits the panel.
     const float room = p1.x - x - u * 3.0f;
     float widest = 0;
-    for (const char* text : kRules) widest = std::max(widest, line_font::GameWidth(text, 1.0f));
+    for (const Line& l : kRules) widest = std::max(widest, line_font::GameWidth(l.text, 1.0f));
     const float line = std::min(u * 2.4f, room / widest);
-    for (const char* text : kRules) {
-      line_font::GameText(draw, ImVec2(x, y), line, text, white, std::max(1.0f, line * 0.07f));
-      y += line + u * 1.8f;
+    for (size_t i = 0; i < std::size(kRules); ++i) {
+      const Line& l = kRules[i];
+      if (l.heading && i > 0) y += u * 1.6f;
+      line_font::GameText(draw, ImVec2(x, y), line, l.text, l.heading ? Theme() : white, std::max(1.0f, line * 0.07f));
+      y += line + u * 1.6f;
     }
     y += u * 1.5f;
     for (const char* text : kNotes) {
@@ -227,21 +244,25 @@ class Overlay final : public rex::ui::ImGuiDialog {
 
 bool SkipRow(const PPCContext& row) {
   if (!g_page_two.load(std::memory_order_relaxed) || row.r4.u32 != kTileAction) return false;
-  return row.r3.u32 != kDeadlineText && row.r3.u32 != kEvolvedText;
+  return row.r3.u32 != kDeadlineText && row.r3.u32 != kEvolvedText && row.r3.u32 != kPacifismText;
 }
 
 std::optional<uint32_t> Text(uint32_t id) {
   if (g_page_two.load(std::memory_order_relaxed)) {
     static const uint32_t deadline_board = GuestText("Master Deadline Leaderboard");
     static const uint32_t evolved_board = GuestText("Master Evolved Leaderboard");
+    static const uint32_t pacifism_board = GuestText("Master Pacifism Leaderboard");
     if (id == kDeadlineLeaderboardText && deadline_board) return deadline_board;
     if (id == kEvolvedLeaderboardText && evolved_board) return evolved_board;
+    if (id == kPacifismLeaderboardText && pacifism_board) return pacifism_board;
   }
   if (!PageTwo()) return std::nullopt;
   static const uint32_t deadline = GuestText("Master Deadline");
   static const uint32_t evolved = GuestText("Master Evolved");
+  static const uint32_t pacifism = GuestText("Master Pacifism");
   if (id == kDeadlineText && deadline) return deadline;
   if (id == kEvolvedText && evolved) return evolved;
+  if (id == kPacifismText && pacifism) return pacifism;
   return std::nullopt;
 }
 
@@ -288,7 +309,9 @@ void EachFrame(PPCContext& ctx, uint8_t* base) {
   if (dev_frames > 0 && ++dev_frames == 120) g_turn.store(true, std::memory_order_relaxed);
   if (dev_frames == 240) {
     dev_frames = 0;
-    if (const custom_modes::Master* master = custom_modes::MasterFor(0)) custom_modes::PlayMaster(*master);
+    if (const custom_modes::Master* master = custom_modes::MasterFor(uint32_t(REXCVAR_GET(gw2_dev_master_base)))) {
+      custom_modes::PlayMaster(*master);
+    }
   }
   if (REXCVAR_GET(gw2_dev_master_page) != 0 && !dev_opened && g_screen.load(std::memory_order_relaxed) != 0 &&
       (start == 0 || start == 3)) {

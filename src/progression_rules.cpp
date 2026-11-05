@@ -18,7 +18,7 @@ constexpr int64_t kFormat = 1;
 
 // Each board's tier thresholds, Bronze to Master: about even steps on a log scale, set against the online boards'
 // spread in October 2026 (Bronze: the mode properly played; Silver: about the middle; Neon: the top ten; Master: rare).
-constexpr std::array<std::array<uint64_t, kTopTier>, kBoards> kTiers = {{
+constexpr std::array<std::array<uint64_t, kTopTier>, kAllBoards> kTiers = {{
     {500'000, 2'000'000, 8'000'000, 25'000'000, 75'000'000},                // Deadline
     {1'000'000, 5'000'000, 20'000'000, 75'000'000, 250'000'000},            // Evolved
     {2'000'000, 10'000'000, 30'000'000, 60'000'000, 100'000'000},           // Sequence
@@ -27,15 +27,22 @@ constexpr std::array<std::array<uint64_t, kTopTier>, kBoards> kTiers = {{
     {250'000, 1'000'000, 3'000'000, 8'000'000, 12'000'000},                 // King
     {250'000, 1'000'000, 5'000'000, 15'000'000, 50'000'000},                // Master Deadline
     {500'000, 2'000'000, 8'000'000, 25'000'000, 50'000'000},                // Master Evolved
+    {100'000, 500'000, 2'000'000, 10'000'000, 50'000'000},                  // Master Pacifism: PROVISIONAL, set from real runs
 }};
 
-constexpr std::string_view kBoardNames[kBoards] = {"Deadline", "Evolved",  "Sequence",        "Waves",
-                                                   "Pacifism", "King",     "Master Deadline", "Master Evolved"};
+constexpr std::string_view kBoardNames[kAllBoards] = {"Deadline",        "Evolved",        "Sequence",
+                                                      "Waves",           "Pacifism",       "King",
+                                                      "Master Deadline", "Master Evolved", "Master Pacifism"};
+// The names the boards after kBoards keep their bests under, in the save's extra_bests.
+constexpr std::string_view kExtraBestNames[kAllBoards - kBoards] = {"master-pacifism"};
+
+// kTier's board for "any Master board".
+constexpr uint32_t kAnyMasterBoard = 255;
 
 // How a reward is earned.
 struct Condition {
   enum Kind : uint8_t { kLevel, kTier, kTierCount, kBounties, kKills, kPractice, kGeoms } kind;
-  uint32_t board = 0;  // kTier: the board, or kBoards for any Master board
+  uint32_t board = 0;  // kTier: the board, or kAnyMasterBoard; kTierCount: kModes for the game modes only
   Tier tier = Tier::kNone;
   uint64_t count = 0;  // the level, the number of boards, bounties, kills or clears
   int32_t type = 0;    // kKills: the enemy type
@@ -75,7 +82,7 @@ const std::vector<Entry>& Entries() {
       {{RewardKind::kTitle, "globetrotter", "Globetrotter", "Bronze on all 8 boards"},
        {C::kTierCount, 0, Tier::kBronze, kBoards}},
       {{RewardKind::kTitle, "bounty-hunter", "Bounty Hunter", "Finish 10 bounties"}, {C::kBounties, 0, Tier::kNone, 10}},
-      {{RewardKind::kTitle, "master-pilot", "Master Pilot", "Neon on a Master board"}, {C::kTier, kBoards, Tier::kNeon}},
+      {{RewardKind::kTitle, "master-pilot", "Master Pilot", "Neon on a Master board"}, {C::kTier, kAnyMasterBoard, Tier::kNeon}},
       {{RewardKind::kTitle, "neon-legend", "Neon Legend", "Reach level 30"}, {C::kLevel, 0, Tier::kNone, 30}},
       // Ship colours (ship_colour.h).
       {{RewardKind::kShipColour, "ship-pink", "Hot Pink ship", "Reach level 6"}, {C::kLevel, 0, Tier::kNone, 6}},
@@ -129,7 +136,7 @@ uint64_t Nice(uint64_t value) {
 // A score to aim for on `board`: halfway to the next tier, or a tenth past the best at the top; always above the best,
 // so a bounty is never done before it starts. Without a bomb: half of that, which may be below the best.
 uint64_t ScoreTarget(const State& state, uint32_t board, bool no_bomb) {
-  const uint64_t best = state.bests[board];
+  const uint64_t best = BestOn(state, board);
   const std::optional<uint64_t> next = NextTierScore(board, best);
   uint64_t target = std::max(next ? *next / 2 : 0, best + best / 10 + 1);
   target = std::max<uint64_t>(target, kTiers[board][0] / 2);
@@ -201,10 +208,16 @@ bool Finishes(Bounty& bounty, const Run& run) {
   return false;
 }
 
+// Where a board's best is kept: `bests` for the first kBoards, `extra_bests` after them.
+uint64_t& BestRef(State& state, uint32_t board) {
+  if (board < kBoards) return state.bests[board];
+  return state.extra_bests[std::string(kExtraBestNames[board - kBoards])];
+}
+
 uint64_t RaiseBest(State& state, uint32_t board, uint64_t score) {
-  if (board >= kBoards || score <= state.bests[board]) return 0;
-  const Tier from = TierFor(board, state.bests[board]);
-  state.bests[board] = score;
+  if (board >= kAllBoards || score <= BestOn(state, board)) return 0;
+  const Tier from = TierFor(board, BestOn(state, board));
+  BestRef(state, board) = score;
   const Tier to = TierFor(board, score);
   return kTierXp * (uint8_t(to) - uint8_t(from));
 }
@@ -233,18 +246,18 @@ std::string_view TierName(Tier tier) {
 }
 
 std::string_view BoardName(uint32_t board) {
-  return board < kBoards ? kBoardNames[board] : std::string_view("?");
+  return board < kAllBoards ? kBoardNames[board] : std::string_view("?");
 }
 
 Tier TierFor(uint32_t board, uint64_t score) {
-  if (board >= kBoards) return Tier::kNone;
+  if (board >= kAllBoards) return Tier::kNone;
   uint8_t tier = 0;
   while (tier < kTopTier && score >= kTiers[board][tier]) ++tier;
   return Tier(tier);
 }
 
 std::optional<uint64_t> NextTierScore(uint32_t board, uint64_t score) {
-  if (board >= kBoards) return std::nullopt;
+  if (board >= kAllBoards) return std::nullopt;
   const uint8_t tier = uint8_t(TierFor(board, score));
   if (tier >= kTopTier) return std::nullopt;
   return kTiers[board][tier];
@@ -302,8 +315,15 @@ const Reward* FindReward(std::string_view id) {
   return nullptr;
 }
 
+uint64_t BestOn(const State& state, uint32_t board) {
+  if (board < kBoards) return state.bests[board];
+  if (board >= kAllBoards) return 0;
+  const auto it = state.extra_bests.find(std::string(kExtraBestNames[board - kBoards]));
+  return it == state.extra_bests.end() ? 0 : it->second;
+}
+
 Tier TierOf(const State& state, uint32_t board) {
-  return board < kBoards ? TierFor(board, state.bests[board]) : Tier::kNone;
+  return board < kAllBoards ? TierFor(board, BestOn(state, board)) : Tier::kNone;
 }
 
 uint32_t LevelOf(const State& state) {
@@ -318,12 +338,14 @@ bool Unlocked(const State& state, const Reward& reward) {
       case Condition::kLevel:
         return LevelOf(state) >= c.count;
       case Condition::kTier:
-        if (c.board == kBoards) {
-          return TierOf(state, 6) >= c.tier || TierOf(state, 7) >= c.tier;
+        if (c.board == kAnyMasterBoard) {
+          return TierOf(state, 6) >= c.tier || TierOf(state, 7) >= c.tier || TierOf(state, kMasterPacifismBoard) >= c.tier;
         }
         return TierOf(state, c.board) >= c.tier;
       case Condition::kTierCount: {
-        const uint32_t boards = c.board == kModes ? kModes : kBoards;  // kModes: the six game modes only
+        // kModes: the six game modes only. Otherwise the first kBoards, as it was when these were earned: a board
+        // added later never takes a reward away.
+        const uint32_t boards = c.board == kModes ? kModes : kBoards;
         uint64_t n = 0;
         for (uint32_t board = 0; board < boards; ++board) n += TierOf(state, board) >= c.tier;
         return n >= c.count;
@@ -380,9 +402,9 @@ Outcome Apply(State& state, const Run& run) {
   out.before = LevelFor(state.xp);
   out.time_xp = uint64_t(std::max(run.seconds, 0.0)) * kXpPerSecond;
 
-  if (run.board && *run.board < kBoards) {
+  if (run.board && *run.board < kAllBoards) {
     const uint32_t board = *run.board;
-    if (run.score > state.bests[board]) {
+    if (run.score > BestOn(state, board)) {
       out.new_best = true;
       out.best_xp = kBestXp;
       const Tier from = TierOf(state, board);
@@ -451,6 +473,9 @@ std::string Write(const State& s) {
   toml::table custom;
   for (const auto& [id, best] : s.custom_bests) custom.insert(id, int64_t(best));
   root.insert("custom_bests", custom);
+  toml::table extra;
+  for (const auto& [name, best] : s.extra_bests) extra.insert(name, int64_t(best));
+  root.insert("extra_bests", extra);
   toml::array announced;
   for (const std::string& id : s.announced) announced.push_back(id);
   root.insert("announced", announced);
@@ -530,6 +555,16 @@ std::optional<State> Read(std::string_view text) {
     const auto b = whole(&node, 0, kMax);
     if (!b) return std::nullopt;
     s.custom_bests[std::string(id.str())] = uint64_t(*b);
+  }
+  // Boards after the first kBoards (1.3 on): an older save has none yet.
+  if (const toml::node* extra = root.get("extra_bests")) {
+    const auto* table = extra->as_table();
+    if (!table) return std::nullopt;
+    for (const auto& [name, node] : *table) {
+      const auto b = whole(&node, 0, kMax);
+      if (!b) return std::nullopt;
+      s.extra_bests[std::string(name.str())] = uint64_t(*b);
+    }
   }
   for (const auto& node : *announced) {
     const auto* id = node.as_string();

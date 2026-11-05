@@ -39,6 +39,9 @@ int main() {
   for (uint32_t board = 0; board < kGameBoards; ++board) CHECK(BaseMode(board) == board);
   CHECK(BaseMode(kMasterDeadlineBoard) == 0);
   CHECK(BaseMode(kMasterEvolvedBoard) == 1);
+  CHECK(BaseMode(kMasterPacifismBoard) == 4);
+  CHECK(kMasterPacifismBoard < kBoards);
+  CHECK(ScoreBoard(Counting::kOwnBoard, 4, 4, kMasterPacifismBoard) == kMasterPacifismBoard);
   CHECK(KeepsProgress(Counting::kOfficial));
   CHECK(!KeepsProgress(Counting::kOwnBoard));
   CHECK(!KeepsProgress(Counting::kNone));

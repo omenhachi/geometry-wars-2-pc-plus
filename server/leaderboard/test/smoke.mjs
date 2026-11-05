@@ -43,7 +43,13 @@ console.log("master modes");
   const six = await board(6);
   check(six.status === 200 && six.body.rows.some((row) => row.score === 1234), "board 6 lists it");
   check((await board(7)).status === 200, "board 7 (Master Evolved) can be read");
-  check((await score(token(), "Eight", 8, 1, {})).status === 400, "board 8 does not exist");
+  check((await score(token(), "Nine", 9, 1, {})).status === 400, "board 9 does not exist");
+  // Master Pacifism (board 8) came with 1.3.0.
+  const pacifist = token();
+  check((await score(pacifist, "Pacifist", 8, 4321)).status === 426, "a Master Pacifism score before 1.3.0 is refused");
+  check((await score(pacifist, "Pacifist", 8, 4321, { version: "1.3.0" })).status === 200, "a 1.3.0 one is accepted");
+  check((await board(8)).body.rows.some((row) => row.score === 4321), "board 8 lists it");
+  check((await score(token(), "Pacifist", 8, 1e12, { version: "1.3.0" })).status === 400, "board 8 refuses absurd scores");
 }
 
 console.log("submission");
@@ -60,7 +66,7 @@ check((await score(token(), "Bad Name!!", mode, 1)).status === 400, "names outsi
 check((await score(token(), "x".repeat(16), mode, 1)).status === 400, "names over 15 characters are refused");
 check((await score(token(), " Lead", mode, 1)).status === 400, "names with outer spaces are refused");
 check((await score("abc", "Eve", mode, 1)).status === 400, "malformed tokens are refused");
-check((await score(token(), "Eve", 8, 1)).status === 400, "unknown modes are refused");
+check((await score(token(), "Eve", 9, 1)).status === 400, "unknown modes are refused");
 check((await score(token(), "Eve", mode, -1)).status === 400, "negative scores are refused");
 check((await score(token(), "Eve", mode, 1e12)).status === 400, "absurd scores are refused");
 check((await score(token(), "Eve", mode, 1, { input: "aimbot" })).status === 400, "unknown inputs are refused");
@@ -151,6 +157,17 @@ console.log("replays");
   check((await upload(dave, 6, demo({ mode: 0, score: top }))).status === 400, "an official Deadline run is not Master");
   check((await upload(dave, 6, demo({ mode: 0, score: top, custom: "One Life" }))).status === 400, "nor a custom mode");
   check((await upload(dave, 6, demo({ mode: 0, score: top, custom: "Master Deadline" }))).status === 200, "Master Deadline is");
+
+  // Master Pacifism: played in Pacifism (mode 4), not in the mode its board number would suggest, from 1.3.0.
+  const frank = token();
+  players.push(frank);
+  s = await score(frank, "Frank", 8, top, { version: "1.3.0" });
+  check(s.status === 200 && s.body.replay === true, "a Master Pacifism best asks for its replay");
+  const mp = (extra) => demo({ mode: 4, score: top, custom: "Master Pacifism", ...extra });
+  check((await upload(frank, 8, mp({}), "1.2.2")).status === 426, "builds before 1.3.0 can't upload to it");
+  check((await upload(frank, 8, mp({ mode: 2 }), "1.3.0")).status === 400, "a Sequence run is not Master Pacifism");
+  check((await upload(frank, 8, mp({ custom: "Green Pacifism" }), "1.3.0")).status === 400, "nor a custom mode");
+  check((await upload(frank, 8, mp({}), "1.3.0")).status === 200, "Master Pacifism is");
 
   // A replay's score sent as someone else's own is refused; the same score with no replay behind it is a tie.
   const eve = token();

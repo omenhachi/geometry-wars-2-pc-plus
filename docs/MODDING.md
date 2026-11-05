@@ -70,7 +70,7 @@ The names are `wanderer`, `grunt`, `weaver`, `spinner`, `snake`, `repulsar`, `bl
 
 ### [enemies.swap] (format 2)
 
-Every time the game asks for one enemy, it gets another instead, in the same place:
+Every time the game asks for one enemy, it gets another instead, in the same place. Master Pacifism is exactly this:
 
 ```toml
 format = 2

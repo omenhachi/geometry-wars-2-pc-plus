@@ -3,6 +3,7 @@
 // and reroll freely, rewards unlocking once, and the save file surviving a round trip while damaged ones are refused.
 // Pure; no game.
 
+#include <algorithm>
 #include <cstdio>
 #include <string>
 
@@ -290,6 +291,63 @@ void SaveFile() {
   CHECK(dropped && dropped->title.empty());
 }
 
+// Master Pacifism (board 8) keeps its best beside the eight a save always had, so older builds still read the save:
+// `bests` stays 8 long, no bounty is ever on board 8, and nothing earned before is taken away.
+void MasterPacifism() {
+  State s;
+  FillBounties(s);
+  Run run;
+  run.mode = 4;
+  run.board = kMasterPacifismBoard;
+  run.score = 2'500'000;
+  run.seconds = 90;
+  const Outcome o = Apply(s, run);
+  CHECK(o.new_best && BestOn(s, kMasterPacifismBoard) == 2'500'000);
+  CHECK(s.extra_bests.at("master-pacifism") == 2'500'000);
+  for (const uint64_t b : s.bests) CHECK(b == 0);  // the eight are untouched
+  CHECK(BoardName(kMasterPacifismBoard) == "Master Pacifism");
+  CHECK(TierOf(s, kMasterPacifismBoard) != Tier::kNone);
+
+  // The file: still eight bests, and the new one in its own table.
+  const std::string text = Write(s);
+  const size_t bests_at = text.find("bests = [");
+  CHECK(bests_at != std::string::npos);
+  if (bests_at != std::string::npos) {
+    const std::string line = text.substr(bests_at, text.find(']', bests_at) - bests_at);
+    CHECK(std::count(line.begin(), line.end(), ',') == int(kBoards) - 1);
+  }
+  CHECK(text.find("[extra_bests]") != std::string::npos && text.find("master-pacifism = 2500000") != std::string::npos);
+  const auto back = Read(text);
+  CHECK(back && *back == s);
+  // A save from before 1.3 (no extra_bests) reads as it always did.
+  std::string older = text;
+  const size_t extra_at = older.find("[extra_bests]");
+  older.erase(extra_at, older.find('\n', older.find("master-pacifism", extra_at)) - extra_at + 1);
+  const auto older_back = Read(older);
+  CHECK(older_back && older_back->extra_bests.empty() && BestOn(*older_back, kMasterPacifismBoard) == 0);
+
+  // Bounties are only ever drawn on the first eight boards, however many are drawn.
+  State bounties;
+  for (int i = 0; i < 400; ++i) {
+    bounties.bounties.clear();
+    FillBounties(bounties);
+    for (const Bounty& b : bounties.bounties) CHECK(b.board < kBoards);
+  }
+
+  // Globetrotter (Bronze on all eight) stays earned without Master Pacifism; Master Pilot counts it.
+  State globe;
+  for (uint32_t board = 0; board < kBoards; ++board) NoteBest(globe, board, 100'000'000'000);
+  const Reward* globetrotter = nullptr;
+  for (const Reward& r : Rewards()) {
+    if (r.how.find("all 8") != std::string_view::npos) globetrotter = &r;
+  }
+  CHECK(globetrotter && Unlocked(globe, *globetrotter));
+  State pilot;
+  CHECK(!Unlocked(pilot, *FindReward("master-pilot")));
+  NoteBest(pilot, kMasterPacifismBoard, 100'000'000'000);
+  CHECK(Unlocked(pilot, *FindReward("master-pilot")));
+}
+
 }  // namespace
 
 int main() {
@@ -300,6 +358,7 @@ int main() {
   Bounties();
   RewardsUnlock();
   SaveFile();
+  MasterPacifism();
   std::printf("progression_rules_tests: %d checks, %d failures\n", g_checks, g_failures);
   return g_failures == 0 ? 0 : 1;
 }

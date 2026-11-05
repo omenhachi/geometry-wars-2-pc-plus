@@ -120,7 +120,7 @@ void FetchBoard(uint32_t board, bool force) {
 
 // The order the boards are stepped through, round and round: each Master board beside its base mode.
 constexpr std::array<uint32_t, boards::kBoards> kBoardRing = {
-    boards::kMasterDeadlineBoard, 0, 1, boards::kMasterEvolvedBoard, 2, 3, 4, 5};
+    boards::kMasterDeadlineBoard, 0, 1, boards::kMasterEvolvedBoard, 2, 3, 4, boards::kMasterPacifismBoard, 5};
 
 uint32_t StepBoard(uint32_t board, int step) {
   const auto at = std::find(kBoardRing.begin(), kBoardRing.end(), board);
@@ -132,6 +132,7 @@ uint32_t StepBoard(uint32_t board, int step) {
 const char* BoardName(uint32_t board) {
   if (board == boards::kMasterDeadlineBoard) return "Master Deadline";
   if (board == boards::kMasterEvolvedBoard) return "Master Evolved";
+  if (board == boards::kMasterPacifismBoard) return "Master Pacifism";
   return ModeName(board);
 }
 
