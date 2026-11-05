@@ -19,6 +19,16 @@ void OnGameplayView(uint8_t* base, uint32_t out, const aim::Mat4& world);
 // the arena nothing changes. The game records the turned sticks, so replays play the same.
 void TurnSticks(uint8_t* base, uint32_t pad);
 
+// Look mode (gw2_dev_chase_turn = "look"), a prototype: the mouse turns the view, W goes where you look and shots
+// go straight ahead. Whether it is showing now; turn it; the radians a mouse pixel turns; its yaw (an arena angle,
+// -pi/2 facing up the arena).
+bool LookActive();
+void AddLook(float radians);
+float LookPerPixel();
+// Whether look mode may hold the cursor (gw2_dev_look_mouse; automated tests turn it off).
+bool LookHoldsMouse();
+float LookYaw();
+
 // The local player, each frame of a round (cheat_hooks.cpp): its centre, its heading (Player +20, radians, eased by
 // Player::Update towards the atan2 of its velocity) and its velocity (+12, +16).
 void ObservePlayer(float x, float y, float heading, float vx, float vy);

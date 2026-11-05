@@ -91,6 +91,9 @@ bool PromptsUseKeyboard();
 // Whether the game window has keyboard focus. UI thread.
 bool WindowFocused();
 
+// The game window's native handle (an HWND on Windows), or null. UI thread.
+void* NativeWindowHandle();
+
 // The latest sample; all zero until the first one is measured.
 GuestFrameStats GetGuestFrameStats();
 

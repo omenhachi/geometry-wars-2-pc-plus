@@ -340,6 +340,11 @@ bool WindowFocused() {
   return window != nullptr && window->HasFocus();
 }
 
+void* NativeWindowHandle() {
+  rex::ui::Window* window = CurrentWindow();
+  return window != nullptr ? window->GetNativeWindowHandle() : nullptr;
+}
+
 GuestFrameStats GetGuestFrameStats() {
   std::lock_guard lock(g_mutex);
   return g_stats;

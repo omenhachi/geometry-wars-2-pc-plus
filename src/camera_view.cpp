@@ -17,7 +17,11 @@
 REXCVAR_DEFINE_STRING(gw2_camera, "classic", "Geometry Wars", "The view of a round: classic (top-down) or chase");
 REXCVAR_DEFINE_STRING(gw2_dev_camera, "", "Geometry Wars", "Camera experiments (log: the camera and Chase's numbers)");
 REXCVAR_DEFINE_STRING(gw2_dev_chase_turn, "", "Geometry Wars",
-                      "Chase turning, to try: arena (faces the arena's middle) or ship (turns with the ship)");
+                      "Chase turning, to try: arena (faces the arena's middle), ship (turns with the ship) or look "
+                      "(the mouse turns it; W goes where you look, shots go ahead)");
+REXCVAR_DEFINE_INT32(gw2_dev_look_speed, 40, "Geometry Wars", "Look mode: turn per mouse pixel, in 1/10000 radian");
+REXCVAR_DEFINE_BOOL(gw2_dev_look_mouse, true, "Geometry Wars",
+                    "Look mode: the mouse turns the view (false: never hold the cursor, for automated tests)");
 REXCVAR_DEFINE_INT32(gw2_dev_chase_behind, 0, "Geometry Wars", "Chase tuning for testing: eye distance behind (0: as shipped)");
 REXCVAR_DEFINE_INT32(gw2_dev_chase_height, 0, "Geometry Wars", "Chase tuning for testing: eye height (0: as shipped)");
 REXCVAR_DEFINE_INT32(gw2_dev_chase_ahead, 0, "Geometry Wars", "Chase tuning for testing: look-ahead (0: as shipped)");
@@ -47,6 +51,9 @@ std::atomic<float> g_speed{0.0f};
 std::atomic<float> g_up_x{0.0f};
 std::atomic<float> g_up_y{-1.0f};
 std::atomic<bool> g_chase_on{false};  // Chase shows, at least partly: the sticks go through the latches
+// Look mode: the camera's yaw is the player's own, turned by the mouse (AddLook), and it is shown (nearly) in full.
+std::atomic<float> g_look_yaw{-1.5707963f};
+std::atomic<bool> g_look_on{false};
 // One latch per stick (left, right), used only by the input hook's thread.
 cam::StickLatch g_latches[2];
 
@@ -59,8 +66,14 @@ float g_last_x = 0.0f, g_last_y = 0.0f;
 std::chrono::steady_clock::time_point g_last_frame{};
 std::chrono::steady_clock::time_point g_last_log{};
 
+bool LookChosen() {
+  return REXCVAR_GET(gw2_dev_chase_turn) == "look";
+}
+
 cam::ChaseTuning Tuning() {
   cam::ChaseTuning t;
+  // Look mode sits lower and closer, behind the ship.
+  if (LookChosen()) t = {240.0f, 300.0f, 160.0f};
   if (const int v = REXCVAR_GET(gw2_dev_chase_behind)) t.behind = float(v);
   if (const int v = REXCVAR_GET(gw2_dev_chase_height)) t.height = float(v);
   if (const int v = REXCVAR_GET(gw2_dev_chase_ahead)) t.ahead = float(v);
@@ -99,6 +112,26 @@ void ObservePlayer(float x, float y, float heading, float vx, float vy) {
   g_speed.store(std::hypot(vx, vy), std::memory_order_relaxed);
 }
 
+bool LookActive() {
+  return g_look_on.load(std::memory_order_relaxed);
+}
+
+void AddLook(float radians) {
+  g_look_yaw.store(g_look_yaw.load(std::memory_order_relaxed) + radians, std::memory_order_relaxed);
+}
+
+bool LookHoldsMouse() {
+  return REXCVAR_GET(gw2_dev_look_mouse);
+}
+
+float LookPerPixel() {
+  return float(REXCVAR_GET(gw2_dev_look_speed)) / 10000.0f;
+}
+
+float LookYaw() {
+  return g_look_yaw.load(std::memory_order_relaxed);
+}
+
 void TurnSticks(uint8_t* base, uint32_t pad) {
   if (!g_chase_on.load(std::memory_order_relaxed)) {
     g_latches[0].held = g_latches[1].held = false;
@@ -106,10 +139,13 @@ void TurnSticks(uint8_t* base, uint32_t pad) {
   }
   const float ux = g_up_x.load(std::memory_order_relaxed);
   const float uy = g_up_y.load(std::memory_order_relaxed);
+  // Look mode turns only when the player turns it, so a held key follows the view as it turns: no latch.
+  const bool look = g_look_on.load(std::memory_order_relaxed);
   // The pad after its buttons and triggers: left stick x, y, right stick x, y (big-endian int16, y up).
   for (int i = 0; i < 2; ++i) {
     const uint32_t at = pad + 4 + uint32_t(i) * 4;
-    const auto turned = g_latches[i].Apply(int16_t(LoadBE16(base, at)), int16_t(LoadBE16(base, at + 2)), ux, uy);
+    const int16_t sx = int16_t(LoadBE16(base, at)), sy = int16_t(LoadBE16(base, at + 2));
+    const auto turned = look ? cam::TurnStick(sx, sy, ux, uy) : g_latches[i].Apply(sx, sy, ux, uy);
     StoreBE<int16_t>(base, at, turned.x);
     StoreBE<int16_t>(base, at + 2, turned.y);
   }
@@ -132,7 +168,9 @@ void OnGameplayView(uint8_t* base, uint32_t out, const aim::Mat4& world) {
   if (g_blend <= 0.0f) {
     g_follow.placed = false;  // the next Chase starts on the ship, not where the last one ended
     g_yaw.yaw = cam::kFacingUp;
+    g_look_yaw.store(cam::kFacingUp, std::memory_order_relaxed);  // each round starts facing up the arena
     g_chase_on.store(false, std::memory_order_relaxed);
+    g_look_on.store(false, std::memory_order_relaxed);
     return;  // the game's own camera, untouched
   }
 
@@ -149,7 +187,9 @@ void OnGameplayView(uint8_t* base, uint32_t out, const aim::Mat4& world) {
 
   // Which way it faces: up the arena, into the arena, or the ship's way.
   const std::string turn = REXCVAR_GET(gw2_dev_chase_turn);
-  if (turn == "arena") {
+  if (turn == "look") {
+    g_yaw.yaw = g_look_yaw.load(std::memory_order_relaxed);
+  } else if (turn == "arena") {
     if (const auto yaw = cam::FaceArenaYaw(g_follow.x, g_follow.y)) g_yaw.Step(*yaw, dt, kTurnEase, kTurnMaxRate);
   } else if (turn == "ship") {
     if (g_speed.load(std::memory_order_relaxed) > kTurnMinSpeed) {
@@ -170,6 +210,7 @@ void OnGameplayView(uint8_t* base, uint32_t out, const aim::Mat4& world) {
     g_up_y.store(up_y / up_length, std::memory_order_relaxed);
   }
   g_chase_on.store(true, std::memory_order_relaxed);
+  g_look_on.store(turn == "look" && g_blend > 0.5f, std::memory_order_relaxed);
   for (uint32_t i = 0; i < 16; ++i) StoreBE32(base, out + i * 4, std::bit_cast<uint32_t>(view[i]));
   if (dev == "log") LogNumbers(pose, view, x, y);
 }

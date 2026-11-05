@@ -31,6 +31,12 @@
 #include "player_records.h"
 #include "window_host.h"
 
+#if defined(_WIN32)
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#endif
+
 REXCVAR_DEFINE_BOOL(gw2_aim_debug, false, "Geometry Wars",
                     "Draw a dot per camera where it puts the local ship, and log the positions");
 REXCVAR_DEFINE_BOOL(gw2_crosshair_motion, true, "Geometry Wars",
@@ -238,6 +244,8 @@ constexpr float kCrosshairHueCyclesPerSecond = 0.5f;
 constexpr float kCrosshairEase = 14.0f;
 // The crosshair stays this long after the mouse last moved, then the arrows or a controller have the aim.
 constexpr auto kCrosshairLinger = std::chrono::seconds(3);
+// Look mode's crosshair: this far ahead of the ship on the arena floor.
+constexpr float kLookCrossDistance = 140.0f;
 // As a share of the canvas height: about one ship radius at 720 lines.
 constexpr float kDeadZoneShare = 0.025f;
 
@@ -408,8 +416,14 @@ class MouseAimOverlay final : public rex::ui::ImGuiDialog {
     // A replay aims for itself: no crosshair following the viewer's mouse.
     const bool active = keyboard && in_round && usable && mouse_valid && !pacifism && !demo::Watching() &&
                         camera.has_view && camera.has_proj;
+    // Look mode: the mouse turns the view (the cursor held in the window's middle) and shots go straight ahead.
+    const bool look = keyboard && in_round && usable && !demo::Watching() && camera_view::LookActive();
+    HoldCursorForLook(look && camera_view::LookHoldsMouse());
 
-    if (active && fire) {
+    if (look && fire && !pacifism) {
+      const float yaw = camera_view::LookYaw();
+      stick_ = {int16_t(std::lround(std::cos(yaw) * 32767.0f)), int16_t(std::lround(-std::sin(yaw) * 32767.0f))};
+    } else if (active && fire) {
       const auto target = aim::UnprojectToArenaBelowHorizon(camera.view, camera.proj,
                                                             aim::WindowToNdc({io.MousePos.x, io.MousePos.y}, canvas));
       const auto ship_ndc = aim::ProjectToNdc(camera.view, camera.proj, state.player_x, state.player_y, 0.0f);
@@ -424,15 +438,29 @@ class MouseAimOverlay final : public rex::ui::ImGuiDialog {
       }
     }
     aim::g_stick.store(int32_t(uint16_t(stick_.x)) | (int32_t(uint16_t(stick_.y)) << 16), std::memory_order_relaxed);
-    aim::g_fire.store(active && fire && (stick_.x != 0 || stick_.y != 0), std::memory_order_relaxed);
-    if (active && fire) {
+    const bool shooting = (active || (look && !pacifism)) && fire;
+    aim::g_fire.store(shooting && (stick_.x != 0 || stick_.y != 0), std::memory_order_relaxed);
+    if (shooting) {
       aim::g_mouse_fired.store(aim::Ticks(now), std::memory_order_relaxed);
     }
-    aim::g_bomb.store(active && bomb, std::memory_order_relaxed);
+    aim::g_bomb.store((active || look) && bomb, std::memory_order_relaxed);
     aim::g_override_time.store(aim::Ticks(now), std::memory_order_relaxed);
 
-    const bool crosshair = active && (fire || now - mouse_moved_ <= kCrosshairLinger);
-    aim::g_hide_cursor.store(crosshair || (keyboard && in_round && usable && pacifism), std::memory_order_relaxed);
+    // Look mode: the crosshair sits ahead of the ship, where the shots go.
+    ImVec2 cross = io.MousePos;
+    bool look_cross = false;
+    if (look && !pacifism && camera.has_view && camera.has_proj) {
+      const float yaw = camera_view::LookYaw();
+      const auto ahead = aim::ProjectToNdc(camera.view, camera.proj, state.player_x + std::cos(yaw) * kLookCrossDistance,
+                                           state.player_y + std::sin(yaw) * kLookCrossDistance, 0.0f);
+      if (ahead) {
+        const aim::Vec2 p = aim::NdcToWindow(*ahead, canvas);
+        cross = ImVec2(p.x, p.y);
+        look_cross = true;
+      }
+    }
+    const bool crosshair = look_cross || (active && !look && (fire || now - mouse_moved_ <= kCrosshairLinger));
+    aim::g_hide_cursor.store(crosshair || look || (keyboard && in_round && usable && pacifism), std::memory_order_relaxed);
     if (!crosshair) {
       spread_ = kAppearSpread;  // the arms fly in again next time it shows
       return;
@@ -452,12 +480,36 @@ class MouseAimOverlay final : public rex::ui::ImGuiDialog {
     }
     CrosshairPalette palette = kSpectrum;
     hue = TintCrosshair(hue, palette);
-    DrawCrosshair(ImGui::GetForegroundDrawList(), io.MousePos, canvas.height * kCrosshairSizeShare,
+    DrawCrosshair(ImGui::GetForegroundDrawList(), cross, canvas.height * kCrosshairSizeShare,
                   std::max(3.0f, canvas.height * kCrosshairThicknessShare), angle, spread_, hue, palette,
                   CurrentStyle());
   }
 
  private:
+  // Look mode: each frame the cursor's move from the window's middle turns the view, and the cursor goes back to the
+  // middle, so it never reaches an edge. Only while the game window has focus and a round is on; the first frame only
+  // places it.
+  void HoldCursorForLook(bool look) {
+#if defined(_WIN32)
+    const HWND window = static_cast<HWND>(NativeWindowHandle());
+    if (!look || window == nullptr) {
+      look_held_ = false;
+      return;
+    }
+    RECT client{};
+    if (!GetClientRect(window, &client)) return;
+    POINT middle{(client.right - client.left) / 2, (client.bottom - client.top) / 2};
+    ClientToScreen(window, &middle);
+    POINT at{};
+    GetCursorPos(&at);
+    if (look_held_) camera_view::AddLook(float(at.x - middle.x) * camera_view::LookPerPixel());
+    SetCursorPos(middle.x, middle.y);
+    look_held_ = true;
+#else
+    (void)look;
+#endif
+  }
+
   void DrawDebug(const aim::State& state, const aim::Rect& canvas) {
     ImDrawList* draw = ImGui::GetForegroundDrawList();
     const float size = ImGui::GetFontSize();
@@ -496,6 +548,7 @@ class MouseAimOverlay final : public rex::ui::ImGuiDialog {
   ImVec2 last_mouse_{-1.0f, -1.0f};
   Clock::time_point mouse_moved_{};
   aim::Stick stick_{0, 0};
+  bool look_held_ = false;  // look mode has the cursor in the window's middle
   uint64_t debug_frames_ = 0;
 };
 
