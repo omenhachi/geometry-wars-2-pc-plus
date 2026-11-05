@@ -6,7 +6,7 @@ Custom runs never count officially. Nothing goes to the online leaderboards or t
 
 ## Making one in the game
 
-**Make a new mode**, the last row of the Custom modes list, opens the mode builder. Press **X** on any mode to build on it: your own builder modes are edited, and any other mode is copied, so the original never changes.
+On the Custom modes list, **X** makes a new mode in the mode builder. **Y** builds on the highlighted mode: your own builder modes are edited, and any other mode is copied, so the original never changes.
 
 - **Rules** and **Enemies** are two tabs (LB and RB, or 1 and 3 on the keyboard). Up and down pick a row, left and right change it, and **X** puts the row back to the game's own.
 - **A** (Enter) saves and plays. After the run, Continue brings you back to the builder, so trying a change is two presses.
@@ -20,7 +20,7 @@ The builder saves a normal `mode.toml` in `user_data/mods`, starting with a line
 
 ## Making one by hand
 
-1. On the Custom modes list press **Y** (or the key the list shows) to open your mods folder, `user_data/mods`. The first time, it is made with a `_template` folder inside.
+1. On the Custom modes list press **RB** (or the key the list shows) to open your mods folder, `user_data/mods`. The first time, it is made with a `_template` folder inside.
 2. Copy `_template`, rename the copy (the folder name is only for you), and edit its `mode.toml`.
 3. Open the list again. It reads every mode fresh each time it opens, so there is no need to restart the game.
 

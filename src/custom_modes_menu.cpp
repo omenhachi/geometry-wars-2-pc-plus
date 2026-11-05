@@ -5,12 +5,12 @@
 // pad.
 //
 // The player's own modes first, then the examples, with the cursor on the top row: A plays, nothing to decide. A mode
-// that can't be read stays in the list with its first error and the line it is on, so a typo is never silent. Y opens
+// that can't be read stays in the list with its first error and the line it is on, so a typo is never silent. RB opens
 // the mods folder (made with a copy of the template the first time). A best shows only once a mode has one.
 // Sequence practice's row takes Left and Right for its level, and shows that level's best only.
 //
-// X opens the mode builder (mode_builder.h) on the highlighted mode: a builder file is edited, any other mode is
-// copied. The last row makes a new mode. While a name is typed in the builder, the pad is hidden from the game and the
+// X makes a new mode in the mode builder (mode_builder.h), and Y opens it on the highlighted mode: a builder file is
+// edited, any other mode is copied. RB opens the mods folder. While a name is typed in the builder, the pad is hidden from the game and the
 // list reads none of it, so every key is a letter. After a run played from the builder, the list opens on the builder
 // again, on that mode.
 
@@ -284,11 +284,16 @@ class CustomModesMenu final : public rex::ui::ImGuiDialog {
     }
   }
 
-  // X: the builder on the highlighted mode (edited if the builder made it, else copied); the last row: a new mode.
+  // X: a new mode, starting as Evolved.
+  void OpenNew() {
+    rules::Mode fresh{"", "", "", rules::Rules{.base = 1}};
+    builder_.emplace(fresh, std::string(), entries_, true);
+  }
+
+  // Y: the builder on the highlighted mode (edited if the builder made it, else copied).
   void OpenBuilder() {
-    if (cursor_ >= int(entries_.size())) {
-      rules::Mode fresh{"", "", "", rules::Rules{.base = 1}};
-      builder_.emplace(fresh, std::string(), entries_, true);
+    if (cursor_ < 0 || cursor_ >= int(entries_.size())) {
+      OpenNew();
       return;
     }
     const custom_modes::Entry& e = entries_[size_t(cursor_)];
@@ -319,9 +324,12 @@ class CustomModesMenu final : public rex::ui::ImGuiDialog {
         if (cursor_ > 0) --cursor_;
         break;
       case Action::kDown:
-        if (cursor_ < int(entries_.size())) ++cursor_;  // the last row makes a new mode
+        if (cursor_ + 1 < int(entries_.size())) ++cursor_;
         break;
-      case Action::kDelete:  // X: build on this mode
+      case Action::kDelete:  // X: a new mode
+        OpenNew();
+        break;
+      case Action::kStar:  // Y: edit, or copy and edit, this mode
         OpenBuilder();
         break;
       case Action::kLeft:
@@ -332,18 +340,13 @@ class CustomModesMenu final : public rex::ui::ImGuiDialog {
           entries_[cursor_] = custom_modes::PracticeEntry(custom_modes::PracticeLevel());
         }
         break;
-      case Action::kStar: {  // Y: the mods folder
+      case Action::kNextTab: {  // RB: the mods folder
         const std::filesystem::path folder = PrepareModsFolder();
         trg::OpenInFileManager(Utf8(folder));
-        message_ = "Opened your mods folder. Copy _template, rename the folder, and edit mode.toml.";
+        message_ = "Opened your mods folder. Modes are folders with a mode.toml in them; _template shows every rule.";
         break;
       }
-      case Action::kWatch: {  // A: play, or on the last row, make a new mode
-        if (cursor_ == int(entries_.size())) {
-          OpenBuilder();
-          Reopen();
-          break;
-        }
+      case Action::kWatch: {  // A: play
         if (cursor_ < 0 || cursor_ >= int(entries_.size())) {
           Reopen();
           break;
@@ -391,7 +394,7 @@ class CustomModesMenu final : public rex::ui::ImGuiDialog {
     // The footer holds the hints, a message and the selected mode's description: as tall as they are, so the rows get
     // the rest.
     const std::vector<key_hints::Hint> hints = Hints();
-    const float hint_size = u * 1.8f;
+    const float hint_size = u * 1.6f;
     float footer = key_hints::Draw(nullptr, hints, p0.x + pad, p1.x - pad, 0, hint_size) + u * 1.8f + pad;
     if (!message_.empty()) footer += float(key_hints::Wrap(message_, u * 1.9f, p1.x - p0.x - pad * 2, 2).size()) * u * 2.8f;
     const std::string description = Description();
@@ -399,10 +402,12 @@ class CustomModesMenu final : public rex::ui::ImGuiDialog {
       footer += float(key_hints::Wrap(description, u * 1.7f * 1.15f, p1.x - p0.x - pad * 2, 2).size()) * (u * 1.955f + u * 0.9f);
     }
     footer += u * 1.0f;
-    const float row_h = u * 7.2f;
+    // Each mode's box holds its name and its chips, with clear space before the next.
+    const float row_h = u * 10.2f;
+    const float row_gap = u * 1.4f;
     const int visible = std::max(1, int((p1.y - footer - list_top) / row_h));
     first_ = std::clamp(first_, std::max(0, cursor_ - visible + 1), cursor_);
-    const int rows = int(entries_.size()) + 1;  // the modes, then "Make a new mode"
+    const int rows = int(entries_.size());
     const float text = u * 2.5f;
     const float note_size = u * 1.7f;
     const float thin = std::max(1.0f, text * 0.07f);
@@ -415,33 +420,12 @@ class CustomModesMenu final : public rex::ui::ImGuiDialog {
     if (entries_.empty()) {
       line_font::GameText(draw, ImVec2(left, list_top + u * 2.0f), text, "No custom modes found.", white, thin);
       line_font::GameText(draw, ImVec2(left, list_top + u * 6.0f), note_size,
-                      "Press Y to open your mods folder: copy _template and make one.", dim, note_thin);
+                      "Press X to make one, or RB to open your mods folder.", dim, note_thin);
     }
     for (int i = first_; i < rows && i < first_ + visible; ++i) {
       const float y = list_top + float(i - first_) * row_h;
-      if (i == int(entries_.size())) {
-        const ImVec2 r0(left, y), r1(right, y + row_h - u * 0.8f);
-        const bool hovered = ImGui::IsMouseHoveringRect(r0, r1, false);
-        if (hovered && (io.MouseDelta.x != 0 || io.MouseDelta.y != 0)) cursor_ = i;
-        if (hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-          cursor_ = i;
-          OpenBuilder();
-        }
-        if (i == cursor_) {
-          draw->AddRectFilled(r0, r1, Theme(0.0, 0.12f), u * 0.6f);
-          draw->AddRect(r0, r1, Theme(0.0, 0.8f), u * 0.6f, 0, 1.5f);
-        }
-        const float x = left + u * 2.0f, top = y + u * 1.0f;
-        const float plus = text * 0.5f;
-        draw->AddLine(ImVec2(x, top + plus), ImVec2(x + text, top + plus), Theme(), 2.0f);
-        draw->AddLine(ImVec2(x + plus, top), ImVec2(x + plus, top + text), Theme(), 2.0f);
-        line_font::GameText(draw, ImVec2(x + text + u * 1.6f, top), text, "Make a new mode", Theme(), thin);
-        line_font::GameText(draw, ImVec2(x + text + u * 1.6f, top + text + u * 1.4f), note_size,
-                            "Pick the rules and enemies from menus, then play it straight away", dim, note_thin);
-        continue;
-      }
       const custom_modes::Entry& e = entries_[i];
-      const ImVec2 r0(left, y), r1(right, y + row_h - u * 0.8f);
+      const ImVec2 r0(left, y), r1(right, y + row_h - row_gap);
       const bool hovered = ImGui::IsMouseHoveringRect(r0, r1, false);
       if (hovered && (io.MouseDelta.x != 0 || io.MouseDelta.y != 0)) cursor_ = i;
       if (hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
@@ -458,7 +442,7 @@ class CustomModesMenu final : public rex::ui::ImGuiDialog {
         draw->AddRect(r0, r1, Theme(0.0, 0.8f), u * 0.6f, 0, 1.5f);
       }
       const float x = left + u * 2.0f;
-      const float top = y + u * 1.0f;
+      const float top = y + u * 1.4f;
       if (!e.mode) {
         line_font::GameText(draw, ImVec2(x, top), text, e.folder, red, thin);
         line_font::GameText(draw, ImVec2(x, top + text + u * 1.2f), note_size, FirstProblem(e), red, note_thin);
@@ -499,13 +483,14 @@ class CustomModesMenu final : public rex::ui::ImGuiDialog {
   // The key hints for the highlighted row.
   std::vector<key_hints::Hint> Hints() const {
     const bool own = cursor_ < int(own_.size()) && own_[size_t(cursor_)];
-    const bool on_new = cursor_ >= int(entries_.size());
+    const bool any = cursor_ >= 0 && cursor_ < int(entries_.size());
     const bool keyboard = KeyboardMode();
     std::vector<key_hints::Hint> hints;
     if (OnPractice()) hints.push_back({"<>", "Level"});
-    hints.push_back({keyboard ? KeyFor("keybind_start", "Enter") : "A", on_new ? "Make a new mode" : "Play"});
-    if (!on_new) hints.push_back({keyboard ? KeyFor("keybind_x", "H") : "X", own ? "Edit" : "Copy and edit"});
-    hints.push_back({keyboard ? KeyFor("keybind_y", "L") : "Y", "Mods folder"});
+    if (any) hints.push_back({keyboard ? KeyFor("keybind_start", "Enter") : "A", "Play"});
+    hints.push_back({keyboard ? KeyFor("keybind_x", "H") : "X", "Make a new mode"});
+    if (any) hints.push_back({keyboard ? KeyFor("keybind_y", "L") : "Y", own ? "Edit" : "Copy and edit"});
+    hints.push_back({keyboard ? KeyFor("keybind_right_shoulder", "3") : "RB", "Mods folder"});
     hints.push_back({keyboard ? "Esc" : "B", "Back"});
     return hints;
   }
