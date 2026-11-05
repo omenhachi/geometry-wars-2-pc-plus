@@ -7,8 +7,11 @@
 //    Deadline's writes a time limit), so before any setup runs, whatever a custom mode changed is put back: an
 //    official round always finds the block as the game left it;
 //  - the enemy spawner (sub_8203BEE8, one switch over every type, from every mode's spawning): type 16 is the gate
-//    pair, and without gates it is skipped. Its callers ignore the enemy it returns, and it returns none when it can't
-//    allocate one, so none is safe;
+//    pair, and without gates it is skipped, as is an enemy the mode's [enemies] turns off (EnemyForSpawn); an enemy
+//    [enemies.swap] swaps is made as its target instead, at the same place. Its callers ignore the enemy it returns,
+//    and it returns none when it can't allocate one, so none is safe. All 29 calls come from the modes' spawning code
+//    (sub_8203C8D0..sub_8203ECC0: the wave and pattern spawners), none from enemies themselves, so a swap or a skip
+//    never touches an enemy's own children;
 //  - each simulation tick: the game step (0x8219D280) is scaled for the tick and put back after it, before the replay
 //    records it, so a replay keeps the scaled steps; and a time score is written to the player's score after it.
 
@@ -44,6 +47,8 @@
 REXCVAR_DEFINE_BOOL(gw2_custom_mode_test_keys, false, "Geometry Wars", "F8 plays the first custom mode (for testing)");
 REXCVAR_DEFINE_STRING(gw2_play_mode, "", "Geometry Wars",
                       "A custom mode's folder name to play as soon as the menus are up (for testing and shortcuts)");
+REXCVAR_DEFINE_INT32(gw2_dev_spawn_as, 0, "Geometry Wars",
+                     "Research: every enemy the spawner makes comes out as this spawn type (1-25; 0: off)");
 
 REX_EXTERN(sub_8208FFF0);  // switches the screen (here to the in-game HUD, sub_8207CA48)
 REX_EXTERN(sub_82032F90);  // queues the function that sets up the next round
@@ -124,6 +129,10 @@ std::mutex g_mutex;
 State g_state;
 std::atomic<bool> g_active{false};
 std::atomic<bool> g_no_gates{false};
+std::atomic<uint16_t> g_enemies_off{0};  // rules::Rules::enemies_off of the active mode
+std::atomic<uint32_t> g_enemies_logged{0};  // the ones whose first skip has been logged, since the mode began
+std::array<std::atomic<uint8_t>, rules::kEnemyCount> g_swap_to{};  // rules::Rules::swap_to of the active mode
+std::atomic<uint32_t> g_swaps_logged{0};
 std::atomic<bool> g_infinite_bombs{false};
 std::atomic<int32_t> g_practice_level{1};  // Sequence practice's level, this session
 std::atomic<int64_t> g_last_tick_ms{0};
@@ -139,6 +148,12 @@ void SetActive(std::optional<Current> active) {
   const bool on = g_state.active.has_value();
   g_active.store(on, std::memory_order_relaxed);
   g_no_gates.store(on && !g_state.active->mode.rules.gates, std::memory_order_relaxed);
+  g_enemies_off.store(on ? g_state.active->mode.rules.enemies_off : 0, std::memory_order_relaxed);
+  g_enemies_logged.store(0, std::memory_order_relaxed);
+  for (size_t i = 0; i < rules::kEnemyCount; ++i) {
+    g_swap_to[i].store(on ? g_state.active->mode.rules.swap_to[i] : 0, std::memory_order_relaxed);
+  }
+  g_swaps_logged.store(0, std::memory_order_relaxed);
   g_infinite_bombs.store(on && g_state.active->mode.rules.infinite_bombs, std::memory_order_relaxed);
 }
 
@@ -267,6 +282,33 @@ void BeforeNextLevel(uint8_t* base) {
 
 bool NoGates() {
   return g_no_gates.load(std::memory_order_relaxed);
+}
+
+uint32_t SpawnSwap(uint32_t type) {
+  const auto enemy = rules::EnemyForSpawn(type);
+  if (!enemy) return type;
+  const uint8_t to = g_swap_to[size_t(*enemy)].load(std::memory_order_relaxed);
+  if (!to) return type;
+  const uint32_t bit = 1u << uint8_t(*enemy);
+  if (!(g_swaps_logged.fetch_or(bit, std::memory_order_relaxed) & bit)) {
+    REXLOG_INFO("Custom modes: [enemies.swap] makes spawn type {} where the game asked for a {} (spawn type {})", to,
+                rules::kEnemyNames[size_t(*enemy)], type);
+  }
+  return to;
+}
+
+bool SpawnOff(uint32_t type) {
+  if (type == kGatePair) return NoGates();
+  const uint16_t off = g_enemies_off.load(std::memory_order_relaxed);
+  if (!off) return false;
+  const auto enemy = rules::EnemyForSpawn(type);
+  if (!enemy || !(off & (1u << uint8_t(*enemy)))) return false;
+  // Once per enemy while the mode is active, so a mode maker can see [enemies] at work in the log.
+  const uint32_t bit = 1u << uint8_t(*enemy);
+  if (!(g_enemies_logged.fetch_or(bit, std::memory_order_relaxed) & bit)) {
+    REXLOG_INFO("Custom modes: [enemies] keeps {} from spawning (spawn type {})", rules::kEnemyNames[size_t(*enemy)], type);
+  }
+  return true;
 }
 
 void EndForSinglePlayer() {
@@ -665,10 +707,18 @@ REX_HOOK_RAW(sub_820397E8) {
 // Spawns an enemy of type r3 (1-25) and returns it, or 0 when none could be made; callers ignore the result.
 REX_EXTERN(__imp__sub_8203BEE8);
 REX_HOOK_RAW(sub_8203BEE8) {
-  if (ctx.r3.u32 == gw2::custom_modes::detail::kGatePair && gw2::custom_modes::detail::NoGates()) {
+  // Research only: one enemy type in place of every ordinary enemy (gates and groups left alone).
+  if (const int32_t as = REXCVAR_GET(gw2_dev_spawn_as); as >= 1 && as <= 25 && gw2::custom_mode::EnemyForSpawn(ctx.r3.u32)) {
+    static std::atomic<bool> logged{false};
+    if (!logged.exchange(true)) REXLOG_INFO("Research: spawn type {} in place of {}", as, ctx.r3.u32);
+    ctx.r3.u64 = uint32_t(as);
+  }
+  if (gw2::custom_modes::detail::SpawnOff(ctx.r3.u32)) {
     ctx.r3.u64 = 0;
     return;
   }
+  // [enemies.swap], once, on the enemy the game asked for (its position and arguments go to the new one).
+  ctx.r3.u64 = gw2::custom_modes::detail::SpawnSwap(ctx.r3.u32);
   __imp__sub_8203BEE8(ctx, base);
 }
 

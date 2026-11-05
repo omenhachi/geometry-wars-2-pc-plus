@@ -1,0 +1,11 @@
+format = 2
+name = "Hyper Pacifism"
+author = "Omen"
+description = "Pacifism at 1.25x speed with no gates, and three ships instead of one. Score is how long you last."
+base = "pacifism"
+
+[rules]
+gates = false
+score = "time"
+lives = 3
+game_speed = 1.25

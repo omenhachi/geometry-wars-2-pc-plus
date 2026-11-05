@@ -64,6 +64,9 @@ namespace file = gw2::demo_file;
 namespace custom_mode = gw2::custom_mode;
 namespace library = gw2::demo_library;
 
+// A custom run's rules always fit in a replay, so they are never cut short.
+static_assert(custom_mode::kMaxRulesBytes <= file::kMaxCustomRulesSize);
+
 constexpr uint32_t kTwister = 0x821A1E28;
 constexpr uint32_t kParticleSeed = 0x82180720;
 constexpr uint32_t kRandSeedOffset = 20;

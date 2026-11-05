@@ -309,7 +309,7 @@ class CustomModesMenu final : public rex::ui::ImGuiDialog {
       }
       float cx = x;
       const float chip_y = top + text + u * 1.4f;
-      for (const std::string& chip : rules::Chips(m.rules)) {
+      for (const std::string& chip : rules::ListChips(m.rules)) {
         cx += DrawChip(draw, ImVec2(cx, chip_y), note_size, chip, Theme(double(i) * 0.15, 0.95f), 0.10f) + u * 1.0f;
       }
       if (!e.warnings.empty()) {

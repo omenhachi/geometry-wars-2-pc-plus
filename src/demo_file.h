@@ -45,7 +45,7 @@ inline constexpr uint32_t kMaxShotsPerTick = 8;
 inline constexpr size_t kMaxString = 64;
 inline constexpr size_t kMaxFileSize = 64u << 20;
 inline constexpr size_t kCustomRulesSize = 24;     // format 2
-inline constexpr size_t kMaxCustomRulesSize = 128;
+inline constexpr size_t kMaxCustomRulesSize = 255;  // its length is a u8
 
 using Pads = std::array<uint8_t, kPadsSize>;
 

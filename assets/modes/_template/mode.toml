@@ -2,7 +2,7 @@
 # The Custom modes list reads it fresh every time it opens, so there is no need to restart the game.
 # Lines starting with # are notes; remove the # in front of a rule to use it. docs/MODDING.md explains every key.
 
-format = 1
+format = 2
 name = "My mode"
 author = "You"
 description = "One line about what makes it different."
@@ -21,3 +21,12 @@ base = "evolved"
 # game_speed = 1.2        # 0.5 to 1.5; everything moves this much faster (or slower)
 # gates = false           # no gates spawn
 # score = "time"          # "points", or "time": the score is how long you survive
+
+[enemies]
+# Every enemy is on; turn some off. Every key is in docs/MODDING.md.
+# snake = false
+# black_hole = false
+
+[enemies.swap]
+# One enemy made in place of another.
+# grunt = "weaver"

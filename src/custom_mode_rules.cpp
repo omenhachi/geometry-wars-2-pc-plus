@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <bit>
+#include <cctype>
 #include <cmath>
 #include <cstring>
 #include <format>
@@ -11,13 +12,32 @@
 namespace gw2::custom_mode {
 namespace {
 
-constexpr std::string_view kTopKeys[] = {"format", "name", "author", "description", "base", "rules"};
+constexpr std::string_view kTopKeys[] = {"format", "name", "author", "description", "base", "rules", "enemies"};
 constexpr std::string_view kRuleKeys[] = {"lives",          "bombs", "time_limit",  "game_speed",  "gates",
                                           "infinite_bombs", "score", "extra_lives", "extra_bombs", "bonus_bombs_at",
                                           "level"};
 constexpr std::string_view kScores[] = {"points", "time"};
 constexpr size_t kMaxText = 64;
 constexpr size_t kMaxDescription = 200;
+
+constexpr std::string_view kEnemyPlurals[kEnemyCount] = {"wanderers", "grunts",      "weavers", "spinners", "snakes",
+                                                         "repulsars", "black holes", "rockets", "ducks"};
+
+// Each enemy's own spawn type (EnemyForSpawn's first), so a swap into itself is known.
+constexpr uint8_t kOwnSpawn[kEnemyCount] = {1, 2, 3, 4, 8, 6, 5, 12, 22};
+
+constexpr std::array<std::string_view, kSwapTargets.size()> SwapTargetNames() {
+  std::array<std::string_view, kSwapTargets.size()> names{};
+  for (size_t i = 0; i < kSwapTargets.size(); ++i) names[i] = kSwapTargets[i].name;
+  return names;
+}
+constexpr auto kSwapTargetNames = SwapTargetNames();
+
+// A swap target as a chip says it: "weavers", "type 17".
+std::string TargetPlural(uint8_t spawn) {
+  if (const auto enemy = EnemyForSpawn(spawn)) return std::string(kEnemyPlurals[size_t(*enemy)]);
+  return std::format("type {}", spawn);
+}
 
 // Each base mode's own bombs (its setup function, 0x82034EA0..0x82035130), so chips show only changes.
 constexpr int32_t kBaseBombs[kModeCount] = {3, 3, 3, 0, 0, 0};
@@ -159,6 +179,67 @@ void ReadRules(Reader& reader, const toml::table& table, Rules& rules) {
   }
 }
 
+// [enemies.swap]: each enemy the game asks for, made as another (kSwapTargets).
+void ReadSwaps(Reader& reader, const toml::table& table, Rules& rules) {
+  for (const auto& [key, node] : table) {
+    const auto from = std::find(kEnemyNames.begin(), kEnemyNames.end(), key.str());
+    if (from == kEnemyNames.end()) {
+      reader.Unknown(key, kEnemyNames, "enemies.swap");
+      continue;
+    }
+    const size_t source = size_t(from - kEnemyNames.begin());
+    if (node.as_array()) {
+      reader.Error(LineOf(node), std::format("\"{}\" swaps into one enemy for now, like {} = \"weaver\"", key.str(),
+                                             key.str()));
+      continue;
+    }
+    const auto text = reader.Text(node, key.str(), kMaxText);
+    if (!text) continue;
+    const auto to = std::find_if(kSwapTargets.begin(), kSwapTargets.end(),
+                                 [&](const SwapTarget& t) { return t.name == *text; });
+    if (to == kSwapTargets.end()) {
+      std::string message;
+      if (*text == "black_hole" || *text == "rocket" || *text == "type_14") {
+        message = std::format("nothing can be swapped into \"{}\" yet", *text);
+      } else {
+        message = std::format("\"{}\" isn't an enemy a swap can make", *text);
+        if (const auto near = Nearest(*text, kSwapTargetNames)) message += std::format(" (did you mean \"{}\"?)", *near);
+      }
+      reader.Error(LineOf(node), std::move(message));
+      continue;
+    }
+    if (to->spawn == kOwnSpawn[source]) {
+      reader.Warn(LineOf(node), std::format("{} = \"{}\" swaps it into itself, so it changes nothing", key.str(), *text));
+      rules.swap_to[source] = 0;
+      continue;
+    }
+    rules.swap_to[source] = to->spawn;
+  }
+}
+
+// [enemies]: each one the mode turns off, by name; true leaves it as the game has it. [enemies.swap] is beside them.
+void ReadEnemies(Reader& reader, const toml::table& table, Rules& rules) {
+  for (const auto& [key, node] : table) {
+    if (key.str() == "swap") {
+      if (const auto* swaps = node.as_table()) {
+        ReadSwaps(reader, *swaps, rules);
+      } else {
+        reader.Error(LineOf(node), "\"swap\" should be an [enemies.swap] section");
+      }
+      continue;
+    }
+    const auto at = std::find(kEnemyNames.begin(), kEnemyNames.end(), key.str());
+    if (at == kEnemyNames.end()) {
+      reader.Unknown(key, kEnemyNames, "enemies");
+      continue;
+    }
+    const auto on = reader.Flag(node, key.str());
+    if (!on) continue;
+    const uint16_t bit = uint16_t(1u << (at - kEnemyNames.begin()));
+    rules.enemies_off = *on ? uint16_t(rules.enemies_off & ~bit) : uint16_t(rules.enemies_off | bit);
+  }
+}
+
 void Put32(std::vector<uint8_t>& out, uint32_t value) {
   for (int i = 0; i < 4; ++i) out.push_back(uint8_t(value >> (8 * i)));
 }
@@ -173,9 +254,14 @@ constexpr uint8_t kNoExtraLives = 32, kNoExtraBombs = 64;  // version 2
 constexpr uint8_t kKnownFlags = kLivesSet | kBombsSet | kTimeSet | kGates | kInfiniteBombs;
 constexpr uint8_t kKnownFlags2 = kKnownFlags | kNoExtraLives | kNoExtraBombs;
 // Version 1: 24 bytes, its lives the game's spare ships. Version 2: lives are ships in all, and a list of bonus
-// scores follows (u8 count, then each u64).
+// scores follows (u8 count, then each u64). Version 3: version 2, then the tuning (custom_mode_rules.h).
 constexpr uint8_t kBytesVersion1 = 1;
 constexpr uint8_t kBytesVersion2 = 2;
+constexpr uint8_t kBytesVersion3 = 3;
+// The tuning's tags. A tag is never reused for something else.
+constexpr uint8_t kTagEnemiesOff = 1;
+// [enemies.swap]: one tag per swapped enemy (this + its Enemy index), the value its target's spawn type.
+constexpr uint8_t kTagSwapFirst = 16;
 
 void Put64(std::vector<uint8_t>& out, uint64_t value) {
   for (int i = 0; i < 8; ++i) out.push_back(uint8_t(value >> (8 * i)));
@@ -199,10 +285,11 @@ ParseResult Parse(std::string_view toml_text) {
   }
 
   // The format first: a newer one may use keys this version doesn't know, and that is not the author's mistake.
+  int64_t format_number = 1;
   if (const toml::node* format = table.get("format")) {
     const auto* value = format->as_integer();
     if (!value || value->get() < 1) {
-      reader.Error(LineOf(*format), "\"format\" should be 1");
+      reader.Error(LineOf(*format), "\"format\" should be 1 or 2");
       return result;
     }
     if (value->get() > kFormat) {
@@ -210,6 +297,7 @@ ParseResult Parse(std::string_view toml_text) {
       reader.Error(LineOf(*format), "This mode needs a newer version of PC Plus");
       return result;
     }
+    format_number = value->get();
   } else {
     reader.Error(0, "Add format = 1 at the top");
   }
@@ -245,6 +333,14 @@ ParseResult Parse(std::string_view toml_text) {
       } else {
         reader.Error(LineOf(node), "\"rules\" should be a [rules] section");
       }
+    } else if (k == "enemies") {
+      if (format_number < 2) {
+        reader.Error(LineOf(node), "[enemies] needs format = 2 at the top");
+      } else if (const auto* enemies = node.as_table()) {
+        ReadEnemies(reader, *enemies, mode.rules);
+      } else {
+        reader.Error(LineOf(node), "\"enemies\" should be an [enemies] section");
+      }
     } else {
       reader.Unknown(key, kTopKeys, "mode");
     }
@@ -253,6 +349,24 @@ ParseResult Parse(std::string_view toml_text) {
   if (has_base && mode.rules.level && mode.rules.base != kSequenceBase) {
     reader.Error(0, "\"level\" is only for Sequence, like base = \"sequence\"");
   }
+  // Swaps that can't do what they say: from an enemy that is off, or into one that is.
+  for (size_t i = 0; i < kEnemyCount; ++i) {
+    const uint8_t to = mode.rules.swap_to[i];
+    if (!to) continue;
+    if (mode.rules.EnemyOff(Enemy(i))) {
+      reader.Warn(0, std::format("{} is off, so its swap does nothing", kEnemyNames[i]));
+    } else if (const auto target = EnemyForSpawn(to); target && mode.rules.EnemyOff(*target)) {
+      reader.Warn(0, std::format("{} is off, but {} swaps into it, so {} still appear", kEnemyNames[size_t(*target)],
+                                 kEnemyNames[i], kEnemyPlurals[size_t(*target)]));
+    }
+  }
+  if (has_base && mode.rules.Tuned() &&
+      (mode.rules.base == kSequenceBase || mode.rules.base == kWavesBase)) {
+    // Their levels and waves are set pieces: one with a missing enemy might never end.
+    reader.Error(0, std::format("[enemies] can't change {} yet; try evolved, deadline, pacifism or king",
+                                mode.rules.base == kSequenceBase ? "Sequence" : "Waves"));
+  }
+  if (mode.rules.enemies_off == kAllEnemies) reader.Error(0, "[enemies] turns every enemy off; leave at least one on");
   if (!has_base && std::none_of(result.errors.begin(), result.errors.end(),
                                 [](const Message& m) { return m.text.starts_with("base"); })) {
     reader.Error(0, "Choose a base mode, like base = \"evolved\"");
@@ -264,11 +378,11 @@ ParseResult Parse(std::string_view toml_text) {
 std::vector<uint8_t> Write(const Rules& rules) {
   // Version 1 while nothing needs more (a mode's id is a hash of these bytes, so it stays the same), and for a replay's
   // rules from before lives meant ships in all.
-  const bool newer = !rules.extra_lives || !rules.extra_bombs || !rules.bonus_bombs_at.empty();
+  const bool newer = !rules.extra_lives || !rules.extra_bombs || !rules.bonus_bombs_at.empty() || rules.Tuned();
   const bool version1 = !newer && (!rules.lives || rules.legacy_spare_lives);
   std::vector<uint8_t> out;
   out.reserve(kMaxRulesBytes);
-  out.push_back(version1 ? kBytesVersion1 : kBytesVersion2);
+  out.push_back(version1 ? kBytesVersion1 : rules.Tuned() ? kBytesVersion3 : kBytesVersion2);
   out.push_back(uint8_t(rules.base));
   uint8_t flags = 0;
   if (rules.lives) flags |= kLivesSet;
@@ -290,13 +404,26 @@ std::vector<uint8_t> Write(const Rules& rules) {
     out.push_back(uint8_t(count));
     for (size_t i = 0; i < count; ++i) Put64(out, rules.bonus_bombs_at[i]);
   }
+  if (rules.Tuned()) {
+    std::vector<std::pair<uint8_t, uint32_t>> entries;
+    if (rules.enemies_off) entries.push_back({kTagEnemiesOff, rules.enemies_off});
+    for (size_t i = 0; i < kEnemyCount; ++i) {
+      if (rules.swap_to[i]) entries.push_back({uint8_t(kTagSwapFirst + i), rules.swap_to[i]});
+    }
+    out.push_back(rules.tuning_version);
+    out.push_back(uint8_t(entries.size()));
+    for (const auto& [tag, value] : entries) {
+      out.push_back(tag);
+      Put32(out, value);
+    }
+  }
   return out;
 }
 
 std::optional<Rules> Read(std::span<const uint8_t> bytes) {
   if (bytes.size() < kRulesBytes) return std::nullopt;
   const uint8_t version = bytes[0];
-  if (version != kBytesVersion1 && version != kBytesVersion2) return std::nullopt;
+  if (version != kBytesVersion1 && version != kBytesVersion2 && version != kBytesVersion3) return std::nullopt;
   if (version == kBytesVersion1 && bytes.size() != kRulesBytes) return std::nullopt;
   Rules rules;
   if (bytes[1] >= kModeCount) return std::nullopt;
@@ -339,17 +466,47 @@ std::optional<Rules> Read(std::span<const uint8_t> bytes) {
   rules.infinite_bombs = flags & kInfiniteBombs;
   rules.extra_lives = !(flags & kNoExtraLives);
   rules.extra_bombs = !(flags & kNoExtraBombs);
-  if (version == kBytesVersion2) {
+  if (version >= kBytesVersion2) {
     if (bytes.size() < kRulesBytes + 1) return std::nullopt;
     const size_t count = bytes[kRulesBytes];
-    if (count > kMaxBonusBombs || bytes.size() != kRulesBytes + 1 + count * 8) return std::nullopt;
+    const size_t end = kRulesBytes + 1 + count * 8;
+    if (count > kMaxBonusBombs || bytes.size() < end) return std::nullopt;
+    if (version == kBytesVersion2 && bytes.size() != end) return std::nullopt;
     for (size_t i = 0; i < count; ++i) {
       const uint64_t score = Get64(bytes, kRulesBytes + 1 + i * 8);
       if (score < 1 || score > kMaxBonusScore || (i > 0 && score <= rules.bonus_bombs_at.back())) return std::nullopt;
       rules.bonus_bombs_at.push_back(score);
     }
-    // Version 2 is only written when version 1 can't hold the rules.
-    if (rules.extra_lives && rules.extra_bombs && rules.bonus_bombs_at.empty() && !rules.lives) return std::nullopt;
+    if (version == kBytesVersion3) {
+      // The tuning: a version this build knows, then each tag once, in the order they are written.
+      if (bytes.size() < end + 2) return std::nullopt;
+      const uint8_t tuning = bytes[end];
+      const size_t entries = bytes[end + 1];
+      if (tuning < 1 || tuning > kTuningVersion || entries == 0 || entries > kMaxTuningEntries) return std::nullopt;
+      if (bytes.size() != end + 2 + entries * 5) return std::nullopt;
+      rules.tuning_version = tuning;
+      uint8_t last_tag = 0;
+      for (size_t i = 0; i < entries; ++i) {
+        const size_t at = end + 2 + i * 5;
+        const uint8_t tag = bytes[at];
+        const uint32_t value = Get32(bytes, at + 1);
+        if (tag <= last_tag) return std::nullopt;
+        last_tag = tag;
+        if (tag == kTagEnemiesOff) {
+          if (value == 0 || value >= kAllEnemies) return std::nullopt;  // never written: all off is refused
+          rules.enemies_off = uint16_t(value);
+        } else if (tag >= kTagSwapFirst && tag < kTagSwapFirst + kEnemyCount) {
+          const size_t source = tag - kTagSwapFirst;
+          if (!IsSwapTarget(value) || value == kOwnSpawn[source]) return std::nullopt;
+          rules.swap_to[source] = uint8_t(value);
+        } else {
+          return std::nullopt;  // a tag this build doesn't know
+        }
+      }
+    } else if (rules.extra_lives && rules.extra_bombs && rules.bonus_bombs_at.empty() && !rules.lives) {
+      // Version 2 is only written when version 1 can't hold the rules.
+      return std::nullopt;
+    }
   }
   return rules;
 }
@@ -389,6 +546,36 @@ std::vector<std::string> Chips(const Rules& rules) {
     std::string text = "Bombs at";
     for (const uint64_t score : rules.bonus_bombs_at) text += " " + ShortScore(score);
     chips.push_back(std::move(text));
+  }
+  if (rules.enemies_off) {
+    // "No snakes", "No snakes or grunts"; with most of them off, the few that are left: "Only wanderers".
+    std::vector<std::string_view> off, on;
+    for (size_t i = 0; i < kEnemyCount; ++i) (rules.EnemyOff(Enemy(i)) ? off : on).push_back(kEnemyPlurals[i]);
+    const auto join = [](const std::vector<std::string_view>& names, std::string_view last) {
+      std::string text;
+      for (size_t i = 0; i < names.size(); ++i) {
+        if (i > 0) text += i + 1 == names.size() ? last : std::string_view(", ");
+        text += names[i];
+      }
+      return text;
+    };
+    chips.push_back(off.size() > on.size() ? "Only " + join(on, " and ") : "No " + join(off, " or "));
+  }
+  for (size_t i = 0; i < kEnemyCount; ++i) {
+    if (!rules.swap_to[i]) continue;
+    std::string from(kEnemyPlurals[i]);
+    from[0] = char(std::toupper(static_cast<unsigned char>(from[0])));
+    chips.push_back(std::format("{} as {}", from, TargetPlural(rules.swap_to[i])));
+  }
+  return chips;
+}
+
+std::vector<std::string> ListChips(const Rules& rules, size_t most) {
+  std::vector<std::string> chips = Chips(rules);
+  if (most >= 1 && chips.size() > most) {
+    const size_t more = chips.size() - (most - 1);
+    chips.resize(most - 1);
+    chips.push_back(std::format("+{} more", more));
   }
   return chips;
 }

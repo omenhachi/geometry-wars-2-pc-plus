@@ -30,7 +30,7 @@ score = "time"
 
 | Key | Required | Value |
 |---|---|---|
-| `format` | yes | `1`. A newer number means the mode needs a newer PC Plus, and the list says so. |
+| `format` | yes | `1` or `2`. Format 2 lets a mode use the tables below `[rules]`, like `[enemies]`; a format 1 file reads exactly as it always has. A newer number means the mode needs a newer PC Plus, and the list says so. |
 | `name` | yes | Up to 64 characters. |
 | `author` | no | Up to 64 characters. |
 | `description` | no | One line, up to 200 characters, shown under the list. |
@@ -52,6 +52,63 @@ Every rule is optional. A rule you leave out stays as the base mode has it.
 | `gates` | true / false | `false`: no gates spawn. |
 | `score` | `"points"` / `"time"` | `"time"`: your score is how long you survive, in hundredths of a second, shown as a time. |
 
+### [enemies] (format 2)
+
+Which enemies spawn. Every one is on unless you turn it off:
+
+```toml
+format = 2
+name = "No Snakes"
+base = "evolved"
+
+[enemies]
+snake = false
+black_hole = false
+```
+
+The names are `wanderer`, `grunt`, `weaver`, `spinner`, `snake`, `repulsar`, `black_hole`, `rocket` and `duck`. Gates stay under `[rules]` as `gates`. `[enemies]` works in Evolved, Deadline, Pacifism and King. Sequence and Waves are made of set levels and waves that could never end with an enemy missing, so they say so instead. Turning every enemy off is an error.
+
+### [enemies.swap] (format 2)
+
+Every time the game asks for one enemy, it gets another instead, in the same place:
+
+```toml
+format = 2
+name = "Green Pacifism"
+base = "pacifism"
+
+[enemies.swap]
+grunt = "weaver"
+```
+
+- The left side is any of the nine `[enemies]` names. The right side is the enemy made in its place.
+- It happens once, on the enemy the game asked for: `grunt = "weaver"` with `weaver = "grunt"` trades the two, it never goes round in circles.
+- Turning an enemy off wins: if `grunt = false`, a grunt swap does nothing (the list warns you). Swapping into an enemy you turned off still makes it, and the list warns you about that too.
+- One enemy per swap for now; a list gives an error.
+- Like `[enemies]`, it works in Evolved, Deadline, Pacifism and King.
+
+Enemies a swap can make: `wanderer`, `grunt`, `weaver`, `spinner`, `repulsar`, `snake` and `duck`. Not `black_hole` or `rocket`: the game hands them details meant for the enemy it asked for (a direction, a flag), so they would come out wrong.
+
+#### The game's unused enemies
+
+The game still has enemies no mode ever uses, and a swap can make them too, by their number in the game's spawner: `type_7`, `type_9`, `type_10`, `type_11`, `type_15`, `type_17`, `type_18`, `type_19`, `type_20`, `type_21`, `type_23`, `type_24` and `type_25`. They have no names because the game never shows them, and they are **untested**: each one ran for half a minute without trouble, but nobody knows how they score, whether they behave, or how many the game can hold. Here is what they looked like:
+
+| | |
+|---|---|
+| `type_7` | pairs of small blue arrowheads |
+| `type_9` | clusters of coloured bubbles that pile up |
+| `type_10` | a small blue spinning atom |
+| `type_11` | big blobs of blue cells |
+| `type_15` | white six-pointed stars |
+| `type_17` | green rounded hexagons |
+| `type_18` | white shapes that shoot orange pellets |
+| `type_19` | long pink zigzags |
+| `type_20` | a small blue star |
+| `type_21`, `type_23`, `type_25` | pink crosses with trails, a pink square, a blue ring |
+| `type_24` | tiny green dots |
+
+`type_14` is left out: it reads a direction the game only gives rockets, and it kills almost instantly.
+
 Text in a mode file is shown with the game's line font, which draws letters, digits and simple punctuation.
 
 A value out of range is brought into range, and the list shows a yellow note about it. A key the game doesn't know, or a value of the wrong type, is an error: nothing is ever silently ignored.
@@ -61,7 +118,7 @@ A value out of range is brought into range, and the list shows a yellow note abo
 The game only knows its six modes, so a custom mode is its base mode's round with changes:
 
 - Each mode's setup function writes a few settings (starting lives and bombs, a time limit) into one block as a round is prepared. A custom mode's values are written straight after it. Before any setup runs, whatever a custom mode changed is put back, so an official round always finds the settings as the game left them.
-- Without gates, the enemy spawner skips its gate pair.
+- Without gates, the enemy spawner skips its gate pair, it skips any enemy `[enemies]` turns off, and it makes a swapped enemy's target instead. The game asks for each enemy by a type number, and none of the places that ask use what they get back, so a skipped enemy is simply never made.
 - The game gives extra ships and bombs only from its kill award, so without them, whatever that award adds is taken back straight away. Bonus bombs are given after each game tick, from the score.
 - Game speed scales the game's step for each tick. Replays record the scaled steps, so they play back exactly.
 - While a custom mode or a replay plays, the profile's unlocks and unlock progress are held as they were before it began.
@@ -70,4 +127,4 @@ A custom mode ends when its round is over and the game is back in its menus, so 
 
 ## What's next
 
-Rules are added one at a time, each checked in the game before it ships. Ideas being looked at: spawn rate and enemy mix, the multiplier, starting shields. Scripting (code that reacts as enemies die or waves arrive) may come later.
+Rules are added one at a time, each checked in the game before it ships, and only listed here once they work. Being looked at next: geoms, the ship's guns, black hole gravity, enemy speed and spawn rate.
