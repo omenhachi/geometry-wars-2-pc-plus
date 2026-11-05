@@ -11,7 +11,6 @@
 #include <rex/logging.h>
 
 #include "camera_rules.h"
-#include "custom_modes.h"
 #include "guest_memory.h"
 #include "player_records.h"
 
@@ -36,6 +35,8 @@ namespace cam = gw2::camera;
 
 constexpr uint32_t kStartState = 0x821993F0;  // 2 while a round is in play (custom_modes.cpp)
 constexpr uint32_t kPlaying = 2;
+// 3 while it is paused: the pause function (sub_82033528) opens the pause menu and sets it, only from 2.
+constexpr uint32_t kPaused = 3;
 constexpr float kBlendSeconds = 0.4f;   // the glide into and out of Chase
 constexpr float kFollowStiffness = 9.0f;  // how quickly the eye catches up with the ship
 // A move this far in one frame is a respawn, not flying: the eye goes straight there instead of swooping across.
@@ -205,8 +206,8 @@ void BeforeTurn(uint8_t* base, uint32_t pad) {
   g_last_left = left;
   g_last_right = right;
 
-  // The code, only on the pause screen: a round is on and the game isn't ticking.
-  const bool paused = LoadBE32(base, kStartState) == kPlaying && !custom_modes::Ticking();
+  // The code, only on the pause screen.
+  const bool paused = LoadBE32(base, kStartState) == kPaused;
   if (paused) {
     std::optional<cam::Press> press;
     if (new_up) press = cam::Press::kUp;
@@ -231,7 +232,7 @@ void BeforeTurn(uint8_t* base, uint32_t pad) {
   const float dt = std::clamp(float(now - g_last_pad_ms) / 1000.0f, 0.0f, 0.1f);
   g_last_pad_ms = now;
   g_pad_fire = g_pad_bomb = false;
-  if (!g_look_on.load(std::memory_order_relaxed)) return;
+  if (!g_look_on.load(std::memory_order_relaxed) || paused) return;  // the pause menu has the pad as it is
   const int16_t rx = int16_t(LoadBE16(base, pad + 8));
   if (std::abs(int32_t(rx)) > kRightDeadZone) AddLook(float(rx) / 32767.0f * kPadTurnRate * dt);
   g_pad_fire = base[pad + 3] > kTriggerPress;
@@ -243,7 +244,7 @@ void BeforeTurn(uint8_t* base, uint32_t pad) {
 }
 
 void AfterTurn(uint8_t* base, uint32_t pad) {
-  if (!g_look_on.load(std::memory_order_relaxed)) return;
+  if (!g_look_on.load(std::memory_order_relaxed) || LoadBE32(base, kStartState) != kPlaying) return;
   if (g_pad_fire) {  // straight ahead, as the arena has it (the sticks were turned already)
     const float yaw = LookYaw();
     StoreBE<int16_t>(base, pad + 8, int16_t(std::lround(std::cos(yaw) * 32767.0f)));
@@ -301,8 +302,10 @@ void OnGameplayView(uint8_t* base, uint32_t out, const aim::Mat4& world) {
                        : std::chrono::duration<float>(now - g_last_frame).count();
   g_last_frame = now;
 
-  // Chase only while a round is in play with one player; menus, Game Over and multiplayer keep the game's camera.
-  const bool playing = LoadBE32(base, kStartState) == kPlaying &&
+  // Chase only while a round is in play (or paused, so the view holds still under the pause menu) with one player;
+  // menus, Game Over and multiplayer keep the game's camera.
+  const uint32_t state = LoadBE32(base, kStartState);
+  const bool playing = (state == kPlaying || state == kPaused) &&
                        LoadBE32(base, players::kPlayerCountAddress) == 1;
   const float target = ChaseChosen() && playing ? 1.0f : 0.0f;
   g_blend = cam::StepBlend(g_blend, target, std::clamp(dt, 0.0f, 0.1f), kBlendSeconds);
