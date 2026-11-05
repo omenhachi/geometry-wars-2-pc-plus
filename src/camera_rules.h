@@ -197,4 +197,45 @@ struct StickLatch {
   }
 };
 
+// The secret views, cycled by the Konami code on the pause screen: classic, the chase camera you turn yourself, then
+// first person, then classic again.
+enum class SecretView : uint8_t { kClassic, kChase, kFirstPerson };
+inline SecretView NextView(SecretView v) {
+  return v == SecretView::kClassic ? SecretView::kChase
+         : v == SecretView::kChase ? SecretView::kFirstPerson
+                                   : SecretView::kClassic;
+}
+
+// The code: Up Up Down Down Left Right Left Right X Y (X Y in place of B A, which close the pause menu and pick in it),
+// from the pad's new presses. A wrong press starts again (counting itself if it is a first Up); too long a gap between
+// presses starts again too.
+enum class Press : uint8_t { kUp, kDown, kLeft, kRight, kX, kY, kOther };
+
+class KonamiCode {
+ public:
+  static constexpr std::array<Press, 10> kCode = {Press::kUp,    Press::kUp,   Press::kDown,  Press::kDown, Press::kLeft,
+                                                  Press::kRight, Press::kLeft, Press::kRight, Press::kX,    Press::kY};
+  static constexpr double kGapSeconds = 2.0;
+
+  // A new press at `seconds`; true when it finishes the code.
+  bool Feed(Press press, double seconds) {
+    if (at_ > 0 && seconds - last_ > kGapSeconds) at_ = 0;
+    last_ = seconds;
+    if (press == kCode[at_]) {
+      if (++at_ == kCode.size()) {
+        at_ = 0;
+        return true;
+      }
+      return false;
+    }
+    // Up Up Up still counts as the start of the code: the last two are its first two.
+    at_ = press == Press::kUp ? (at_ == 2 ? 2 : 1) : 0;
+    return false;
+  }
+
+ private:
+  size_t at_ = 0;
+  double last_ = 0;
+};
+
 }  // namespace gw2::camera

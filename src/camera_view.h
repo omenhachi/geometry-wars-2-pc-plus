@@ -30,6 +30,16 @@ float LookPerPixel();
 bool LookHoldsMouse();
 float LookYaw();
 
+// The Konami code on the pause screen (Up Up Down Down Left Right Left Right X Y) cycles the secret views: the chase
+// camera you turn yourself, first person, then classic. For this session only. BeforeTurn reads it, and in look mode
+// takes the controller's right stick (turning the view) and triggers; AfterTurn, once the sticks are turned, fires
+// ahead on RT and bombs on LT. Both on the pad of XamInputGetState's gamepad at `pad`.
+void BeforeTurn(uint8_t* base, uint32_t pad);
+void AfterTurn(uint8_t* base, uint32_t pad);
+// The secret view now (0 classic, 1 chase, 2 first person), and how long ago it last changed, in milliseconds.
+uint8_t SecretViewNow();
+int64_t SecretChangedMs();
+
 // Look mode's edge arrows: the enemies on the arena, gathered on the game's thread each frame look mode shows.
 struct Blip {
   float x, y;

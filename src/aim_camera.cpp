@@ -28,6 +28,7 @@
 #include "king_records.h"
 #include "launcher_cvars.h"
 #include "launcher_settings.h"
+#include "line_font.h"
 #include "player_records.h"
 #include "window_host.h"
 
@@ -203,8 +204,11 @@ REX_HOOK_RAW(__imp__XamInputGetState) {
   const int64_t now = Ticks(Clock::now());
   // The gamepad follows the 4-byte packet number: buttons, triggers, then the four stick axes.
   const uint32_t pad = state_ptr + 4;
+  // The Konami code, and look mode's controller (the right stick turns the view, RT fires, LT bombs).
+  gw2::camera_view::BeforeTurn(base, pad);
   // Chase facing another way: the sticks turn with it. The mouse below aims on the arena itself, so it isn't turned.
   gw2::camera_view::TurnSticks(base, pad);
+  gw2::camera_view::AfterTurn(base, pad);
   if (now < g_pulse_until.load(std::memory_order_relaxed)) {
     const uint16_t buttons = gw2::LoadBE16(base, pad) | g_pulse_buttons.load(std::memory_order_relaxed);
     gw2::StoreBE<uint16_t>(base, pad, buttons);
@@ -401,6 +405,7 @@ class MouseAimOverlay final : public rex::ui::ImGuiDialog {
 
     const double canvas_aspect = CanvasAspect(ParseAspectRatio(REXCVAR_GET(gw2_aspect_ratio)));
     const aim::Rect canvas = aim::FitCanvas(io.DisplaySize.x, io.DisplaySize.y, canvas_aspect);
+    DrawSecretBanner(canvas);
     if (REXCVAR_GET(gw2_aim_debug) && in_round) {
       DrawDebug(state, canvas);
     }
@@ -490,6 +495,32 @@ class MouseAimOverlay final : public rex::ui::ImGuiDialog {
   }
 
  private:
+  // The Konami code's banner: which view it chose, big and loud in the middle of the screen for a moment.
+  void DrawSecretBanner(const aim::Rect& canvas) {
+    const int64_t ago = camera_view::SecretChangedMs();
+    if (ago < 0 || ago > 2600) return;
+    const uint8_t view = camera_view::SecretViewNow();
+    const char* title = view == 1 ? "Chase cam" : view == 2 ? "First person" : "Classic view";
+    const char* note = view == 0 ? "" : "Turn with the right stick or the mouse";
+    const float t = float(ago) / 1000.0f;
+    const float alpha = std::clamp(std::min(t / 0.15f, (2.6f - t) / 0.5f), 0.0f, 1.0f);
+    const float pop = 1.0f + 0.25f * std::max(0.0f, 1.0f - t / 0.25f);
+    ImDrawList* draw = ImGui::GetForegroundDrawList();
+    const float size = canvas.height * 0.085f * pop;
+    const float w = line_font::GameWidth(title, size);
+    const ImVec2 at(canvas.x + (canvas.width - w) * 0.5f, canvas.y + canvas.height * 0.36f);
+    const float hue = std::fmod(float(t) * 0.6f, 1.0f);
+    for (int glow = 3; glow >= 1; --glow) {
+      line_font::GameText(draw, at, size, title, Neon(hue, 0.0f, 0.18f * alpha), size * 0.06f * float(glow) * 2.0f);
+    }
+    line_font::GameText(draw, at, size, title, Neon(hue, 0.55f, alpha), std::max(2.0f, size * 0.06f));
+    if (*note) {
+      const float ns = canvas.height * 0.03f;
+      line_font::GameText(draw, ImVec2(canvas.x + (canvas.width - line_font::GameWidth(note, ns)) * 0.5f, at.y + size * 1.5f),
+                          ns, note, Neon(0.0f, 0.85f, 0.9f * alpha), std::max(1.0f, ns * 0.07f));
+    }
+  }
+
   // Look mode's edge arrows: each enemy off the screen gets an arrow at the screen's edge, pointing its way from the
   // ship, bigger and brighter the closer it is. The nearest dozen, so a swarm reads as a direction, not a wall.
   void DrawEdgeArrows(const aim::State& state, const aim::Rect& canvas) {

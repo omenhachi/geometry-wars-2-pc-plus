@@ -4,6 +4,7 @@
 
 #include <cmath>
 #include <cstdio>
+#include <initializer_list>
 #include <utility>
 
 #include "aim_camera.h"
@@ -210,6 +211,41 @@ void Latching() {
   CHECK(!small.held);
 }
 
+void Konami() {
+  using P = Press;
+  const auto enter = [](KonamiCode& code, double& t, std::initializer_list<P> presses) {
+    bool done = false;
+    for (const P p : presses) {
+      t += 0.3;
+      done = code.Feed(p, t);
+    }
+    return done;
+  };
+  const std::initializer_list<P> full = {P::kUp,    P::kUp,   P::kDown,  P::kDown, P::kLeft,
+                                         P::kRight, P::kLeft, P::kRight, P::kX,    P::kY};
+  KonamiCode code;
+  double t = 0;
+  CHECK(enter(code, t, full));
+  CHECK(enter(code, t, full));  // again, straight after
+  // B A (the original ending) doesn't do it.
+  CHECK(!enter(code, t, {P::kUp, P::kUp, P::kDown, P::kDown, P::kLeft, P::kRight, P::kLeft, P::kRight, P::kOther, P::kOther}));
+  // A stray press starts again; an extra Up at the start still counts.
+  CHECK(!enter(code, t, {P::kUp, P::kUp, P::kDown, P::kX}));
+  CHECK(enter(code, t, full));
+  CHECK(enter(code, t, {P::kUp, P::kUp, P::kUp, P::kDown, P::kDown, P::kLeft, P::kRight, P::kLeft, P::kRight, P::kX, P::kY}));
+  // Too slow between presses starts again.
+  KonamiCode slow;
+  double s = 0;
+  CHECK(!enter(slow, s, {P::kUp, P::kUp, P::kDown, P::kDown}));
+  s += 5.0;
+  CHECK(!enter(slow, s, {P::kLeft, P::kRight, P::kLeft, P::kRight, P::kX, P::kY}));
+  CHECK(enter(slow, s, full));
+  // The views go round.
+  CHECK(NextView(SecretView::kClassic) == SecretView::kChase);
+  CHECK(NextView(SecretView::kChase) == SecretView::kFirstPerson);
+  CHECK(NextView(SecretView::kFirstPerson) == SecretView::kClassic);
+}
+
 }  // namespace
 
 int main() {
@@ -220,6 +256,7 @@ int main() {
   Following();
   Turning();
   Latching();
+  Konami();
   std::printf("camera_rules_tests: %d checks, %d failures\n", g_checks, g_failures);
   return g_failures == 0 ? 0 : 1;
 }

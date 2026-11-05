@@ -11,6 +11,7 @@
 #include <rex/logging.h>
 
 #include "camera_rules.h"
+#include "custom_modes.h"
 #include "guest_memory.h"
 #include "player_records.h"
 
@@ -22,6 +23,8 @@ REXCVAR_DEFINE_STRING(gw2_dev_chase_turn, "", "Geometry Wars",
 REXCVAR_DEFINE_INT32(gw2_dev_look_speed, 40, "Geometry Wars", "Look mode: turn per mouse pixel, in 1/10000 radian");
 REXCVAR_DEFINE_BOOL(gw2_dev_look_mouse, true, "Geometry Wars",
                     "Look mode: the mouse turns the view (false: never hold the cursor, for automated tests)");
+REXCVAR_DEFINE_STRING(gw2_dev_secret_view, "", "Geometry Wars",
+                      "Testing: start in a secret view (chase or first), as if the Konami code had been entered");
 REXCVAR_DEFINE_INT32(gw2_dev_chase_behind, 0, "Geometry Wars", "Chase tuning for testing: eye distance behind (0: as shipped)");
 REXCVAR_DEFINE_INT32(gw2_dev_chase_height, 0, "Geometry Wars", "Chase tuning for testing: eye height (0: as shipped)");
 REXCVAR_DEFINE_INT32(gw2_dev_chase_ahead, 0, "Geometry Wars", "Chase tuning for testing: look-ahead (0: as shipped)");
@@ -91,14 +94,36 @@ float g_last_x = 0.0f, g_last_y = 0.0f;
 std::chrono::steady_clock::time_point g_last_frame{};
 std::chrono::steady_clock::time_point g_last_log{};
 
+// The secret view, chosen with the Konami code on the pause screen, for this session only.
+std::atomic<uint8_t> g_secret{uint8_t(cam::SecretView::kClassic)};
+std::atomic<int64_t> g_secret_changed_ms{-100000};
+
+int64_t NowMs() {
+  return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
+      .count();
+}
+
+cam::SecretView Secret() {
+  static const bool from_cvar = [] {
+    const std::string start = REXCVAR_GET(gw2_dev_secret_view);
+    if (start == "chase") g_secret.store(uint8_t(cam::SecretView::kChase));
+    if (start == "first") g_secret.store(uint8_t(cam::SecretView::kFirstPerson));
+    return true;
+  }();
+  (void)from_cvar;
+  return cam::SecretView(g_secret.load(std::memory_order_relaxed));
+}
+
 bool LookChosen() {
-  return REXCVAR_GET(gw2_dev_chase_turn) == "look";
+  return REXCVAR_GET(gw2_dev_chase_turn) == "look" || Secret() != cam::SecretView::kClassic;
 }
 
 cam::ChaseTuning Tuning() {
   cam::ChaseTuning t;
-  // Look mode sits low and close behind the ship, so what's near is big and the far arena stays out of sight.
+  // Look mode sits low and close behind the ship, so what's near is big and the far arena stays out of sight. First
+  // person sits just above the ship itself, looking ahead.
   if (LookChosen()) t = {150.0f, 220.0f, 40.0f};
+  if (Secret() == cam::SecretView::kFirstPerson) t = {0.0f, 28.0f, 260.0f};
   if (const int v = REXCVAR_GET(gw2_dev_chase_behind)) t.behind = float(v);
   if (const int v = REXCVAR_GET(gw2_dev_chase_height)) t.height = float(v);
   if (const int v = REXCVAR_GET(gw2_dev_chase_ahead)) t.ahead = float(v);
@@ -106,8 +131,21 @@ cam::ChaseTuning Tuning() {
 }
 
 bool ChaseChosen() {
-  return REXCVAR_GET(gw2_camera) == "chase" || REXCVAR_GET(gw2_dev_camera) == "chase";
+  return REXCVAR_GET(gw2_camera) == "chase" || REXCVAR_GET(gw2_dev_camera) == "chase" ||
+         Secret() != cam::SecretView::kClassic;
 }
+
+// The Konami code, read from new presses while a round is paused.
+cam::KonamiCode g_code;
+uint16_t g_last_buttons = 0;
+bool g_last_up = false, g_last_down = false, g_last_left = false, g_last_right = false;
+// Look mode on a controller: what the triggers asked for this poll (BeforeTurn), applied after the sticks turn.
+bool g_pad_fire = false, g_pad_bomb = false;
+int64_t g_last_pad_ms = 0;
+constexpr int32_t kStickPress = 16000;    // a stick flick that counts as a press for the code
+constexpr int32_t kRightDeadZone = 8689;  // XInput's own for the right stick
+constexpr float kPadTurnRate = 3.0f;      // radians a second, with the right stick all the way over
+constexpr uint8_t kTriggerPress = 64;
 
 void LogNumbers(const cam::Pose& pose, const aim::Mat4& view, float ship_x, float ship_y) {
   const auto now = std::chrono::steady_clock::now();
@@ -139,6 +177,75 @@ void ObservePlayer(float x, float y, float heading, float vx, float vy) {
 
 bool LookActive() {
   return g_look_on.load(std::memory_order_relaxed);
+}
+
+uint8_t SecretViewNow() {
+  return uint8_t(Secret());
+}
+
+int64_t SecretChangedMs() {
+  return NowMs() - g_secret_changed_ms.load(std::memory_order_relaxed);
+}
+
+void BeforeTurn(uint8_t* base, uint32_t pad) {
+  const uint16_t buttons = LoadBE16(base, pad);
+  const int16_t lx = int16_t(LoadBE16(base, pad + 4)), ly = int16_t(LoadBE16(base, pad + 6));
+  const bool up = (buttons & 0x0001) || ly > kStickPress, down = (buttons & 0x0002) || ly < -kStickPress;
+  const bool left = (buttons & 0x0004) || lx < -kStickPress, right = (buttons & 0x0008) || lx > kStickPress;
+  const uint16_t pressed = uint16_t(buttons & ~g_last_buttons);
+  const bool new_up = up && !g_last_up, new_down = down && !g_last_down;
+  const bool new_left = left && !g_last_left, new_right = right && !g_last_right;
+  g_last_buttons = buttons;
+  g_last_up = up;
+  g_last_down = down;
+  g_last_left = left;
+  g_last_right = right;
+
+  // The code, only on the pause screen: a round is on and the game isn't ticking.
+  const bool paused = LoadBE32(base, kStartState) == kPlaying && !custom_modes::Ticking();
+  if (paused) {
+    std::optional<cam::Press> press;
+    if (new_up) press = cam::Press::kUp;
+    else if (new_down) press = cam::Press::kDown;
+    else if (new_left) press = cam::Press::kLeft;
+    else if (new_right) press = cam::Press::kRight;
+    else if (pressed & 0x4000) press = cam::Press::kX;
+    else if (pressed & 0x8000) press = cam::Press::kY;
+    else if (pressed) press = cam::Press::kOther;
+    if (press && g_code.Feed(*press, double(NowMs()) / 1000.0)) {
+      const cam::SecretView next = cam::NextView(Secret());
+      g_secret.store(uint8_t(next), std::memory_order_relaxed);
+      g_secret_changed_ms.store(NowMs(), std::memory_order_relaxed);
+      REXLOG_INFO("Camera: the Konami code: {}", next == cam::SecretView::kChase       ? "chase camera"
+                                                 : next == cam::SecretView::kFirstPerson ? "first person"
+                                                                                         : "classic view");
+    }
+  }
+
+  // Look mode on a controller: the right stick turns the view, RT fires ahead and LT bombs.
+  const int64_t now = NowMs();
+  const float dt = std::clamp(float(now - g_last_pad_ms) / 1000.0f, 0.0f, 0.1f);
+  g_last_pad_ms = now;
+  g_pad_fire = g_pad_bomb = false;
+  if (!g_look_on.load(std::memory_order_relaxed)) return;
+  const int16_t rx = int16_t(LoadBE16(base, pad + 8));
+  if (std::abs(int32_t(rx)) > kRightDeadZone) AddLook(float(rx) / 32767.0f * kPadTurnRate * dt);
+  g_pad_fire = base[pad + 3] > kTriggerPress;
+  g_pad_bomb = base[pad + 2] > kTriggerPress;
+  StoreBE<int16_t>(base, pad + 8, 0);
+  StoreBE<int16_t>(base, pad + 10, 0);
+  base[pad + 2] = 0;
+  base[pad + 3] = 0;
+}
+
+void AfterTurn(uint8_t* base, uint32_t pad) {
+  if (!g_look_on.load(std::memory_order_relaxed)) return;
+  if (g_pad_fire) {  // straight ahead, as the arena has it (the sticks were turned already)
+    const float yaw = LookYaw();
+    StoreBE<int16_t>(base, pad + 8, int16_t(std::lround(std::cos(yaw) * 32767.0f)));
+    StoreBE<int16_t>(base, pad + 10, int16_t(std::lround(-std::sin(yaw) * 32767.0f)));
+  }
+  if (g_pad_bomb) base[pad + 3] = 255;  // the game bombs on the right trigger
 }
 
 std::vector<Blip> Enemies() {
@@ -216,7 +323,7 @@ void OnGameplayView(uint8_t* base, uint32_t out, const aim::Mat4& world) {
   }
 
   // Which way it faces: up the arena, into the arena, or the ship's way.
-  const std::string turn = REXCVAR_GET(gw2_dev_chase_turn);
+  const std::string turn = LookChosen() ? std::string("look") : REXCVAR_GET(gw2_dev_chase_turn);
   if (turn == "look") {
     g_yaw.yaw = g_look_yaw.load(std::memory_order_relaxed);
   } else if (turn == "arena") {
