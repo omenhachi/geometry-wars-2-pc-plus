@@ -27,7 +27,7 @@ set(GW2_TRG_LAUNCHER_DIR "$ENV{GW2_TRG_LAUNCHER_DIR}" CACHE PATH
 
 # Upstream TRG is immutable. Every build compiles a patched copy under the
 # binary directory; the submodule checkout must stay at the pinned revision.
-set(GW2_TRG_LAUNCHER_REVISION "b384a28c712c9320eea8f9d50639dec49981b6c1")
+set(GW2_TRG_LAUNCHER_REVISION "1a6ef302c9102f9d21887b4d5ef159b3cc36ab64")
 set(GW2_TRG_LAUNCHER_PATCH_DIR "${CMAKE_CURRENT_SOURCE_DIR}/patches/trg-launcher")
 set(GW2_TRG_LAUNCHER_PATCH_STAMP_VERSION 2)
 file(GLOB _trg_patch_names CONFIGURE_DEPENDS RELATIVE "${GW2_TRG_LAUNCHER_PATCH_DIR}"

@@ -716,7 +716,7 @@ TRG Launcher 1.1.0
 ========================================================================
 
 Source: https://github.com/TekRantGaming/trg-launcher
-Pinned revision: b384a28c712c9320eea8f9d50639dec49981b6c1
+Pinned revision: 1a6ef302c9102f9d21887b4d5ef159b3cc36ab64
 
 The referenced revision does not include an explicit license file.
 
