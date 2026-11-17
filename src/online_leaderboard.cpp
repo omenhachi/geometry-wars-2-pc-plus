@@ -458,13 +458,14 @@ bool SharesReplays() {
 }
 
 std::optional<Race> CouncilFor(uint32_t board) {
-  if (!Enabled() || !REXCVAR_GET(gw2_show_race) || board >= boards::kBoards) return std::nullopt;
+  if (!Enabled() || board >= boards::kBoards) return std::nullopt;
   std::optional<Race> race;
   {
     std::lock_guard lock(g_race_mutex);
     race = g_races[board];
   }
   if (!race) return std::nullopt;
+  if (!race->beaten_by.empty()) return race;  // the first past the line: a permanent spot, for everyone to see
   const progression::State state = progression::Snapshot();
   if (progression::TierOf(state, board) < progression::Tier::kNeon) return std::nullopt;
   return race;

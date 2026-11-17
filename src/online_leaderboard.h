@@ -64,9 +64,13 @@ std::optional<Race> ParseRace(std::string_view json);
 inline constexpr uint64_t kCouncilXuid = kOnlineXuidTag | 0x0000FFFF'FFFFFFFFull;
 // Its name on the row, the race line in short: "RACE TO 332M", "RACE TO 23.5B" (at most 13 characters).
 std::string RaceName(uint64_t line);
-// The board's race, when the leaderboard screen should show THE COUNCIL: online, the setting on, a race on that board,
-// and the player Neon or higher there (the Pilot tier).
+// The board's race, when the leaderboard screen should show its row above #1: online and a race on that board, and
+// either someone has beaten it (their permanent spot, shown to everyone) or the player is Neon or higher there.
 std::optional<Race> CouncilFor(uint32_t board);
+// The row's name: "RACE TO 332M", or the first player past the line, for good.
+inline std::string CouncilRowName(const Race& race) {
+  return race.beaten_by.empty() ? RaceName(race.line) : race.beaten_by;
+}
 
 // A board from the server's JSON ({total, rows: [{rank, id, name, score}]}). The row whose id is `my_id` takes
 // `my_xuid`, so the game highlights it as the player's own. Nullopt when the answer is not a board.

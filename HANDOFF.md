@@ -63,8 +63,9 @@ Read this first. The user ran low on tokens mid-build; everything below is the t
    rerolls by value, not index; `MarkAnnounced` after a link merge + one line "Pilots joined: level N"; launcher shows
    "not syncing (online leaderboards are off)" rather than a stale time. Put with version CAS; 409 → refetch, merge again.
 3. **THE COUNCIL row: the first step works** (commit `48e300a`). `online::CouncilFor` in online_leaderboard.cpp and
-   the insert in live_fix.cpp's ranked enumeration (first page only, rank 0, id `kCouncilXuid`); setting
-   `gw2_show_race` (launcher: Online > "The race"). Seen in the game above ApeBoks on Deadline > Overall, with the
+   the insert in live_fix.cpp's ranked enumeration (first page only, rank 0, id `kCouncilXuid`). No setting (the user:
+   "it's competitive and for the best"). Once someone is approved past the line, the row becomes their name, above
+   #1 for good and shown to everyone (`CouncilRowName`; that state is server-tested only, not yet seen in the game). Seen in the game above ApeBoks on Deadline > Overall, with the
    top-tier badge. Its name is now "RACE TO 332M" (`online::RaceName`; the game shows no rank or score for a rank-0
    row, so the line lives in the name; seen in the game). **To do:** pressing it says "View Gamer Card" (hook sub_82094DF0 for
    kCouncilXuid: a cryptic line, and rename the button); the defeated and plaque states; the rainbow (research).
