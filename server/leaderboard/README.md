@@ -77,6 +77,24 @@ So a fake never reaches the community before someone has looked at it. Point bot
 moments there. Nothing is posted for a rejection or a hidden player, and mentions are off, so no message can ping
 anyone. For local tests, put them in `.dev.vars` (wrangler's `--var` mangles a value with colons, like a URL).
 
+### THE COUNCIL: the race
+
+Every board except Master Evolved has a race to its review line. A board's answer carries `race: {line}`, and once a
+reviewer approves a run past the line, `race.beaten: {name, score, at}` for the first one, kept for good (the
+`records` table): the game's rainbow THE COUNCIL row and its "bested by" plaque. `POST /v1/me {token}` tells a player
+their own runs with the council: waiting, or not confirmed, unless the panel's switch says to stay silent.
+
+### Linked PCs and Pilot progress
+
+One profile on every PC, with nothing secret moving between them: each PC keeps its own token, and `devices` records
+that a PC plays as another profile. `/v1/link/code` makes a 7-character code (10 minutes, one use, stored hashed);
+`/v1/link/claim` joins it, bringing the claiming PC's higher bests with their replays and verified marks, and refuses
+while either profile is hidden or has a run waiting. Wrong codes are counted across the whole server, never by IP.
+`/v1/link/devices` and `/v1/link/remove` list and remove linked PCs. `/v1/pilot/get` and `/v1/pilot/put` keep the
+profile's Pilot save (the game's own progression.toml, at most 64 KB) with a version number: a write must name the
+version it read, so two PCs never overwrite each other. The game does the merging. Deleting a player from any PC deletes
+the whole profile, its linked PCs, Pilot save and plaques.
+
 ### Updating a database made before score review
 
 Once, then `schema.sql` as usual (it adds the new tables, and is safe to run again):

@@ -476,7 +476,22 @@ async function downloadBoard(p, s, button) {
 
 // ---- limits and log
 
+async function saveTell() {
+  const box = $("tell-rejected");
+  const note = $("tell-note");
+  try {
+    await apiJson("/settings", { method: "PUT", body: JSON.stringify({ tell_rejected: box.checked }) });
+    note.textContent = box.checked ? "Players will be told, once, gently." : "The council stays silent.";
+    note.className = "note good";
+  } catch (e) {
+    box.checked = !box.checked;
+    note.textContent = e.message;
+    note.className = "note bad";
+  }
+}
+
 function renderLimits() {
+  $("tell-rejected").checked = state.settings?.tell_rejected !== false;
   const box = $("limits");
   box.replaceChildren();
   state.limits.forEach((limit, mode) => {
@@ -535,6 +550,7 @@ document.addEventListener("DOMContentLoaded", () => {
   $("player-go").addEventListener("click", searchPlayers);
   $("player-q").addEventListener("keydown", (e) => { if (e.key === "Enter") searchPlayers(); });
   $("limits-save").addEventListener("click", saveLimits);
+  $("tell-rejected").addEventListener("change", saveTell);
   const saved = loadKey();
   if (saved) signIn(saved);
   else showSignIn();

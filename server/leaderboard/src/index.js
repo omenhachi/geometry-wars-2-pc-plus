@@ -6,6 +6,7 @@
 //   POST   /v1/replays/:mode   Authorization: Bearer <token>, a .gw2demo   the replay of the player's best run
 //   POST   /v1/replays/wanted  {token}                                     the bests the server would take a replay of
 //   GET    /v1/replays/:mode/:id                                           that player's replay, as uploaded
+//   POST   /v1/link/..., /v1/pilot/..., /v1/me                            linked PCs and Pilot progress (src/link.js)
 //   GET    /admin                                                          the reviewers' panel (src/admin.js)
 //   *      /v1/admin/...       Authorization: Bearer <admin key>           its API (src/admin.js)
 //
@@ -17,6 +18,7 @@
 
 import { handleAdmin, adminAsset } from "./admin.js";
 import { announcePassed } from "./discord.js";
+import { handleLink } from "./link.js";
 
 // 0-5 the game's own modes (Deadline, Evolved, Sequence, Waves, Pacifism, King), then PC Plus's own Master modes:
 // 6 Master Deadline, 7 Master Evolved, 8 Master Pacifism (src/boards.h in the game).
@@ -61,6 +63,8 @@ const REPLAY_REQUIRED_RANKS = 10;
 // What the review queue can hold, so made-up tokens can't fill the database or bury the reviewers: runs waiting at
 // once, and replay bytes kept for them. Past either, a run is answered as usual but nothing is kept.
 const MAX_WAITING = 25;
+// Boards with a race to their review line: THE COUNCIL waits at it. Not Master Evolved, which has no line of its own.
+const RACE_BOARDS = new Set([0, 1, 2, 3, 4, 5, 6, 8]);
 const MAX_REVIEW_BYTES = 100 << 20;
 // Replays are kept for the top of each board only, and taken only from builds that ask before sharing them.
 const REPLAY_RANKS = 50;
@@ -84,9 +88,22 @@ export function error(status, message) {
   return json({ error: message }, status);
 }
 
-export async function publicId(token) {
+export async function tokenHash(token) {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token));
-  return [...new Uint8Array(digest)].slice(0, 8).map((b) => b.toString(16).padStart(2, "0")).join("");
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+// A PC's own public id: the first 16 hex digits of its token's SHA-256.
+export async function publicId(token) {
+  return (await tokenHash(token)).slice(0, 16);
+}
+
+// The profile a PC plays as: the one it was linked to (`devices`), else its own public id. Linking never moves a token,
+// so nothing secret leaves a PC, and every player who never linked is exactly as before.
+export async function profileId(env, token) {
+  const hash = await tokenHash(token);
+  const linked = await env.DB.prepare("SELECT player_id FROM devices WHERE token_hash = ?").bind(hash).first();
+  return linked?.player_id ?? hash.slice(0, 16);
 }
 
 function versionAllowed(version, minimum) {
@@ -120,7 +137,7 @@ async function submitScore(request, env, ctx) {
     return error(426, "please update Geometry Wars 2 PC Plus");
   }
 
-  const id = await publicId(token);
+  const id = await profileId(env, token);
   // Exactly another player's best, with its replay kept: a replay watched to its end, sent as the viewer's own by an
   // older build or a changed one. Real runs never tie to the point.
   const copied = await env.DB.prepare(
@@ -207,6 +224,12 @@ async function holdForReview(env, ctx, { id, name, mode, score, input, version, 
   return json({ id, best: boardBest, replay: true, review: true });
 }
 
+async function race(env, mode) {
+  const line = (await reviewLimits(env))[mode];
+  const record = await env.DB.prepare("SELECT name, score, approved FROM records WHERE mode = ?").bind(mode).first();
+  return { line, ...(record ? { beaten: { name: record.name, score: record.score, at: record.approved } } : {}) };
+}
+
 // The order a board shows: by score, except that its top REPLAY_REQUIRED_RANKS places hold only scores with proof (a
 // kept replay, or `verified` by a reviewer). A score without waits just below them (in score order) until it has.
 export function replayFirst(rows) {
@@ -235,6 +258,8 @@ async function readBoard(mode, url, env) {
   return json({
     mode,
     total: all.length,
+    // THE COUNCIL: the race line, and once someone has been approved past it, who first did ("bested by").
+    ...(RACE_BOARDS.has(mode) ? { race: await race(env, mode) } : {}),
     // `replay`: the game package its replay was recorded on, when there is one.
     rows: results.map((row, i) => ({
       rank: from + i,
@@ -330,7 +355,7 @@ async function uploadReplay(request, env, mode) {
   const bytes = new Uint8Array(await request.arrayBuffer());
   if (bytes.length === 0 || bytes.length > MAX_REPLAY_BYTES) return error(413, "replay too large");
 
-  const id = await publicId(token);
+  const id = await profileId(env, token);
   // A run waiting for review wants its replay first: the reviewers watch it.
   const review = await reviewWanted(env, id, mode);
   const best = review ? null : await replayWanted(env, id, mode);
@@ -373,7 +398,7 @@ async function uploadReplay(request, env, mode) {
 async function wantedReplays(request, env) {
   const body = await readJson(request);
   if (!body || typeof body.token !== "string" || !TOKEN.test(body.token)) return error(400, "bad token");
-  const id = await publicId(body.token);
+  const id = await profileId(env, body.token);
   const wanted = [];
   for (let mode = 0; mode < MODES; mode++) {
     const review = await reviewWanted(env, id, mode);
@@ -448,12 +473,17 @@ async function downloadReplay(env, mode, id) {
 async function deletePlayer(request, env) {
   const body = await readJson(request);
   if (!body || typeof body.token !== "string" || !TOKEN.test(body.token)) return error(400, "bad token");
-  const id = await publicId(body.token);
+  const id = await profileId(env, body.token);
   await env.DB.batch([
     env.DB.prepare("DELETE FROM replay_pieces WHERE player_id = ?").bind(id),
     env.DB.prepare("DELETE FROM replays WHERE player_id = ?").bind(id),
     env.DB.prepare("DELETE FROM review_pieces WHERE player_id = ?").bind(id),
     env.DB.prepare("DELETE FROM reviews WHERE player_id = ?").bind(id),
+    // Linked PCs, codes, Pilot progress and plaques too: deleting from any PC deletes the whole profile.
+    env.DB.prepare("DELETE FROM devices WHERE player_id = ?").bind(id),
+    env.DB.prepare("DELETE FROM link_codes WHERE player_id = ?").bind(id),
+    env.DB.prepare("DELETE FROM pilot WHERE player_id = ?").bind(id),
+    env.DB.prepare("DELETE FROM records WHERE player_id = ?").bind(id),
     env.DB.prepare("DELETE FROM scores WHERE player_id = ?").bind(id),
     env.DB.prepare("DELETE FROM players WHERE id = ?").bind(id),
   ]);
@@ -487,6 +517,9 @@ async function route(request, env, url, ctx) {
     const replay = /^\/v1\/replays\/(\d)\/([0-9a-f]{16})$/.exec(url.pathname);
     if (replay && request.method === "GET") return await downloadReplay(env, Number(replay[1]), replay[2]);
     if (url.pathname.startsWith("/v1/admin/")) return await handleAdmin(request, env, url, ctx);
+    if (url.pathname.startsWith("/v1/link/") || url.pathname.startsWith("/v1/pilot/") || url.pathname === "/v1/me") {
+      return await handleLink(request, env, url);
+    }
     if (request.method === "GET") {
       const asset = adminAsset(url.pathname);
       if (asset) return asset;

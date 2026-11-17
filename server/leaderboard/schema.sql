@@ -90,3 +90,43 @@ CREATE TABLE IF NOT EXISTS admin_log (
   score INTEGER,
   detail TEXT
 );
+
+-- Linked PCs: a PC whose token is linked plays as another profile. Every PC keeps its own token (nothing secret moves);
+-- a PC with no row here plays as its own public id. device_id names a row to remove; it is random, never the PC's name.
+CREATE TABLE IF NOT EXISTS devices (
+  token_hash TEXT PRIMARY KEY,       -- the full SHA-256 of the PC's token
+  player_id TEXT NOT NULL,
+  device_id TEXT NOT NULL UNIQUE,
+  linked INTEGER NOT NULL
+);
+
+-- A code another PC can claim to join a profile: 10 minutes, one use, stored hashed. One per profile.
+CREATE TABLE IF NOT EXISTS link_codes (
+  player_id TEXT PRIMARY KEY,
+  code_hash TEXT NOT NULL UNIQUE,
+  expires INTEGER NOT NULL
+);
+
+-- Wrong codes, counted per minute across the whole server: past a few hundred, claims wait a minute. No IPs.
+CREATE TABLE IF NOT EXISTS link_failures (
+  minute INTEGER PRIMARY KEY,
+  n INTEGER NOT NULL
+);
+
+-- A profile's Pilot progress, as the game's own progression.toml text. The server never reads it: the game merges and
+-- checks it. `version` goes up by one with every write, and a write must name the version it read.
+CREATE TABLE IF NOT EXISTS pilot (
+  player_id TEXT PRIMARY KEY,
+  version INTEGER NOT NULL,
+  save TEXT NOT NULL,
+  updated INTEGER NOT NULL
+);
+
+-- The first approved run past a board's race line: THE COUNCIL's plaque, "bested by NAME", for good.
+CREATE TABLE IF NOT EXISTS records (
+  mode INTEGER PRIMARY KEY,
+  player_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  score INTEGER NOT NULL,
+  approved INTEGER NOT NULL
+);

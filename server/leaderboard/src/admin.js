@@ -74,6 +74,7 @@ export async function handleAdmin(request, env, url, ctx) {
   if (path === "/me" && method === "GET") return json({ name: admin, boards: BOARDS });
   if (path === "/reviews" && method === "GET") return await listReviews(env);
   if (path === "/limits" && method === "PUT") return await setLimits(request, env, admin);
+  if (path === "/settings" && method === "PUT") return await setSettings(request, env, admin);
   if (path === "/players" && method === "GET") return await findPlayers(env, url.searchParams.get("q") ?? "");
 
   let m = /^\/reviews\/(\d)\/([0-9a-f]{16})\/replay$/.exec(path);
@@ -117,7 +118,11 @@ async function listReviews(env) {
     "SELECT l.at, l.admin, l.action, l.player_id AS id, p.name, l.mode, l.score, l.detail FROM admin_log l " +
       "LEFT JOIN players p ON p.id = l.player_id ORDER BY l.at DESC, l.rowid DESC LIMIT 100",
   ).all();
-  return json({ reviews: results, limits: await reviewLimits(env), max: MAX_SCORE, games, log: entries });
+  const tell = await env.DB.prepare("SELECT value FROM settings WHERE key = 'tell_rejected'").first();
+  return json({
+    reviews: results, limits: await reviewLimits(env), max: MAX_SCORE, games, log: entries,
+    settings: { tell_rejected: tell?.value !== "0" },
+  });
 }
 
 async function reviewReplay(env, { mode, id }) {
@@ -207,6 +212,12 @@ async function decide(request, env, ctx, admin, { mode, id }) {
   if (becomesBest) {
     const player = await env.DB.prepare("SELECT name, hidden FROM players WHERE id = ?").bind(id).first();
     if (player && !player.hidden) announceVerified(env, ctx, player.name, mode, r.score);
+    // THE COUNCIL's plaque goes to the first approved run past the line, for good.
+    if (player && r.score > (await reviewLimits(env))[mode]) {
+      await env.DB.prepare(
+        "INSERT INTO records (mode, player_id, name, score, approved) VALUES (?, ?, ?, ?, ?) ON CONFLICT (mode) DO NOTHING",
+      ).bind(mode, id, player.name, r.score, now).run();
+    }
   }
   return json({ ok: true });
 }
@@ -223,6 +234,18 @@ async function setLimits(request, env, admin) {
       limits.map((n, i) => (n === before[i] ? null : `${BOARDS[i]} ${short(before[i])} → ${short(n)}`)).filter(Boolean).join(", ")),
   ]);
   return json({ limits });
+}
+
+async function setSettings(request, env, admin) {
+  const tell = (await readJson(request))?.tell_rejected;
+  if (typeof tell !== "boolean") return error(400, "tell_rejected: true or false");
+  await env.DB.batch([
+    env.DB.prepare(
+      "INSERT INTO settings (key, value) VALUES ('tell_rejected', ?1) ON CONFLICT (key) DO UPDATE SET value = ?1",
+    ).bind(tell ? "1" : "0"),
+    log(env, admin, tell ? "tell players about unconfirmed runs" : "stay silent about unconfirmed runs"),
+  ]);
+  return json({ tell_rejected: tell });
 }
 
 async function findPlayers(env, q) {

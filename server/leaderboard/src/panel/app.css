@@ -133,6 +133,8 @@ button.sure { background: #2b0a1a; border-color: var(--gold); color: var(--gold)
 .limits label { display: block; color: var(--dim); }
 .limits label span { display: block; color: var(--orange); font-family: "Bahnschrift", "Segoe UI", system-ui, sans-serif; font-size: 14px; }
 .limits input { width: 100%; margin-top: 4px; }
+.switch { display: flex; gap: 10px; align-items: center; color: var(--text); cursor: pointer; }
+.switch input { width: 20px; height: 20px; accent-color: var(--cyan); }
 .limits small { display: block; color: var(--gold); min-height: 1.3em; }
 
 table { width: 100%; border-collapse: collapse; }

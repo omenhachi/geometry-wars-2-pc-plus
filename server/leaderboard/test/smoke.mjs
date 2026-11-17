@@ -366,5 +366,82 @@ console.log("replays");
   for (const t of players) await fetch(`${BASE}/v1/players`, { method: "DELETE", body: JSON.stringify({ token: t }) });
 }
 
+console.log("linked PCs, Pilot progress and the race");
+{
+  const KEY = process.env.ADMIN_KEY ?? "";
+  const admin = (path, options = {}) =>
+    fetch(`${BASE}/v1/admin${path}`, { ...options, headers: { authorization: `Bearer ${KEY}` } });
+  const call = async (path, body) => {
+    const r = await fetch(`${BASE}${path}`, { method: "POST", body: JSON.stringify(body) });
+    return { status: r.status, body: await r.json() };
+  };
+  const pause = () => new Promise((done) => setTimeout(done, 5_500));
+  const people = [];
+  const add = () => { const t = token(); people.push(t); return t; };
+
+  check((await call("/v1/link/code", { token: add() })).status === 409, "a PC with no online score has no profile to share");
+  const alfa = add();
+  const bravo = add();
+  const a = await score(alfa, "Alfa", 0, 100_000_000);
+  const b = await score(bravo, "Bravo", 0, 200_000_000);
+  await pause();
+  await score(bravo, "Bravo", 3, 10_000_000);
+  const code = await call("/v1/link/code", { token: alfa });
+  check(code.status === 200 && /^[2-9A-HJKMNP-TV-Z]{3}-[2-9A-HJKMNP-TV-Z]{4}$/.test(code.body.code), "a link code looks like 7KQ-29FX");
+  check(!JSON.stringify(code.body).includes(alfa), "the code never carries the token");
+  check((await call("/v1/link/claim", { token: bravo, code: "AAA-AAAA" })).status === 404, "a wrong code is refused");
+  const joined = await call("/v1/link/claim", { token: bravo, code: code.body.code.toLowerCase().replace("-", " ") });
+  check(joined.status === 200 && joined.body.id === a.body.id && joined.body.name === "Alfa" && joined.body.joined === 2,
+    "the second PC joins, typed loosely, and brings its two higher bests");
+  const zero = (await board(0, "?count=50")).body.rows;
+  check(zero.some((r) => r.id === a.body.id && r.score === 200_000_000) && !zero.some((r) => r.id === b.body.id),
+    "its better Deadline is now the profile's, and its old profile is gone");
+  check((await call("/v1/link/claim", { token: add(), code: code.body.code })).status === 404, "a code works once");
+  await pause();
+  const later = await score(bravo, "Alfa", 5, 1_000_000);
+  check(later.body.id === a.body.id, "the linked PC's next score is the profile's");
+
+  const fromB = await call("/v1/link/devices", { token: bravo });
+  const fromA = await call("/v1/link/devices", { token: alfa });
+  check(fromB.body.devices.length === 1 && fromB.body.devices[0].this && !fromB.body.first, "the linked PC sees itself");
+  check(fromA.body.first && fromA.body.devices.length === 1 && !fromA.body.devices[0].this, "the first PC sees one linked PC");
+
+  let p = await call("/v1/pilot/get", { token: bravo });
+  check(p.body.version === 0 && p.body.save === null && p.body.profile === a.body.id, "no Pilot save yet, on the profile");
+  check((await call("/v1/pilot/put", { token: bravo, version: 0, save: "format = 1\n" })).body.version === 1, "the first save is version 1");
+  check((await call("/v1/pilot/put", { token: alfa, version: 0, save: "other" })).status === 409, "a save over an old version is refused");
+  p = await call("/v1/pilot/get", { token: alfa });
+  check(p.body.version === 1 && p.body.save === "format = 1\n", "the other PC reads the same save");
+  check((await call("/v1/pilot/put", { token: alfa, version: 1, save: "x".repeat(70_000) })).status === 400, "a save over 64 KB is refused");
+
+  check((await call("/v1/link/remove", { token: alfa, device: fromA.body.devices[0].device })).status === 200, "the first PC removes the other");
+  check((await call("/v1/pilot/get", { token: bravo })).body.profile !== a.body.id, "which plays as a fresh profile again");
+
+  // The race: the line is the board's review limit, and the first approved run past it gets the plaque.
+  check((await board(0)).body.race?.line === 332e6 && !(await board(7)).body.race, "Deadline races to 332M; Master Evolved has no race");
+  check((await board(8)).body.race?.line === 5e9 && (await board(6)).body.race?.line === 100e6, "Master Pacifism 5B, Master Deadline 100M");
+  const victor = add();
+  const v = await score(victor, "Victor", 0, 400_000_000);
+  const mine = await call("/v1/me", { token: victor });
+  check(mine.body.reviews.some((r) => r.mode === 0 && r.status === "waiting"), "a player sees their own run waiting");
+  const coded = add();
+  await score(coded, "Coded", 3, 1_000_000);
+  const blocked = await call("/v1/link/code", { token: coded });
+  check((await call("/v1/link/claim", { token: victor, code: blocked.body.code })).status === 409, "linking waits while a run is with the council");
+  await admin(`/reviews/0/${v.body.id}`, { method: "POST", body: JSON.stringify({ action: "approve" }) });
+  check((await board(0)).body.race?.beaten?.name === "Victor", "THE COUNCIL's plaque: bested by Victor");
+
+  const vera = add();
+  const r = await score(vera, "Vera", 3, 300_000_000);
+  await admin(`/reviews/3/${r.body.id}`, { method: "POST", body: JSON.stringify({ action: "reject" }) });
+  check((await call("/v1/me", { token: vera })).body.reviews.some((x) => x.status === "not confirmed"), "a rejected run is told, gently");
+  await admin("/settings", { method: "PUT", body: JSON.stringify({ tell_rejected: false }) });
+  check((await call("/v1/me", { token: vera })).body.reviews.length === 0, "or the council stays silent");
+  await admin("/settings", { method: "PUT", body: JSON.stringify({ tell_rejected: true }) });
+
+  for (const t of people) await fetch(`${BASE}/v1/players`, { method: "DELETE", body: JSON.stringify({ token: t }) });
+  check(!(await board(0)).body.race?.beaten, "deleting the record holder takes the plaque too");
+}
+
 console.log(`${checks} checks, ${failures} failures`);
 process.exit(failures ? 1 : 0);
