@@ -96,3 +96,9 @@ session (bloom-shot.ps1, glow.ps1, panel-shots.mjs were there).
 
 Written in chat (THE COUNCIL IS WATCHING). It describes the race, plaque and linked PCs, which aren't built yet: post
 it when the update ships, or add "coming in the next update".
+
+## Released
+
+**1.5.0 published 2026-11-17** (github.com/omenhachi/geometry-wars-2-pc-plus/releases/tag/v1.5.0, `main` = `b76e363`):
+the race row (RACE TO + the line, a permanent spot for the first approved past it), the bloom fix, the race row's
+button as a no-op. Linked PCs, Pilot sync, the cryptic line, the rainbow and the Game Over moment are still to come.
