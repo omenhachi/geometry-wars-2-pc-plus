@@ -405,6 +405,11 @@ REX_HOOK_RAW(sub_820826D8) {
 // downloaded and watched instead.
 REX_EXTERN(__imp__sub_82094DF0);
 REX_HOOK_RAW(sub_82094DF0) {
+  // The race row isn't a player: its button does nothing.
+  if (ctx.r4.u64 == online::kCouncilXuid) {
+    ctx.r3.u64 = kErrorSuccess;
+    return;
+  }
   const uint32_t board = g_shown_board.load(std::memory_order_relaxed);
   if (online::Enabled() && !gw2::demo::Watching()) {
     if (const std::optional<std::string> id = online::ReplayIdFor(board, ctx.r4.u64)) {
