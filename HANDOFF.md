@@ -20,7 +20,7 @@ Read this first. The user ran low on tokens mid-build; everything below is the t
   Master Deadline 100M, Master Evolved 4.6B, Master Pacifism 5B. Queue cap 25 runs / 100 MB replays.
 - **Top 10 needs proof:** a kept replay or a reviewer's approval (`scores.verified`). On deploy day three scores had no
   replay and dropped to 11th: the user's Evolved 64M, Lajin CE (Sequence), thefifthexotic (King). The user was asked
-  whether to mark them verified — **no answer yet**.
+  whether to mark them verified — **done 2026-11-17** (back at 7th, 9th and 3rd; logged as "Light (setup)").
 - **Panel:** `/admin`. Keys: `server\leaderboard\.reviewer-keys.txt` (git-ignored): Reviewer 1/2/3. The user hands
   them out privately. Secret `ADMIN_KEYS` = `Name:key,...`.
 - **Discord:** `DISCORD_REVIEW_WEBHOOK` (private: "waiting") and `DISCORD_WEBHOOK` (public #records: "Verified! History
@@ -62,7 +62,17 @@ Read this first. The user ran low on tokens mid-build; everything below is the t
    one by one (match goal/board/type/target; gone in base = gone; progress additive; stir the seed); Pilot menu
    rerolls by value, not index; `MarkAnnounced` after a link merge + one line "Pilots joined: level N"; launcher shows
    "not syncing (online leaderboards are off)" rather than a stale time. Put with version CAS; 409 → refetch, merge again.
-3. **THE COUNCIL row:** leaderboard rows are 40-byte records at `0x821EA128` (xuid, score i64, rank, name), selected
+3. **THE COUNCIL row: the first step works** (commit `48e300a`). `online::CouncilFor` in online_leaderboard.cpp and
+   the insert in live_fix.cpp's ranked enumeration (first page only, rank 0, id `kCouncilXuid`); setting
+   `gw2_show_race` (launcher: Online > "The race"). Seen in the game above ApeBoks on Deadline > Overall, with the
+   top-tier badge. **To do:** the game draws a rank-0 row's score as "–" (show the line: put it in the name, such as
+   "RACE TO 332M", or find where the dash is drawn); pressing it says "View Gamer Card" (hook sub_82094DF0 for
+   kCouncilXuid: a cryptic line, and rename the button); the defeated and plaque states; the rainbow (research).
+   Test setup: `release-1.5\build\game` is a junction to `source\build\game`; `build\user_data` is a COPY of the dev
+   save with its Deadline best lifted to 30M (Neon), for testing only. Driving it: scratchpad drive.ps1 sends
+   PostMessage keys to the game window only. Menu Down Down Enter opens Single Player, L opens the mode's
+   leaderboard, H changes the filter (Nearby, My score, Overall).
+   Notes from the plan: leaderboard rows are 40-byte records at `0x821EA128` (xuid, score i64, rank, name), selected
    `0x821EB5C0`, count `0x821EB5C4`, Watch Replay hook `sub_82094DF0` in `src/live_fix.cpp`. Show a rainbow row above
    #1 when the player's tier on that board is **Neon+** (user's call, overruling Luna's higher gate), with a "Show the
    race" setting (default on). Research first whether one row can be recoloured in the game's renderer (see
