@@ -45,6 +45,7 @@ inline constexpr char kOnlineLeaderboardsKey[] = "gw2_online_leaderboards";
 inline constexpr bool kOnlineLeaderboardsDefault = true;
 // Shares the replay of each best that reaches a board's top 50 (online_leaderboard.h).
 inline constexpr char kShareReplaysKey[] = "gw2_share_replays";
+inline constexpr char kShowRaceKey[] = "gw2_show_race";
 inline constexpr bool kShareReplaysDefault = true;
 inline constexpr char kPlayerNameKey[] = "gw2_player_name";
 // Set once the launcher has asked for a player name, whichever way it was answered, so it asks only once.

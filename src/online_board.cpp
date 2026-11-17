@@ -37,6 +37,18 @@ std::optional<live::StatsView> ParseBoard(std::string_view json, uint32_t view, 
   return board;
 }
 
+std::optional<Race> ParseRace(std::string_view json) {
+  const auto root = trg::update::json::Parse(json);
+  const auto* race = root && root->IsObject() ? root->Find("race") : nullptr;
+  const auto* line = race && race->IsObject() ? race->Find("line") : nullptr;
+  if (!line || !line->AsInt64() || *line->AsInt64() <= 0) return std::nullopt;
+  Race result{uint64_t(*line->AsInt64()), {}};
+  const auto* beaten = race->Find("beaten");
+  const auto* name = beaten && beaten->IsObject() ? beaten->Find("name") : nullptr;
+  if (name && name->IsString()) result.beaten_by = ValidName(name->AsString());
+  return result;
+}
+
 std::optional<std::vector<TopRun>> ParseTopRuns(std::string_view json, std::string_view my_id) {
   const auto root = trg::update::json::Parse(json);
   if (!root || !root->IsObject()) return std::nullopt;

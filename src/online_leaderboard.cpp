@@ -353,6 +353,12 @@ void SubmitScore(uint32_t view, int64_t score) {
   }).detach();
 }
 
+namespace {
+// Each board's race, from its last answer.
+std::mutex g_race_mutex;
+std::array<std::optional<Race>, boards::kBoards> g_races;
+}  // namespace
+
 std::optional<live::StatsView> FetchBoard(uint32_t view, uint32_t first_rank, uint32_t count) {
   if (!Enabled()) return std::nullopt;
   count = std::clamp<uint32_t>(count, 1, kMaxRows);
@@ -371,6 +377,10 @@ std::optional<live::StatsView> FetchBoard(uint32_t view, uint32_t first_rank, ui
   }
   const std::string my_id = PublicId(Token());
   auto board = ParseBoard(response.body, view, my_id, local_xuid);
+  if (view < boards::kBoards) {
+    std::lock_guard lock(g_race_mutex);
+    g_races[view] = ParseRace(response.body);
+  }
   if (!board) {
     WarnOnce("the server's board could not be read");
     return board;
@@ -445,6 +455,19 @@ void RefreshNearby() {
 
 bool SharesReplays() {
   return Enabled() && REXCVAR_GET(gw2_share_replays);
+}
+
+std::optional<Race> CouncilFor(uint32_t board) {
+  if (!Enabled() || !REXCVAR_GET(gw2_show_race) || board >= boards::kBoards) return std::nullopt;
+  std::optional<Race> race;
+  {
+    std::lock_guard lock(g_race_mutex);
+    race = g_races[board];
+  }
+  if (!race) return std::nullopt;
+  const progression::State state = progression::Snapshot();
+  if (progression::TierOf(state, board) < progression::Tier::kNeon) return std::nullopt;
+  return race;
 }
 
 std::optional<std::vector<TopRun>> FetchTopRuns(uint32_t board) {

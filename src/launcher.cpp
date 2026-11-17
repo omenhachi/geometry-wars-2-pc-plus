@@ -106,6 +106,9 @@ constexpr char kOnlinePrivacyHelp[] =
 constexpr char kShareReplaysHelp[] =
     "When a run sets your best and makes a board's top 50, its replay is sent too, so others can watch it from Watch "
     "replays. Off: only your score is sent.";
+constexpr char kShowRaceHelp[] =
+    "Once you reach Neon on a board, THE COUNCIL waits above #1 on its leaderboard, at the Xbox Live Arcade record. "
+    "Beat it, and a reviewer watches your run. Off: only real players.";
 constexpr char kPlayerNameHelp[] = "Shown on the online boards: up to 15 letters, digits, spaces, _ . or -.";
 
 // The answer to "Delete my online scores", set by the request's thread and shown on the next frame.
@@ -959,6 +962,7 @@ class LauncherDialog final : public rex::ui::ImGuiDialog {
     const std::string name = ui.settings().Get(kPlayerNameKey);
     const bool on = ui.settings().GetBool(kOnlineLeaderboardsKey, kOnlineLeaderboardsDefault);
     if (on) ui.Toggle("Share my top runs as replays", kShareReplaysHelp, kShareReplaysKey, kShareReplaysDefault, "Off", "On");
+    if (on) ui.Toggle("The race", kShowRaceHelp, kShowRaceKey, true, "Hidden", "Shown");
     if (on && online::ValidName(name).empty()) {
       ui.Help(name.empty() ? "Choose a player name to appear on the online boards."
                            : "That name can't be used: up to 15 letters, digits, spaces, _ . or -.");

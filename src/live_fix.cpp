@@ -288,6 +288,15 @@ REX_HOOK_RAW(sub_820958D0) {
             const uint32_t from = i < query.sources.size() ? query.sources[i] : query.views[i];
             auto board = online::FetchBoard(from, uint32_t(query.pivot), query.max_rows);
             if (!board) break;
+            // THE COUNCIL waits above #1 at the record line, on the first page only, for players Neon there. Its
+            // rank is 0, so no real player's rank moves.
+            if (query.pivot <= 1) {
+              if (const auto race = online::CouncilFor(from)) {
+                if (board->rows.size() >= query.max_rows && !board->rows.empty()) board->rows.pop_back();
+                board->rows.insert(board->rows.begin(),
+                                   StatsRow{online::kCouncilXuid, 0, int64_t(race->line), online::kCouncilName});
+              }
+            }
             board->id = query.views[i];  // answered as the view the game asked for
             views.push_back(std::move(*board));
           }

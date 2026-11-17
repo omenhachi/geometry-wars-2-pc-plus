@@ -53,6 +53,20 @@ inline uint64_t XuidForPublicId(std::string_view id) {
   return kOnlineXuidTag | (value & 0x0000FFFF'FFFFFFFFull);
 }
 
+// THE COUNCIL: a board's race line (its review limit on the server) and, once a reviewer has approved a run past it,
+// who first did. From the board's answer: {race: {line, beaten?: {name, score, at}}}.
+struct Race {
+  uint64_t line = 0;
+  std::string beaten_by;  // empty until someone has
+};
+std::optional<Race> ParseRace(std::string_view json);
+// THE COUNCIL's row on the leaderboard screen: an id no player can have (the online tag, then all ones).
+inline constexpr uint64_t kCouncilXuid = kOnlineXuidTag | 0x0000FFFF'FFFFFFFFull;
+inline constexpr char kCouncilName[] = "THE COUNCIL";
+// The board's race, when the leaderboard screen should show THE COUNCIL: online, the setting on, a race on that board,
+// and the player Neon or higher there (the Pilot tier).
+std::optional<Race> CouncilFor(uint32_t board);
+
 // A board from the server's JSON ({total, rows: [{rank, id, name, score}]}). The row whose id is `my_id` takes
 // `my_xuid`, so the game highlights it as the player's own. Nullopt when the answer is not a board.
 std::optional<live::StatsView> ParseBoard(std::string_view json, uint32_t view, std::string_view my_id,

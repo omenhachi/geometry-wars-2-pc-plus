@@ -35,6 +35,8 @@ REXCVAR_DEFINE_BOOL(gw2_online_leaderboards, gw2::kOnlineLeaderboardsDefault, "G
 REXCVAR_DEFINE_BOOL(gw2_share_replays, gw2::kShareReplaysDefault, "Geometry Wars",
                     "Share the replay of each best that reaches the top 50 of an online board, for others to watch");
 REXCVAR_DEFINE_STRING(gw2_player_name, "", "Geometry Wars", "The name shown on the online leaderboards");
+REXCVAR_DEFINE_BOOL(gw2_show_race, true, "Geometry Wars",
+                    "THE COUNCIL: once you're Neon on a board, a row above #1 at its record line");
 REXCVAR_DEFINE_BOOL(gw2_player_name_asked, false, "Geometry Wars",
                     "Whether the launcher has asked for a player name (it asks once)");
 REXCVAR_DEFINE_STRING(gw2_hud_colour, "green", "Geometry Wars",
