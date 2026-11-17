@@ -62,7 +62,8 @@ struct Race {
 std::optional<Race> ParseRace(std::string_view json);
 // THE COUNCIL's row on the leaderboard screen: an id no player can have (the online tag, then all ones).
 inline constexpr uint64_t kCouncilXuid = kOnlineXuidTag | 0x0000FFFF'FFFFFFFFull;
-inline constexpr char kCouncilName[] = "THE COUNCIL";
+// Its name on the row, the race line in short: "RACE TO 332M", "RACE TO 23.5B" (at most 13 characters).
+std::string RaceName(uint64_t line);
 // The board's race, when the leaderboard screen should show THE COUNCIL: online, the setting on, a race on that board,
 // and the player Neon or higher there (the Pilot tier).
 std::optional<Race> CouncilFor(uint32_t board);

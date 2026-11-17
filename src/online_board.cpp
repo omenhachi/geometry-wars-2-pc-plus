@@ -37,6 +37,19 @@ std::optional<live::StatsView> ParseBoard(std::string_view json, uint32_t view, 
   return board;
 }
 
+std::string RaceName(uint64_t line) {
+  const auto scaled = [line](uint64_t unit, char suffix) {
+    const uint64_t tenths = line * 10 / unit;
+    std::string text = std::to_string(tenths / 10);
+    if (tenths % 10) text += "." + std::to_string(tenths % 10);
+    return text + suffix;
+  };
+  const std::string amount = line >= 1'000'000'000 ? scaled(1'000'000'000, 'B')
+                             : line >= 1'000'000   ? scaled(1'000'000, 'M')
+                                                   : std::to_string(line);
+  return "RACE TO " + amount;
+}
+
 std::optional<Race> ParseRace(std::string_view json) {
   const auto root = trg::update::json::Parse(json);
   const auto* race = root && root->IsObject() ? root->Find("race") : nullptr;

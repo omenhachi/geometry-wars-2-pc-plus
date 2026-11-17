@@ -65,8 +65,8 @@ Read this first. The user ran low on tokens mid-build; everything below is the t
 3. **THE COUNCIL row: the first step works** (commit `48e300a`). `online::CouncilFor` in online_leaderboard.cpp and
    the insert in live_fix.cpp's ranked enumeration (first page only, rank 0, id `kCouncilXuid`); setting
    `gw2_show_race` (launcher: Online > "The race"). Seen in the game above ApeBoks on Deadline > Overall, with the
-   top-tier badge. **To do:** the game draws a rank-0 row's score as "–" (show the line: put it in the name, such as
-   "RACE TO 332M", or find where the dash is drawn); pressing it says "View Gamer Card" (hook sub_82094DF0 for
+   top-tier badge. Its name is now "RACE TO 332M" (`online::RaceName`; the game shows no rank or score for a rank-0
+   row, so the line lives in the name; seen in the game). **To do:** pressing it says "View Gamer Card" (hook sub_82094DF0 for
    kCouncilXuid: a cryptic line, and rename the button); the defeated and plaque states; the rainbow (research).
    Test setup: `release-1.5\build\game` is a junction to `source\build\game`; `build\user_data` is a COPY of the dev
    save with its Deadline best lifted to 30M (Neon), for testing only. Driving it: scratchpad drive.ps1 sends
