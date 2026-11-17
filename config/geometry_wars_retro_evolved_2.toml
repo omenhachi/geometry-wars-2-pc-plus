@@ -20,6 +20,13 @@ mnk_mode = true
 keybind_x = "H"
 keybind_y = "L"
 
+# Bloom keeps its size above 1x resolution. ReXGlue's default (true) shrinks texture-fetch offsets by the resolution
+# scale, so the bloom blur reaches half as far at 2x and a third at 3x, measured 10% and 16% less glow around the title
+# than at 1x; false keeps the game's own relative blur, within 2% of 1x at both. Only the bloom and its downsampling
+# use offsets, and with bloom off a 2x frame is unchanged. Thanks to the community write-up
+# (BLOOM_RESOLUTION_SCALING) that found it. No effect at 1x, or on Vulkan, which never shrinks them.
+draw_resolution_scaled_texture_offsets = false
+
 # Audio frames queued ahead of playback (ReXGlue's default is 8). 16 keeps the sound in step through busy modes like
 # Evolved and Sequence, at about 43 ms more delay.
 audio_maxqframes = 16
