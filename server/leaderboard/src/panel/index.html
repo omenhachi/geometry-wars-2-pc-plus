@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Score Review</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 3 29 16 16 29 3 16Z' fill='none' stroke='%23ff3fb4' stroke-width='3'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/admin/app.css">
+<script src="/admin/app.js" defer></script>
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <span class="logo">GW2 <em>PC PLUS+</em></span>
+    <span class="sub">Score review</span>
+  </div>
+  <div class="who" id="who" hidden>
+    <span id="who-name"></span>
+    <button class="ghost" id="sign-out" type="button">Sign out</button>
+  </div>
+</header>
+
+<main>
+  <section id="sign-in" class="panel sign-in" hidden>
+    <h1>Reviewers only</h1>
+    <p>Paste your reviewer key. It stays in this tab only, and goes when you close it.</p>
+    <div class="row">
+      <input id="key" type="password" autocomplete="off" spellcheck="false" placeholder="Reviewer key">
+      <button id="key-go" class="hot" type="button">Sign in</button>
+    </div>
+    <p class="note" id="key-note" role="status"></p>
+  </section>
+
+  <section id="app" hidden>
+    <nav class="tabs" role="tablist">
+      <button role="tab" data-tab="waiting" class="on">Waiting <b id="count-waiting">0</b></button>
+      <button role="tab" data-tab="rejected">Rejected <b id="count-rejected">0</b></button>
+      <button role="tab" data-tab="players">Players</button>
+      <button role="tab" data-tab="limits">Limits</button>
+      <button role="tab" data-tab="log">Log</button>
+    </nav>
+
+    <div class="view" id="view-waiting"></div>
+    <div class="view" id="view-rejected" hidden></div>
+
+    <div class="view" id="view-players" hidden>
+      <div class="panel">
+        <div class="row">
+          <input id="player-q" type="search" placeholder="A name, or a 16-digit id" maxlength="16" spellcheck="false">
+          <button id="player-go" class="hot" type="button">Search</button>
+        </div>
+      </div>
+      <div id="player-results"></div>
+    </div>
+
+    <div class="view" id="view-limits" hidden>
+      <div class="panel">
+        <h2>Review limits</h2>
+        <p>A score above its board's limit waits here for a reviewer instead of reaching the board.</p>
+        <div class="limits" id="limits"></div>
+        <div class="row end">
+          <span class="note" id="limits-note" role="status"></span>
+          <button id="limits-save" class="hot" type="button">Save limits</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="view" id="view-log" hidden>
+      <div class="panel"><table class="log"><thead><tr><th>When</th><th>Who</th><th>What</th><th>Player</th><th>Board</th><th>Score</th></tr></thead><tbody id="log"></tbody></table></div>
+    </div>
+  </section>
+</main>
+</body>
+</html>

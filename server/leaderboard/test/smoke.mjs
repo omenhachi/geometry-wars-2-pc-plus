@@ -121,7 +121,7 @@ console.log("replays");
   const wanted = async (t) =>
     (await (await fetch(`${BASE}/v1/replays/wanted`, { method: "POST", body: JSON.stringify({ token: t }) })).json()).wanted;
   const players = [];
-  const top = 90_000_000_000;
+  const top = 300_000_000; // under Sequence's 400 million review limit
 
   const carol = token();
   players.push(carol);
@@ -148,15 +148,16 @@ console.log("replays");
   check(g.status === 200 && back.equals(big), "the replay downloads byte for byte");
   check((await fetch(`${BASE}/v1/replays/2/0000000000000000`)).status === 404, "no replay is a 404");
 
-  // A Master board takes only that Master mode's runs.
+  // A Master board takes only that Master mode's runs. Master Deadline's review line is 100 million.
+  const md = 90_000_000;
   const dave = token();
   players.push(dave);
-  s = await score(dave, "Dave", 6, top);
+  s = await score(dave, "Dave", 6, md);
   const daveId = s.body.id;
   check(s.body.replay === true, "a Master best asks for its replay");
-  check((await upload(dave, 6, demo({ mode: 0, score: top }))).status === 400, "an official Deadline run is not Master");
-  check((await upload(dave, 6, demo({ mode: 0, score: top, custom: "One Life" }))).status === 400, "nor a custom mode");
-  check((await upload(dave, 6, demo({ mode: 0, score: top, custom: "Master Deadline" }))).status === 200, "Master Deadline is");
+  check((await upload(dave, 6, demo({ mode: 0, score: md }))).status === 400, "an official Deadline run is not Master");
+  check((await upload(dave, 6, demo({ mode: 0, score: md, custom: "One Life" }))).status === 400, "nor a custom mode");
+  check((await upload(dave, 6, demo({ mode: 0, score: md, custom: "Master Deadline" }))).status === 200, "Master Deadline is");
 
   // Master Pacifism: played in Pacifism (mode 4), not in the mode its board number would suggest, from 1.3.0.
   const frank = token();
@@ -172,10 +173,10 @@ console.log("replays");
   // A replay's score sent as someone else's own is refused; the same score with no replay behind it is a tie.
   const eve = token();
   players.push(eve);
-  s = await score(eve, "Eve", 6, top);
+  s = await score(eve, "Eve", 6, md);
   check(s.status === 409, "a score that is exactly another player's replayed best is refused");
   check(!(await board(6, "?count=50")).body.rows.some((r) => r.name === "Eve"), "and never reaches the board");
-  check((await score(eve, "Eve", 7, top)).status === 200, "the same score on a board without that replay is taken");
+  check((await score(eve, "Eve", 7, md)).status === 200, "the same score on a board without that replay is taken");
 
   // A new best makes the old replay stale.
   await new Promise((done) => setTimeout(done, 6_000));
@@ -197,6 +198,168 @@ console.log("replays");
   players.push(late);
   s = await score(late, "Late", 2, 1);
   check(s.body.replay === false, "a best outside the top 50 asks for nothing");
+
+  console.log("review");
+  {
+    // The reviewer key the local Worker was started with (README: Testing locally).
+    const KEY = process.env.ADMIN_KEY ?? "";
+    const admin = (path, options = {}, key = KEY) =>
+      fetch(`${BASE}/v1/admin${path}`, { ...options, headers: { authorization: `Bearer ${key}` } });
+    const reviews = async () => (await (await admin("/reviews")).json()).reviews;
+    const pause = () => new Promise((done) => setTimeout(done, 5_500)); // one score per player every 5 s
+    check((await admin("/me", {}, "")).status === 401, "the admin API needs a key");
+    check((await admin("/me", {}, "f".repeat(64))).status === 401, "and a reviewer's key");
+    check(KEY && (await admin("/me")).status === 200, "a reviewer's key opens it (set ADMIN_KEY to run these)");
+
+    const rex = token();
+    players.push(rex);
+    const big = 2_000_000_000; // over Deadline's 332 million
+    s = await score(rex, "Rex", 0, big);
+    const rexId = s.body.id;
+    check(s.status === 200 && s.body.review === true && s.body.replay === true, "a score over the limit waits, and asks for its replay");
+    check(!(await board(0, "?count=50")).body.rows.some((r) => r.id === rexId), "it isn't on the board");
+    check((await wanted(rex)).some((w) => w.mode === 0 && w.score === big), "wanted lists it for its replay");
+    check((await upload(rex, 0, demo({ mode: 0, score: big - 1 }))).status === 409, "a replay of another score isn't taken for it");
+    const rexDemo = demo({ mode: 0, score: big, size: 1_500_000 });
+    let u = await upload(rex, 0, rexDemo);
+    check(u.status === 200 && (await u.json()).review === true, "its replay is kept with the review, in pieces");
+    check(!(await wanted(rex)).some((w) => w.mode === 0), "and isn't asked for again");
+    let mine = (await reviews()).find((r) => r.id === rexId && r.mode === 0);
+    check(mine?.status === "pending" && mine.replay_size === rexDemo.length && mine.board_best === null, "the panel lists it, with its replay");
+    const got = Buffer.from(await (await admin(`/reviews/0/${rexId}/replay`)).arrayBuffer());
+    check(got.equals(rexDemo), "the reviewer downloads the replay byte for byte");
+
+    await pause();
+    s = await score(rex, "Rex", 0, big - 500);
+    check(s.body.review === true && s.body.replay === false, "a lower score over the limit changes nothing");
+    check((await reviews()).find((r) => r.id === rexId).score === big, "the highest one stays waiting");
+
+    const act = (mode, id, action) => admin(`/reviews/${mode}/${id}`, { method: "POST", body: JSON.stringify({ action }) });
+    check((await act(0, rexId, "reject")).status === 200, "a reviewer rejects it");
+    check((await reviews()).find((r) => r.id === rexId).status === "rejected", "it shows as rejected");
+    await pause();
+    s = await score(rex, "Rex", 0, big);
+    check(s.body.review === true && s.body.replay === false, "the same score sent again stays rejected");
+    check((await act(0, rexId, "approve")).status === 409, "a rejected run can't be approved without Undo");
+    check((await act(0, rexId, "undo")).status === 200, "Undo brings it back");
+    check((await reviews()).find((r) => r.id === rexId).status === "pending", "to waiting");
+    check((await wanted(rex)).some((w) => w.mode === 0 && w.score === big), "and asks the game for its replay again");
+    check((await upload(rex, 0, rexDemo)).status === 200, "which comes back");
+    check((await act(0, rexId, "approve")).status === 200, "a reviewer approves it");
+    let row0 = (await board(0, "?count=50")).body.rows.find((r) => r.id === rexId);
+    check(row0?.score === big && row0.replay === GAME, "it reaches the board with its replay");
+    check(!(await reviews()).some((r) => r.id === rexId && r.mode === 0), "and leaves the queue");
+    const kept = Buffer.from(await (await fetch(`${BASE}/v1/replays/0/${rexId}`)).arrayBuffer());
+    check(kept.equals(rexDemo), "anyone can watch the approved replay");
+
+    // The limits are the panel's to change.
+    const limits = (await (await admin("/reviews")).json()).limits;
+    check(JSON.stringify(limits) === JSON.stringify([332e6, 4.6e9, 400e6, 212e6, 23.5e9, 92e6, 100e6, 4.6e9, 5e9]),
+      "limits: the Xbox Live records, and 100M and 5B for Master Deadline and Master Pacifism");
+    const put = (body) => admin("/limits", { method: "PUT", body: JSON.stringify(body) });
+    check((await put({ limits: [1, 2] })).status === 400, "a short list of limits is refused");
+    check((await put({ limits: limits.map(() => 0) })).status === 400, "limits of 0 are refused");
+    check((await put({ limits: limits.map((n, i) => (i === 3 ? 5e9 : n)) })).status === 200, "a reviewer raises Waves to 5 billion");
+    const wade = token();
+    players.push(wade);
+    s = await score(wade, "Wade", 3, 4e9);
+    check(s.body.review === undefined && (await board(3, "?count=50")).body.rows.some((r) => r.score === 4e9),
+      "a Waves score under the new limit goes straight up");
+    check((await put({ limits })).status === 200, "and puts it back");
+
+    // A board's top 10 holds only scores with a replay: ten with one, and a higher one without, below them.
+    const tenIds = [];
+    for (let i = 0; i < 10; i++) {
+      const t = token();
+      players.push(t);
+      s = await score(t, `Ten ${i}`, 5, 90_000_000 + i);
+      tenIds.push(s.body.id);
+      await upload(t, 5, demo({ mode: 5, score: 90_000_000 + i }));
+    }
+    const shy = token();
+    players.push(shy);
+    s = await score(shy, "Shy", 5, 91_000_000);
+    const shyId = s.body.id;
+    const king = (await board(5, "?count=12")).body.rows;
+    check(king.slice(0, 10).every((r) => r.replay) && king[10]?.id === shyId && king[10].rank === 11,
+      "the top score without a replay waits at 11th, below ten with one");
+    await upload(shy, 5, demo({ mode: 5, score: 91_000_000 }));
+    check((await board(5, "?count=1")).body.rows[0]?.id === shyId, "its replay arriving puts it 1st");
+
+    // Reviewers can remove a best, and hide a player.
+    check((await admin(`/scores/5/${shyId}`, { method: "DELETE" })).status === 200, "a reviewer removes a best");
+    check(!(await board(5, "?count=50")).body.rows.some((r) => r.id === shyId), "it leaves the board");
+    const hide = (id, action) => admin(`/players/${id}`, { method: "POST", body: JSON.stringify({ action }) });
+    check((await hide(rexId, "hide")).status === 200 && !(await board(0, "?count=50")).body.rows.some((r) => r.id === rexId),
+      "a hidden player leaves every board");
+    check((await (await admin(`/replays/0/${rexId}`)).arrayBuffer()).byteLength === rexDemo.length, "reviewers still see their replay");
+    check((await hide(rexId, "unhide")).status === 200, "and can unhide them");
+    const found = (await (await admin(`/players?q=Rex`)).json()).players.find((p) => p.id === rexId);
+    check(found?.scores.some((x) => x.mode === 0 && x.score === big), "a player search shows their bests");
+
+    check((await (await admin(`/players?q=${rexId}`)).json()).players.some((p) => p.id === rexId), "a player search by id finds them");
+
+    // An approved run counts as proof without a replay (runs past an hour have none): it takes its place in the top 10.
+    const lena = token();
+    players.push(lena);
+    s = await score(lena, "Lena", 3, 3e9);
+    const lenaId = s.body.id;
+    check((await act(3, lenaId, "approve")).status === 200, "a run with no replay can be approved");
+    check((await board(3, "?count=1")).body.rows[0]?.id === lenaId, "and shows 1st on its board, verified");
+
+    // Rejecting lets the replay go; Undo asks the game for it again.
+    const ivy = token();
+    players.push(ivy);
+    s = await score(ivy, "Ivy", 2, 5e9);
+    const ivyId = s.body.id;
+    await upload(ivy, 2, demo({ mode: 2, score: 5e9 }));
+    await act(2, ivyId, "reject");
+    check((await reviews()).find((r) => r.id === ivyId).replay_size === null, "a rejected run keeps no replay");
+    check((await admin(`/reviews/2/${ivyId}/replay`)).status === 404, "it can't be downloaded any more");
+    await pause();
+    s = await score(ivy, "Ivy", 2, 1_500_000_000);
+    check(s.body.replay === true && (await reviews()).find((r) => r.id === ivyId)?.status === "pending",
+      "after a rejection, a different honest run is looked at");
+
+    // Approving an older run below the player's newer best leaves that best's replay alone.
+    const otto = token();
+    players.push(otto);
+    s = await score(otto, "Otto", 0, 2.2e9);
+    const ottoId = s.body.id;
+    await upload(otto, 0, demo({ mode: 0, score: 2.2e9 }));
+    check((await put({ limits: limits.map((n, i) => (i === 0 ? 5e9 : n)) })).status === 200, "Deadline's limit goes up");
+    await pause();
+    s = await score(otto, "Otto", 0, 3e9);
+    check(s.body.review === undefined, "a 3 billion Deadline now goes straight up");
+    check((await upload(otto, 0, demo({ mode: 0, score: 3e9 }))).status === 200, "with its replay");
+    check((await act(0, ottoId, "approve")).status === 200, "the older 2.2 billion run is approved");
+    const ottoRow = (await board(0, "?count=50")).body.rows.find((r) => r.id === ottoId);
+    check(ottoRow?.score === 3e9 && ottoRow.replay === GAME, "the newer best and its replay stay");
+    await put({ limits });
+
+    // The queue holds 25 runs at most, so made-up tokens can't fill the database.
+    let full = 0;
+    for (let i = 0; i < 30; i++) {
+      const t = token();
+      players.push(t);
+      const r1 = await score(t, `Flood ${i}`, 1, 20e9 + i);
+      if (r1.body.review === true && r1.body.replay === false) full++;
+    }
+    const waitingNow = (await reviews()).filter((r) => r.status === "pending").length;
+    check(waitingNow === 25 && full > 0, `the queue stops at 25 runs (${waitingNow} waiting, ${full} turned away)`);
+
+    // Deleting yourself takes a waiting run too.
+    const gus = token();
+    players.push(gus);
+    s = await score(gus, "Gus", 4, 30e9);
+    const gusId = s.body.id;
+    check(s.body.review === true, "30 billion in Pacifism waits too");
+    await fetch(`${BASE}/v1/players`, { method: "DELETE", body: JSON.stringify({ token: gus }) });
+    check(!(await reviews()).some((r) => r.id === gusId), "deleting a player removes their waiting runs");
+    const log = (await (await admin("/reviews")).json()).log;
+    check(["approve", "reject", "undo reject", "limits", "remove score", "hide"].every((a) => log.some((l) => l.action === a && l.admin === "Tester")),
+      "the log names the reviewer for each action");
+  }
 
   const del = await fetch(`${BASE}/v1/players`, { method: "DELETE", body: JSON.stringify({ token: dave }) });
   check(del.status === 200 && (await fetch(`${BASE}/v1/replays/6/${daveId}`)).status === 404, "deleting removes replays");

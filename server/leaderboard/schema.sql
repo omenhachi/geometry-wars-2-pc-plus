@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS scores (
   input TEXT NOT NULL,               -- mouse, keyboard or controller: lets boards be split later
   version TEXT NOT NULL,             -- the PC Plus version that set the score
   updated INTEGER NOT NULL,
+  verified INTEGER NOT NULL DEFAULT 0, -- 1: a reviewer approved it, which counts as proof for the top 10 like a replay
   PRIMARY KEY (player_id, mode)
 );
 
@@ -43,4 +44,49 @@ CREATE TABLE IF NOT EXISTS replay_pieces (
   piece INTEGER NOT NULL,
   bytes BLOB NOT NULL,
   PRIMARY KEY (player_id, mode, piece)
+);
+
+-- A score above its board's review limit (REVIEW_LIMITS in src/index.js, or the admin panel's own) waits here for a
+-- reviewer instead of reaching the board: one per player and board, the highest. Approving moves it and its replay onto
+-- the board; rejecting keeps it, so the same score is not asked about again and Undo can bring it back.
+CREATE TABLE IF NOT EXISTS reviews (
+  player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+  mode INTEGER NOT NULL,
+  score INTEGER NOT NULL,
+  input TEXT NOT NULL,
+  version TEXT NOT NULL,
+  submitted INTEGER NOT NULL,        -- unix seconds: the board's tie order once approved
+  status TEXT NOT NULL,              -- pending or rejected
+  decided INTEGER,
+  decided_by TEXT,                   -- the reviewer's name from ADMIN_KEYS
+  replay_game TEXT,                  -- the replay, once uploaded: as in replays
+  replay_size INTEGER,
+  replay_pieces INTEGER,
+  replay_uploaded INTEGER,
+  PRIMARY KEY (player_id, mode)
+);
+
+CREATE TABLE IF NOT EXISTS review_pieces (
+  player_id TEXT NOT NULL,
+  mode INTEGER NOT NULL,
+  piece INTEGER NOT NULL,
+  bytes BLOB NOT NULL,
+  PRIMARY KEY (player_id, mode, piece)
+);
+
+-- Values the admin panel can change: review_limits, a JSON array of one limit per board.
+CREATE TABLE IF NOT EXISTS settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+
+-- What reviewers did, by name from ADMIN_KEYS. Ids and numbers only.
+CREATE TABLE IF NOT EXISTS admin_log (
+  at INTEGER NOT NULL,
+  admin TEXT NOT NULL,
+  action TEXT NOT NULL,
+  player_id TEXT,
+  mode INTEGER,
+  score INTEGER,
+  detail TEXT
 );

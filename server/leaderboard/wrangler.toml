@@ -1,5 +1,5 @@
 name = "gw2-pc-plus-leaderboards"
-main = "src/index.js"
+main = "src/worker.js"
 compatibility_date = "2026-10-01"
 
 [[d1_databases]]
@@ -11,3 +11,9 @@ database_id = "888151d4-343c-43dd-9089-e1c38a049074"
 # Workers Logs: refused uploads are logged (src/index.js) so their reasons can be looked up.
 [observability]
 enabled = true
+
+# The admin panel's page, stylesheet and script (src/panel) are bundled as text, served by src/admin.js.
+[[rules]]
+type = "Text"
+globs = ["**/panel/*"]
+fallthrough = false
